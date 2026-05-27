@@ -39,8 +39,10 @@ class LocalInfrastructureFilesTest {
     void nginxProxiesApiServersAndDisablesBufferingForSse() throws Exception {
         String nginx = Files.readString(Path.of("../infra/nginx.conf"));
 
+        assertThat(nginx).contains("ip_hash;");
         assertThat(nginx).contains("server api-a:8080;");
         assertThat(nginx).contains("server api-b:8080;");
+        assertThat(nginx).contains("location = /simulations");
         assertThat(nginx).contains("proxy_buffering off;");
     }
 
