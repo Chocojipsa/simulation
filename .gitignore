@@ -2,3 +2,5 @@
 .superpowers/
 .worktrees/
 worktrees/
+/backend/.gradle/
+/backend/build/
