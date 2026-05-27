@@ -135,7 +135,7 @@ Expected:
 BUILD SUCCESSFUL
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 git add backend/src/main/java/com/timedeal/seatreservation/simulation/SimulationService.java backend/src/test/java/com/timedeal/seatreservation/simulation/SimulationControllerTest.java backend/src/main/resources/application-demo.yml
@@ -317,7 +317,7 @@ git commit -m "feat: stream live simulation progress"
 - Create: `backend/src/main/resources/static/app.js`
 - Create: `backend/src/main/resources/static/styles.css`
 
-- [ ] **Step 1: Build the static dashboard**
+- [x] **Step 1: Build the static dashboard**
 
 The first screen must include:
 
@@ -339,7 +339,7 @@ The first screen must include:
   - `결제 실패`
 - selected user timeline panel
 
-- [ ] **Step 2: Wire API calls**
+- [x] **Step 2: Wire API calls**
 
 `app.js` must:
 
@@ -349,7 +349,7 @@ The first screen must include:
 - render each `snapshot` SSE event
 - allow clicking one virtual user to show that user's timeline
 
-- [ ] **Step 3: Run demo server**
+- [x] **Step 3: Run demo server**
 
 Run:
 
