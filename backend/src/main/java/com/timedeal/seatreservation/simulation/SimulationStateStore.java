@@ -134,6 +134,7 @@ public class SimulationStateStore {
         final List<MutableSeat> seats;
         final List<MutableVirtualUser> users;
         long tick;
+        boolean queueSeeded;
         boolean running = true;
 
         MutableSimulationState(UUID simulationId, List<MutableSeat> seats, List<MutableVirtualUser> users) {

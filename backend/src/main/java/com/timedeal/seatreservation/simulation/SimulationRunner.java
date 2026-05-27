@@ -3,6 +3,7 @@ package com.timedeal.seatreservation.simulation;
 import com.timedeal.seatreservation.domain.SeatStatus;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
 import com.timedeal.seatreservation.events.SimulationEventHub;
+import com.timedeal.seatreservation.queue.AdmissionQueue;
 import jakarta.annotation.PreDestroy;
 import org.springframework.stereotype.Component;
 
@@ -24,12 +25,14 @@ public class SimulationRunner {
 
     private final SimulationStateStore stateStore;
     private final SimulationEventHub eventHub;
+    private final AdmissionQueue admissionQueue;
     private final ScheduledExecutorService executor;
     private final ConcurrentHashMap<UUID, ScheduledFuture<?>> jobs = new ConcurrentHashMap<>();
 
-    public SimulationRunner(SimulationStateStore stateStore, SimulationEventHub eventHub) {
+    public SimulationRunner(SimulationStateStore stateStore, SimulationEventHub eventHub, AdmissionQueue admissionQueue) {
         this.stateStore = stateStore;
         this.eventHub = eventHub;
+        this.admissionQueue = admissionQueue;
         this.executor = Executors.newScheduledThreadPool(2);
     }
 
@@ -47,6 +50,7 @@ public class SimulationRunner {
         synchronized (state) {
             if (state.running) {
                 state.tick++;
+                seedAdmissionQueue(state);
                 completePayments(state);
                 moveHeldSeatsToPayment(state);
                 attemptSeatSelection(state);
@@ -90,16 +94,31 @@ public class SimulationRunner {
             return;
         }
 
-        for (SimulationStateStore.MutableVirtualUser user : state.users) {
-            if (openSlots == 0) {
-                return;
-            }
-            if (user.status == VirtualUserStatus.QUEUED) {
+        List<String> candidateIds = admissionQueue.pick(state.simulationId.toString(), openSlots);
+        for (String candidateId : candidateIds) {
+            state.users.stream()
+                    .filter(user -> user.id.toString().equals(candidateId))
+                    .filter(user -> user.status == VirtualUserStatus.QUEUED)
+                    .findFirst()
+                    .ifPresent(user -> {
+                admissionQueue.grant(state.simulationId.toString(), candidateId);
                 user.status = VirtualUserStatus.SELECTING_SEAT;
                 user.timeline.add(new TimelineEntry("입장", "입장이 허용되었습니다."));
-                openSlots--;
+                    });
+        }
+    }
+
+    private void seedAdmissionQueue(SimulationStateStore.MutableSimulationState state) {
+        if (state.queueSeeded) {
+            return;
+        }
+
+        for (SimulationStateStore.MutableVirtualUser user : state.users) {
+            if (user.status == VirtualUserStatus.QUEUED) {
+                admissionQueue.enter(state.simulationId.toString(), user.id.toString());
             }
         }
+        state.queueSeeded = true;
     }
 
     private int activeUserCount(SimulationStateStore.MutableSimulationState state) {

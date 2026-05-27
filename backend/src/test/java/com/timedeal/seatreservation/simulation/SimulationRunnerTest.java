@@ -3,6 +3,7 @@ package com.timedeal.seatreservation.simulation;
 import com.timedeal.seatreservation.domain.SeatStatus;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
 import com.timedeal.seatreservation.events.SimulationEventHub;
+import com.timedeal.seatreservation.queue.InMemoryAdmissionQueue;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -11,7 +12,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class SimulationRunnerTest {
     private final SimulationStateStore stateStore = new SimulationStateStore();
-    private final SimulationRunner runner = new SimulationRunner(stateStore, new SimulationEventHub());
+    private final InMemoryAdmissionQueue admissionQueue = new InMemoryAdmissionQueue();
+    private final SimulationRunner runner = new SimulationRunner(stateStore, new SimulationEventHub(), admissionQueue);
 
     @Test
     void oneTickAdmitsQueuedUsersIntoSeatSelection() {

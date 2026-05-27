@@ -40,6 +40,10 @@ public class WaitingQueueService {
         redis.opsForValue().set(tokenKey(simulationId, virtualUserId), "granted", Duration.ofSeconds(60));
     }
 
+    public void removeAdmissionCandidate(String simulationId, String virtualUserId) {
+        redis.opsForZSet().remove(queueKey(simulationId), virtualUserId);
+    }
+
     public boolean hasAdmissionToken(String simulationId, String virtualUserId) {
         return Boolean.TRUE.equals(redis.hasKey(tokenKey(simulationId, virtualUserId)));
     }

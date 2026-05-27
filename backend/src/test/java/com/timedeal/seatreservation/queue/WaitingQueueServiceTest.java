@@ -67,6 +67,17 @@ class WaitingQueueServiceTest {
     }
 
     @Test
+    void removeAdmissionCandidateRemovesUserFromQueue() {
+        ZSetOperations<String, String> zSets = mock(ZSetOperations.class);
+
+        when(redis.opsForZSet()).thenReturn(zSets);
+
+        service.removeAdmissionCandidate("sim-1", "user-1");
+
+        verify(zSets).remove("simulation:sim-1:queue", "user-1");
+    }
+
+    @Test
     void hasAdmissionTokenReturnsTrueOnlyWhenRedisReturnsTrue() {
         when(redis.hasKey("simulation:sim-1:admission:user-1"))
                 .thenReturn(Boolean.TRUE, Boolean.FALSE, null);
