@@ -18,6 +18,17 @@ class LocalInfrastructureFilesTest {
         assertThat(compose).contains("apache/kafka:3.7.2");
         assertThat(compose).doesNotContain("bitnami/kafka");
         assertThat(compose).contains("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1");
+        assertThat(compose).contains("healthcheck:");
+        assertThat(compose).contains("condition: service_healthy");
+        assertThat(compose).contains("/dev/tcp/127.0.0.1/8080");
+        assertThat(compose).contains("""
+      api-a:
+        condition: service_healthy
+""");
+        assertThat(compose).contains("""
+      api-b:
+        condition: service_healthy
+""");
         assertThat(compose).contains("api-a:");
         assertThat(compose).contains("api-b:");
         assertThat(compose).contains("worker:");

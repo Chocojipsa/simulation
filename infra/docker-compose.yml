@@ -60,6 +60,12 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8080'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
 
   api-b:
     build:
@@ -79,6 +85,12 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8080'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
 
   worker:
     build:
@@ -106,5 +118,7 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - api-a
-      - api-b
+      api-a:
+        condition: service_healthy
+      api-b:
+        condition: service_healthy
