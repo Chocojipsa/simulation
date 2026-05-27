@@ -210,6 +210,7 @@ public class SimulationRunner {
         for (SimulationStateStore.MutableVirtualUser user : state.users) {
             if (user.status == VirtualUserStatus.QUEUED || user.status == VirtualUserStatus.SELECTING_SEAT) {
                 user.status = VirtualUserStatus.FAILED;
+                user.timeline.add(new TimelineEntry("좌석 선택", "남은 좌석 선택을 시도했습니다."));
                 user.timeline.add(new TimelineEntry("좌석 선택 실패", "선택 가능한 좌석이 없습니다."));
             }
         }

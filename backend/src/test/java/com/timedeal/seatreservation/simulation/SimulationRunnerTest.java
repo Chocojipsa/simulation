@@ -1,5 +1,6 @@
 package com.timedeal.seatreservation.simulation;
 
+import com.timedeal.seatreservation.domain.SeatStatus;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
 import com.timedeal.seatreservation.events.SimulationEventHub;
 import org.junit.jupiter.api.Test;
@@ -82,5 +83,26 @@ class SimulationRunnerTest {
         assertThat(snapshot.users())
                 .filteredOn(user -> user.status() == VirtualUserStatus.RESERVED)
                 .isNotEmpty();
+    }
+
+    @Test
+    void soldOutUsersStillCountAsSeatAttempt() {
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000205");
+        stateStore.create(simulationId, 1);
+        SimulationStateStore.MutableSimulationState state = stateStore.state(simulationId);
+        state.seats.forEach(seat -> seat.status = SeatStatus.RESERVED);
+        state.users.get(0).status = VirtualUserStatus.SELECTING_SEAT;
+
+        SimulationSnapshot snapshot = runner.tick(simulationId);
+
+        assertThat(snapshot.running()).isFalse();
+        assertThat(snapshot.metrics().reservedCount()).isEqualTo(120);
+        assertThat(snapshot.users())
+                .filteredOn(user -> user.status() == VirtualUserStatus.FAILED)
+                .allSatisfy(user -> {
+                    assertThat(user.seatAttemptCount()).isGreaterThan(0);
+                    assertThat(user.timeline())
+                            .anySatisfy(entry -> assertThat(entry.message()).contains("선택 가능한 좌석이 없습니다."));
+                });
     }
 }
