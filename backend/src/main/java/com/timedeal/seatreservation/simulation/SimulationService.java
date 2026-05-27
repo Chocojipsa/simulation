@@ -6,8 +6,19 @@ import java.util.UUID;
 
 @Service
 public class SimulationService {
+    private final SimulationStateStore stateStore;
+
+    public SimulationService(SimulationStateStore stateStore) {
+        this.stateStore = stateStore;
+    }
+
     public SimulationResponse createSimulation(CreateSimulationRequest request) {
         UUID simulationId = UUID.randomUUID();
+        stateStore.create(simulationId, request.virtualUserCount());
         return new SimulationResponse(simulationId, "시뮬레이션이 시작되었습니다.", request.virtualUserCount());
+    }
+
+    public SimulationSnapshot getSimulation(UUID simulationId) {
+        return stateStore.snapshot(simulationId);
     }
 }

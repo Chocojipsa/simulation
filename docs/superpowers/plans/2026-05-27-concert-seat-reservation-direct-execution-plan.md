@@ -160,7 +160,7 @@ git commit -m "fix: repair korean simulation response"
 - Modify: `backend/src/main/java/com/timedeal/seatreservation/simulation/SimulationController.java`
 - Create: `backend/src/test/java/com/timedeal/seatreservation/simulation/SimulationServiceTest.java`
 
-- [ ] **Step 1: Add snapshot model records**
+- [x] **Step 1: Add snapshot model records**
 
 Create records with these fields:
 
@@ -172,7 +172,7 @@ public record SimulationMetrics(int queueSize, int admittedCount, int heldCount,
 public record SimulationSnapshot(UUID simulationId, List<SeatView> seats, List<VirtualUserView> users, SimulationMetrics metrics, boolean running) {}
 ```
 
-- [ ] **Step 2: Write `SimulationServiceTest`**
+- [x] **Step 2: Write `SimulationServiceTest`**
 
 The test must assert:
 
@@ -183,7 +183,7 @@ The test must assert:
 - all initial seats are `AVAILABLE`
 - all initial users are `QUEUED`
 
-- [ ] **Step 3: Implement `SimulationStateStore`**
+- [x] **Step 3: Implement `SimulationStateStore`**
 
 Use:
 
@@ -199,7 +199,7 @@ Initial state:
 - user status `QUEUED`
 - initial timeline message `대기열에 진입했습니다.`
 
-- [ ] **Step 4: Add snapshot endpoint**
+- [x] **Step 4: Add snapshot endpoint**
 
 Add:
 
@@ -214,7 +214,7 @@ Expected path:
 GET /simulations/{simulationId}
 ```
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run:
 

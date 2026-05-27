@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/simulations")
 public class SimulationController {
@@ -23,6 +25,11 @@ public class SimulationController {
     @PostMapping
     public SimulationResponse createSimulation(@Valid @RequestBody CreateSimulationRequest request) {
         return simulationService.createSimulation(request);
+    }
+
+    @GetMapping("/{simulationId}")
+    public SimulationSnapshot getSimulation(@PathVariable UUID simulationId) {
+        return simulationService.getSimulation(simulationId);
     }
 
     @GetMapping(path = "/{simulationId}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
