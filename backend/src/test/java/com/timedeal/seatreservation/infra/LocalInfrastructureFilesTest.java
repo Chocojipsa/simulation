@@ -15,6 +15,9 @@ class LocalInfrastructureFilesTest {
         assertThat(compose).contains("postgres:");
         assertThat(compose).contains("redis:");
         assertThat(compose).contains("kafka:");
+        assertThat(compose).contains("apache/kafka:3.7.2");
+        assertThat(compose).doesNotContain("bitnami/kafka");
+        assertThat(compose).contains("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1");
         assertThat(compose).contains("api-a:");
         assertThat(compose).contains("api-b:");
         assertThat(compose).contains("worker:");
