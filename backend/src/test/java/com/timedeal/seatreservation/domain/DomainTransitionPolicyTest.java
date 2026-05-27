@@ -44,6 +44,7 @@ class DomainTransitionPolicyTest {
     void seatTransitionWithNullReturnsFalse() {
         assertThat(policy.canChangeSeatStatus(null, SeatStatus.HELD)).isFalse();
         assertThat(policy.canChangeSeatStatus(SeatStatus.AVAILABLE, null)).isFalse();
+        assertThat(policy.canChangeSeatStatus(null, null)).isFalse();
     }
 
     @Test
@@ -61,5 +62,6 @@ class DomainTransitionPolicyTest {
     void virtualUserTransitionWithNullReturnsFalse() {
         assertThat(policy.canChangeVirtualUserStatus(null, VirtualUserStatus.QUEUED)).isFalse();
         assertThat(policy.canChangeVirtualUserStatus(VirtualUserStatus.CREATED, null)).isFalse();
+        assertThat(policy.canChangeVirtualUserStatus(null, null)).isFalse();
     }
 }
