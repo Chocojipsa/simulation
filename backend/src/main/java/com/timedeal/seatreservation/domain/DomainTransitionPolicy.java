@@ -24,10 +24,16 @@ public class DomainTransitionPolicy {
     );
 
     public boolean canChangeSeatStatus(SeatStatus from, SeatStatus to) {
+        if (from == null || to == null) {
+            return false;
+        }
         return SEAT_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
     }
 
     public boolean canChangeVirtualUserStatus(VirtualUserStatus from, VirtualUserStatus to) {
+        if (from == null || to == null) {
+            return false;
+        }
         return USER_TRANSITIONS.getOrDefault(from, Set.of()).contains(to);
     }
 }
