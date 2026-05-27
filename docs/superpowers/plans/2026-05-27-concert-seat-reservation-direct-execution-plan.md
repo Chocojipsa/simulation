@@ -250,7 +250,7 @@ git commit -m "feat: create simulation snapshots"
 - Modify: `backend/src/main/java/com/timedeal/seatreservation/simulation/SimulationService.java`
 - Create: `backend/src/test/java/com/timedeal/seatreservation/simulation/SimulationRunnerTest.java`
 
-- [ ] **Step 1: Write runner tests**
+- [x] **Step 1: Write runner tests**
 
 The tests must assert:
 
@@ -260,18 +260,18 @@ The tests must assert:
 - payment fails for deterministic users and releases seats back to `AVAILABLE`
 - reserved seat count never exceeds 120
 
-- [ ] **Step 2: Implement deterministic runner**
+- [x] **Step 2: Implement deterministic runner**
 
 Progression rules:
 
 - On each tick, admit up to 10 queued users.
 - An admitted user selects the first available seat.
 - A held seat moves to `PAYMENT_IN_PROGRESS` on a later tick.
-- Payment succeeds when `abs(userId.hashCode()) % 5 != 0`.
+- Payment succeeds when the virtual user sequence number is not divisible by 5.
 - Payment failure marks the user `FAILED` and releases the seat to `AVAILABLE`.
 - Payment success marks the user `RESERVED` and the seat `RESERVED`.
 
-- [ ] **Step 3: Implement `SimulationEventHub`**
+- [x] **Step 3: Implement `SimulationEventHub`**
 
 Responsibilities:
 
@@ -279,11 +279,11 @@ Responsibilities:
 - remove emitter on completion, timeout, and error
 - publish `SimulationSnapshot` as event name `snapshot`
 
-- [ ] **Step 4: Start runner after simulation creation**
+- [x] **Step 4: Start runner after simulation creation**
 
 When `POST /simulations` succeeds, start background progression for that simulation.
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run:
 

@@ -1,6 +1,6 @@
 package com.timedeal.seatreservation.simulation;
 
-import com.timedeal.seatreservation.events.SimulationEventStream;
+import com.timedeal.seatreservation.events.SimulationEventHub;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,9 +17,11 @@ import java.util.UUID;
 @RequestMapping("/simulations")
 public class SimulationController {
     private final SimulationService simulationService;
+    private final SimulationEventHub simulationEventHub;
 
-    public SimulationController(SimulationService simulationService) {
+    public SimulationController(SimulationService simulationService, SimulationEventHub simulationEventHub) {
         this.simulationService = simulationService;
+        this.simulationEventHub = simulationEventHub;
     }
 
     @PostMapping
@@ -33,7 +35,7 @@ public class SimulationController {
     }
 
     @GetMapping(path = "/{simulationId}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter events(@PathVariable String simulationId) {
-        return SimulationEventStream.open(simulationId);
+    public SseEmitter events(@PathVariable UUID simulationId) {
+        return simulationEventHub.open(simulationId);
     }
 }

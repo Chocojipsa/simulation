@@ -11,6 +11,7 @@ import java.util.UUID;
 
 import com.timedeal.seatreservation.domain.SeatStatus;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
+import com.timedeal.seatreservation.events.SimulationEventHub;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -27,6 +28,9 @@ class SimulationControllerTest {
 
     @MockBean
     SimulationService simulationService;
+
+    @MockBean
+    SimulationEventHub simulationEventHub;
 
     @Test
     void startSimulationReturnsKoreanMessageAndSimulationId() throws Exception {
