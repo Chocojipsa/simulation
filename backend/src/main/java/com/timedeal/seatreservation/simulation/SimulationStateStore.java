@@ -91,9 +91,9 @@ public class SimulationStateStore {
             if (user.status != VirtualUserStatus.QUEUED && user.status != VirtualUserStatus.FAILED) {
                 admittedCount++;
             }
-            if (user.status == VirtualUserStatus.FAILED) {
-                failedCount++;
-            }
+            failedCount += (int) user.timeline.stream()
+                    .filter(entry -> "좌석 선택 실패".equals(entry.label()))
+                    .count();
         }
 
         int heldCount = 0;
@@ -125,6 +125,7 @@ public class SimulationStateStore {
         final UUID simulationId;
         final List<MutableSeat> seats;
         final List<MutableVirtualUser> users;
+        long tick;
         boolean running = true;
 
         MutableSimulationState(UUID simulationId, List<MutableSeat> seats, List<MutableVirtualUser> users) {

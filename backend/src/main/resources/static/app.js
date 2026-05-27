@@ -132,7 +132,7 @@ function renderSeats(seats) {
 function renderUsers(users) {
   elements.userCountLabel.textContent = `${users.length}명`;
   if (!selectedUserId && users.length > 0) {
-    selectedUserId = users[0].id;
+    selectedUserId = defaultSelectedUser(users).id;
   }
 
   elements.userList.replaceChildren(...users.map((user) => {
@@ -151,6 +151,12 @@ function renderUsers(users) {
     });
     return button;
   }));
+}
+
+function defaultSelectedUser(users) {
+  return users.find((user) =>
+    user.timeline.some((entry) => entry.message.includes("이미 선택된 좌석입니다.")),
+  ) ?? users[0];
 }
 
 function renderWaitingQueue(users) {

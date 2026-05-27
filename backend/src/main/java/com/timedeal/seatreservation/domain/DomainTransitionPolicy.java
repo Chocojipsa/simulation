@@ -13,7 +13,7 @@ public class DomainTransitionPolicy {
 
     private static final Map<VirtualUserStatus, Set<VirtualUserStatus>> USER_TRANSITIONS = Map.of(
             VirtualUserStatus.CREATED, Set.of(VirtualUserStatus.QUEUED),
-            VirtualUserStatus.QUEUED, Set.of(VirtualUserStatus.ADMITTED, VirtualUserStatus.EXPIRED),
+            VirtualUserStatus.QUEUED, Set.of(VirtualUserStatus.ADMITTED, VirtualUserStatus.SELECTING_SEAT, VirtualUserStatus.EXPIRED),
             VirtualUserStatus.ADMITTED, Set.of(VirtualUserStatus.SELECTING_SEAT, VirtualUserStatus.EXPIRED),
             VirtualUserStatus.SELECTING_SEAT, Set.of(VirtualUserStatus.SEAT_HELD, VirtualUserStatus.FAILED),
             VirtualUserStatus.SEAT_HELD, Set.of(VirtualUserStatus.PAYMENT_IN_PROGRESS, VirtualUserStatus.EXPIRED),
