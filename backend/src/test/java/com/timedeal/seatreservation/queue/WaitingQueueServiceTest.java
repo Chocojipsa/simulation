@@ -94,5 +94,6 @@ class WaitingQueueServiceTest {
         List<String> admitted = service.pickAdmissionCandidates("sim-1", 2);
 
         assertThat(admitted).isEmpty();
+        verify(zSets).range("simulation:sim-1:queue", 0, 1);
     }
 }
