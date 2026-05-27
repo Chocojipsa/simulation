@@ -8,11 +8,12 @@ The goal is not real user acquisition. The goal is to demonstrate backend and in
 
 The project must demonstrate:
 
-- multi-server request handling
+- multi-instance backend request handling
 - Redis-based waiting queue and temporary state
 - PostgreSQL-based reservation consistency
 - Kafka-based event processing
 - failure handling, retry, idempotency, and observability
+- separate local and production deployment topologies
 
 ## Language And Output Requirements
 
@@ -40,17 +41,10 @@ A visitor opens the web dashboard and starts a simulation with a selected number
 
 The frontend also shows a live seat map. Seat colors represent current state:
 
-- green: available
-- yellow: temporarily held
-- red: payment in progress
-- gray: reserved
-
-The UI must display these labels in Korean:
-
-- green: `선택 가능`
-- yellow: `임시 선점`
-- red: `결제 진행 중`
-- gray: `예약 완료`
+- green: available, shown as `선택 가능`
+- yellow: temporarily held, shown as `임시 선점`
+- red: payment in progress, shown as `결제 진행 중`
+- gray: reserved, shown as `예약 완료`
 
 This live seat map makes backend state changes visible while the simulation is running.
 
@@ -70,18 +64,58 @@ This live seat map makes backend state changes visible while the simulation is r
 
 ## Architecture
 
-The system consists of:
+The system has two deployment modes.
 
-- React or Next.js frontend
-- load balancer
-- two Spring Boot API server instances
-- Redis
-- PostgreSQL
-- Kafka
-- Spring Boot worker applications
-- Docker Compose local infrastructure
+### Local Development
 
-The API servers are intentionally duplicated behind a load balancer. The purpose is to prove that queue, seat hold, reservation, and payment behavior remains correct even when requests are distributed across multiple backend instances.
+Local development uses Docker Compose to reproduce the full topology on one machine:
+
+- local reverse proxy
+- `api-a` Spring Boot container
+- `api-b` Spring Boot container
+- worker container
+- PostgreSQL container
+- Redis container
+- Kafka container
+- optional local frontend container
+
+Local mode is for development, automated tests, and architecture demonstrations. It is not intended to prove infrastructure high availability.
+
+### Production v1
+
+Production v1 prioritizes runtime stability and cost control over managed load balancer experience.
+
+Production v1 uses:
+
+- Vercel for the Next.js frontend
+- Lightsail A for self-hosted Nginx and `api-a`
+- Lightsail B for `api-b` and worker
+- Lightsail C for Redis and Kafka
+- Amazon RDS PostgreSQL for durable state
+
+Traffic flow:
+
+```text
+Vercel frontend
+  -> api domain
+  -> Nginx on Lightsail A
+  -> api-a on Lightsail A
+  -> api-b on Lightsail B
+  -> Redis/Kafka on Lightsail C
+  -> RDS PostgreSQL
+```
+
+Nginx is self-hosted on Lightsail A to avoid managed load balancer cost in the first production version. This is a known single entry point. Production v2 can replace it with Lightsail Load Balancer or AWS ALB.
+
+### Production v2
+
+Production v2 options:
+
+- replace self-hosted Nginx with Lightsail Load Balancer or AWS ALB
+- move Redis to ElastiCache
+- move Kafka to MSK, Redpanda Cloud, or another managed event-streaming platform
+- split worker into a separate instance
+- add monitoring dashboards and alerting
 
 ## Component Responsibilities
 
@@ -98,9 +132,18 @@ Responsibilities:
 - show system metrics such as queue size, reservation success count, payment failure count, request distribution, and Kafka lag
 - render all visitor-facing text in Korean
 
-### Load Balancer
+### Nginx
 
-The load balancer distributes API traffic across two Spring Boot API instances. Use Nginx or HAProxy for the first implementation.
+Local mode uses a local reverse proxy container. Production v1 uses self-hosted Nginx on Lightsail A.
+
+Nginx responsibilities:
+
+- provide one public API endpoint
+- route requests to `api-a` and `api-b`
+- terminate HTTPS in production v1
+- disable buffering for SSE routes
+
+This is not a fully highly available load balancer. That limitation should be documented clearly in the portfolio.
 
 ### API Servers
 
@@ -347,7 +390,7 @@ Test categories:
 - Kafka integration tests for event publication, retry, and DLQ behavior
 - SSE tests for dashboard event delivery
 - concurrency tests proving reservations never exceed available seats
-- multi-server tests proving distributed requests do not create duplicate reservations
+- multi-instance tests proving distributed requests do not create duplicate reservations
 - load tests with 100, 500, and 1,000 virtual users
 
 Important acceptance checks:
@@ -363,9 +406,10 @@ Important acceptance checks:
 
 Backend:
 
-- Java 21
+- Java 17
 - Spring Boot
 - Spring MVC
+- Gradle Groovy DSL
 - Spring Data JPA
 - native SQL where PostgreSQL-specific features are needed
 - Spring Kafka
@@ -374,19 +418,28 @@ Backend:
 Frontend:
 
 - React or Next.js
+- Vercel deployment
 - SSE client
 - seat map dashboard
 - Korean user-facing UI
 
-Infrastructure:
+Local infrastructure:
 
 - Docker Compose
+- local reverse proxy
+- two API containers
+- one worker container
 - PostgreSQL
 - Redis
 - Kafka
-- Nginx or HAProxy
-- two API server containers
-- one or more worker containers
+
+Production v1 infrastructure:
+
+- Vercel frontend
+- Lightsail A: Nginx + `api-a`
+- Lightsail B: `api-b` + worker
+- Lightsail C: Redis + Kafka
+- RDS PostgreSQL
 
 Testing and validation:
 
@@ -409,6 +462,8 @@ In scope:
 - backend metrics dashboard
 - Kafka retry and DLQ demonstration
 - Korean visitor-facing output
+- local Docker Compose topology
+- production v1 deployment plan using Vercel, Lightsail, and RDS
 
 Out of scope for the first version:
 
@@ -418,7 +473,9 @@ Out of scope for the first version:
 - multiple venues
 - complex seat pricing
 - mobile-specific UI
-- production cloud deployment
+- fully managed production load balancer
+- managed Redis
+- managed Kafka
 
 ## Success Criteria
 
@@ -432,6 +489,7 @@ The project should clearly answer:
 - how duplicate requests are handled
 - how seat overbooking is prevented
 - how failures are retried or isolated
-- how two API servers remain consistent
+- how two API instances remain consistent
+- how local and production deployment topologies differ
 
 The final demo should be easy for a Korean reviewer to understand without reading internal code.
