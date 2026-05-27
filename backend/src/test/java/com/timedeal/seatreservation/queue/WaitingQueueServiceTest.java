@@ -3,28 +3,96 @@ package com.timedeal.seatreservation.queue;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.stereotype.Service;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@SuppressWarnings("unchecked")
 class WaitingQueueServiceTest {
+    private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
+    private final Clock clock = Clock.fixed(Instant.parse("2026-05-27T00:00:00Z"), ZoneOffset.UTC);
+    private final WaitingQueueService service = new WaitingQueueService(redis, clock);
+
     @Test
     void usersAreAdmittedByQueueScoreOrder() {
-        StringRedisTemplate redis = mock(StringRedisTemplate.class);
+        ZSetOperations<String, String> zSets = mock(ZSetOperations.class);
+
+        when(redis.opsForZSet()).thenReturn(zSets);
+        when(zSets.range("simulation:sim-1:queue", 0, 1))
+                .thenReturn(new LinkedHashSet<>(List.of("user-1", "user-2")));
+
+        List<String> admitted = service.pickAdmissionCandidates("sim-1", 2);
+
+        assertThat(admitted).containsExactly("user-1", "user-2");
+        verify(zSets).range("simulation:sim-1:queue", 0, 1);
+    }
+
+    @Test
+    void waitingQueueServiceIsRegisteredAsSpringService() {
+        assertThat(WaitingQueueService.class).hasAnnotation(Service.class);
+    }
+
+    @Test
+    void enterQueueAddsUserWithCurrentTimeScore() {
+        ZSetOperations<String, String> zSets = mock(ZSetOperations.class);
+
+        when(redis.opsForZSet()).thenReturn(zSets);
+
+        service.enterQueue("sim-1", "user-1");
+
+        verify(zSets).add("simulation:sim-1:queue", "user-1", clock.millis());
+    }
+
+    @Test
+    void issueAdmissionTokenStoresGrantedTokenWithTtl() {
         ValueOperations<String, String> values = mock(ValueOperations.class);
-        Clock clock = Clock.fixed(Instant.parse("2026-05-27T00:00:00Z"), ZoneOffset.UTC);
-        WaitingQueueService service = new WaitingQueueService(redis, clock);
 
         when(redis.opsForValue()).thenReturn(values);
 
-        List<String> admitted = service.pickAdmissionCandidates(List.of("user-1", "user-2", "user-3"), 2);
+        service.issueAdmissionToken("sim-1", "user-1");
 
-        assertThat(admitted).containsExactly("user-1", "user-2");
+        verify(values).set("simulation:sim-1:admission:user-1", "granted", Duration.ofSeconds(60));
+    }
+
+    @Test
+    void hasAdmissionTokenReturnsTrueOnlyWhenRedisReturnsTrue() {
+        when(redis.hasKey("simulation:sim-1:admission:user-1"))
+                .thenReturn(Boolean.TRUE, Boolean.FALSE, null);
+
+        assertThat(service.hasAdmissionToken("sim-1", "user-1")).isTrue();
+        assertThat(service.hasAdmissionToken("sim-1", "user-1")).isFalse();
+        assertThat(service.hasAdmissionToken("sim-1", "user-1")).isFalse();
+    }
+
+    @Test
+    void pickAdmissionCandidatesReturnsEmptyForNonPositiveLimitWithoutQueryingRedisRange() {
+        List<String> admitted = service.pickAdmissionCandidates("sim-1", 0);
+
+        assertThat(admitted).isEmpty();
+        verify(redis, never()).opsForZSet();
+    }
+
+    @Test
+    void pickAdmissionCandidatesReturnsEmptyWhenRedisRangeReturnsNull() {
+        ZSetOperations<String, String> zSets = mock(ZSetOperations.class);
+
+        when(redis.opsForZSet()).thenReturn(zSets);
+        when(zSets.range("simulation:sim-1:queue", 0, 1)).thenReturn(null);
+
+        List<String> admitted = service.pickAdmissionCandidates("sim-1", 2);
+
+        assertThat(admitted).isEmpty();
     }
 }

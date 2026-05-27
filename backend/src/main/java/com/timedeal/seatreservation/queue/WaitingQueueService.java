@@ -1,11 +1,15 @@
 package com.timedeal.seatreservation.queue;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
+@Service
 public class WaitingQueueService {
     private final StringRedisTemplate redis;
     private final Clock clock;
@@ -19,8 +23,17 @@ public class WaitingQueueService {
         redis.opsForZSet().add(queueKey(simulationId), virtualUserId, clock.millis());
     }
 
-    public List<String> pickAdmissionCandidates(List<String> queuedUserIds, int limit) {
-        return queuedUserIds.stream().limit(limit).toList();
+    public List<String> pickAdmissionCandidates(String simulationId, int limit) {
+        if (limit <= 0) {
+            return List.of();
+        }
+
+        Set<String> candidates = redis.opsForZSet().range(queueKey(simulationId), 0, limit - 1);
+        if (candidates == null) {
+            return List.of();
+        }
+
+        return new ArrayList<>(candidates);
     }
 
     public void issueAdmissionToken(String simulationId, String virtualUserId) {
