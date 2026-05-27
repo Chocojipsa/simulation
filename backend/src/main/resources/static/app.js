@@ -27,6 +27,8 @@ const elements = {
   userCount: document.querySelector("#userCount"),
   simulationStatus: document.querySelector("#simulationStatus"),
   seatMap: document.querySelector("#seatMap"),
+  waitingQueue: document.querySelector("#waitingQueue"),
+  waitingQueueCount: document.querySelector("#waitingQueueCount"),
   userList: document.querySelector("#userList"),
   userCountLabel: document.querySelector("#userCountLabel"),
   selectedUserLabel: document.querySelector("#selectedUserLabel"),
@@ -101,6 +103,7 @@ function renderSnapshot(snapshot) {
 
   renderMetrics(snapshot.metrics);
   renderSeats(snapshot.seats);
+  renderWaitingQueue(snapshot.users);
   renderUsers(snapshot.users);
   renderTimeline(snapshot.users);
 }
@@ -148,6 +151,45 @@ function renderUsers(users) {
     });
     return button;
   }));
+}
+
+function renderWaitingQueue(users) {
+  const queuedUsers = users.filter((user) => user.status === "QUEUED");
+  elements.waitingQueueCount.textContent = `${queuedUsers.length}명`;
+
+  if (queuedUsers.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-message";
+    empty.textContent = "대기 중인 사용자가 없습니다.";
+    elements.waitingQueue.replaceChildren(empty);
+    return;
+  }
+
+  const visibleUsers = queuedUsers.slice(0, 12);
+  const rows = visibleUsers.map((user, index) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "queue-row";
+    row.innerHTML = `
+      <span>${index + 1}</span>
+      <strong>${user.displayName}</strong>
+    `;
+    row.addEventListener("click", () => {
+      selectedUserId = user.id;
+      renderUsers(users);
+      renderTimeline(users);
+    });
+    return row;
+  });
+
+  if (queuedUsers.length > visibleUsers.length) {
+    const more = document.createElement("p");
+    more.className = "empty-message";
+    more.textContent = `외 ${queuedUsers.length - visibleUsers.length}명 대기 중`;
+    rows.push(more);
+  }
+
+  elements.waitingQueue.replaceChildren(...rows);
 }
 
 function renderTimeline(users) {

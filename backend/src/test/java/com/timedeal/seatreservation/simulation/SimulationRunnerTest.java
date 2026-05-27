@@ -46,4 +46,20 @@ class SimulationRunnerTest {
                 .filteredOn(user -> user.status() == VirtualUserStatus.PAYMENT_IN_PROGRESS)
                 .isEmpty();
     }
+
+    @Test
+    void concurrentSeatSelectionCreatesAlreadyHeldFailures() {
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000203");
+        stateStore.create(simulationId, 10);
+
+        runner.tick(simulationId);
+        SimulationSnapshot snapshot = runner.tick(simulationId);
+
+        assertThat(snapshot.metrics().heldCount()).isGreaterThan(0);
+        assertThat(snapshot.metrics().failedCount()).isGreaterThan(0);
+        assertThat(snapshot.users())
+                .filteredOn(user -> user.status() == VirtualUserStatus.FAILED)
+                .allSatisfy(user -> assertThat(user.timeline())
+                        .anySatisfy(entry -> assertThat(entry.message()).contains("이미 선택된 좌석입니다.")));
+    }
 }

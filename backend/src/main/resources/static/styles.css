@@ -256,6 +256,49 @@ h1 {
   overflow: auto;
 }
 
+.waiting-queue {
+  max-height: 220px;
+  overflow: auto;
+}
+
+.queue-row {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 14px;
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-bottom: 1px solid #edf0f5;
+  background: white;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.queue-row span {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e7edf6;
+  color: #344054;
+  font-size: 12px;
+}
+
+.queue-row strong {
+  font-size: 13px;
+}
+
+.empty-message {
+  margin: 0;
+  padding: 12px 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .user-row {
   width: 100%;
   min-height: 42px;
