@@ -35,7 +35,9 @@ public class SimulationStateStore {
                             user.displayName,
                             user.status,
                             user.selectedSeatLabel,
-                            List.copyOf(user.timeline)
+                            List.copyOf(user.timeline),
+                            countTimelineEntries(user, "좌석 선택"),
+                            countTimelineEntries(user, "좌석 선택 실패")
                     ))
                     .toList();
 
@@ -55,6 +57,12 @@ public class SimulationStateStore {
             throw new NoSuchElementException("Simulation not found: " + simulationId);
         }
         return state;
+    }
+
+    private int countTimelineEntries(MutableVirtualUser user, String label) {
+        return (int) user.timeline.stream()
+                .filter(entry -> label.equals(entry.label()))
+                .count();
     }
 
     private List<MutableSeat> createSeats() {

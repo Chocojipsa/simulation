@@ -141,7 +141,10 @@ function renderUsers(users) {
     button.className = user.id === selectedUserId ? "user-row selected" : "user-row";
     button.dataset.userId = user.id;
     button.innerHTML = `
-      <span>${user.displayName}</span>
+      <span class="user-main">
+        <span class="user-name">${user.displayName}</span>
+        <span class="user-stats">${formatUserStats(user)}</span>
+      </span>
       <strong>${userStatusLabels[user.status]}</strong>
     `;
     button.addEventListener("click", () => {
@@ -153,10 +156,18 @@ function renderUsers(users) {
   }));
 }
 
+function formatUserStats(user) {
+  if (user.seatAttemptCount === 0) {
+    return "대기 중";
+  }
+  if (user.conflictCount === 0) {
+    return `시도 ${user.seatAttemptCount}회`;
+  }
+  return `시도 ${user.seatAttemptCount}회 · 충돌 ${user.conflictCount}회`;
+}
+
 function defaultSelectedUser(users) {
-  return users.find((user) =>
-    user.timeline.some((entry) => entry.message.includes("이미 선택된 좌석입니다.")),
-  ) ?? users[0];
+  return users.find((user) => user.conflictCount > 0) ?? users[0];
 }
 
 function renderWaitingQueue(users) {

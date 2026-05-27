@@ -18,4 +18,14 @@ class StaticDashboardContentTest {
         assertThat(script).contains("renderWaitingQueue");
         assertThat(script).contains("QUEUED");
     }
+
+    @Test
+    void userRowsShowSeatAttemptAndConflictCounts() throws Exception {
+        String script = Files.readString(Path.of("src/main/resources/static/app.js"));
+
+        assertThat(script).contains("seatAttemptCount");
+        assertThat(script).contains("conflictCount");
+        assertThat(script).contains("시도");
+        assertThat(script).contains("충돌");
+    }
 }

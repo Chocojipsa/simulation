@@ -1,5 +1,8 @@
 package com.timedeal.seatreservation.simulation;
 
+import com.timedeal.seatreservation.domain.SeatStatus;
+import com.timedeal.seatreservation.domain.VirtualUserStatus;
+import com.timedeal.seatreservation.events.SimulationEventHub;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -8,10 +11,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 import java.util.UUID;
-
-import com.timedeal.seatreservation.domain.SeatStatus;
-import com.timedeal.seatreservation.domain.VirtualUserStatus;
-import com.timedeal.seatreservation.events.SimulationEventHub;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -51,7 +50,7 @@ class SimulationControllerTest {
     }
 
     @Test
-    void getSimulationReturnsSnapshot() throws Exception {
+    void getSimulationReturnsSnapshotWithUserAttemptCounts() throws Exception {
         UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000002");
         UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000101");
         SimulationSnapshot snapshot = new SimulationSnapshot(
@@ -62,7 +61,9 @@ class SimulationControllerTest {
                         "사용자 1",
                         VirtualUserStatus.QUEUED,
                         null,
-                        List.of(new TimelineEntry("대기열", "대기열에 진입했습니다."))
+                        List.of(new TimelineEntry("대기열", "대기열에 진입했습니다.")),
+                        3,
+                        2
                 )),
                 new SimulationMetrics(1, 0, 0, 0, 0, 0),
                 true
@@ -75,6 +76,8 @@ class SimulationControllerTest {
                 .andExpect(jsonPath("$.seats[0].label").value("A-1"))
                 .andExpect(jsonPath("$.seats[0].status").value("AVAILABLE"))
                 .andExpect(jsonPath("$.users[0].displayName").value("사용자 1"))
+                .andExpect(jsonPath("$.users[0].seatAttemptCount").value(3))
+                .andExpect(jsonPath("$.users[0].conflictCount").value(2))
                 .andExpect(jsonPath("$.metrics.queueSize").value(1))
                 .andExpect(jsonPath("$.running").value(true));
     }

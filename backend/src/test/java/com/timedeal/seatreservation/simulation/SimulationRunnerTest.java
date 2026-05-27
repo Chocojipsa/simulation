@@ -59,6 +59,8 @@ class SimulationRunnerTest {
         assertThat(snapshot.users())
                 .filteredOn(user -> user.status() == VirtualUserStatus.SELECTING_SEAT)
                 .anySatisfy(user -> {
+                    assertThat(user.seatAttemptCount()).isGreaterThan(0);
+                    assertThat(user.conflictCount()).isGreaterThan(0);
                     assertThat(user.timeline())
                             .anySatisfy(entry -> assertThat(entry.message()).contains("좌석을 선택했습니다."));
                     assertThat(user.timeline())

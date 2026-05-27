@@ -10,6 +10,8 @@ public record VirtualUserView(
         String displayName,
         VirtualUserStatus status,
         String selectedSeatLabel,
-        List<TimelineEntry> timeline
+        List<TimelineEntry> timeline,
+        int seatAttemptCount,
+        int conflictCount
 ) {
 }

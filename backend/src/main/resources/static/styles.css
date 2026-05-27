@@ -301,21 +301,39 @@ h1 {
 
 .user-row {
   width: 100%;
-  min-height: 42px;
-  padding: 0 14px;
+  min-height: 52px;
+  padding: 8px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   border: 0;
   border-bottom: 1px solid #edf0f5;
   background: white;
   color: var(--text);
   cursor: pointer;
+  text-align: left;
+}
+
+.user-main {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.user-name {
+  font-weight: 700;
+}
+
+.user-stats {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .user-row strong {
   color: var(--blue);
   font-size: 12px;
+  white-space: nowrap;
 }
 
 .user-row.selected {
