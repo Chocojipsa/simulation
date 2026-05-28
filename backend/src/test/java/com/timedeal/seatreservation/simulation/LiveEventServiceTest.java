@@ -18,6 +18,7 @@ import java.util.Random;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -48,6 +49,34 @@ class LiveEventServiceTest {
                     assertThat(participant.type()).isEqualTo(ParticipantType.HUMAN);
                     assertThat(participant.status().name()).isEqualTo("WAITING_ROOM");
                 });
+    }
+
+    @Test
+    void persistsJoinedHumanParticipantForPostgresSeatHolds() {
+        SimulationStateStore stateStore = new SimulationStateStore();
+        SimulationService simulationService = new SimulationService(stateStore);
+        SimulationInventoryService inventoryService = mock(SimulationInventoryService.class);
+        LiveEventService service = new LiveEventService(
+                simulationService,
+                stateStore,
+                new ServerIdentity("api-test"),
+                inventoryService,
+                "부산 콘서트 티켓팅",
+                120
+        );
+
+        LiveEventResponse active = service.activeEvent();
+        JoinEventResponse joined = service.join(active.eventId(), new JoinEventRequest("권"));
+
+        verify(inventoryService).registerParticipant(
+                any(SimulationSnapshot.class),
+                argThat(participant ->
+                        participant.id().equals(joined.participantId())
+                                && participant.displayName().equals("권")
+                                && participant.type() == ParticipantType.HUMAN
+                                && participant.status().name().equals("WAITING_ROOM")
+                )
+        );
     }
 
     @Test

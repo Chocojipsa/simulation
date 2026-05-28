@@ -51,4 +51,14 @@ public class SimulationInventoryService {
             );
         }
     }
+
+    public void registerParticipant(SimulationSnapshot snapshot, VirtualUserView participant) {
+        jdbc.update(
+                "insert into virtual_users(id, simulation_id, display_name, status) values (?, ?, ?, ?) on conflict (id) do nothing",
+                participant.id(),
+                snapshot.simulationId(),
+                participant.displayName(),
+                participant.status().name()
+        );
+    }
 }

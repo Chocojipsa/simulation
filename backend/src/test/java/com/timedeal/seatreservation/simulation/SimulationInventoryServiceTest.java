@@ -48,4 +48,34 @@ class SimulationInventoryServiceTest {
         verify(jdbc).update("insert into virtual_users(id, simulation_id, display_name, status) values (?, ?, ?, ?) on conflict (id) do nothing", userId, simulationId, "사용자 1", "QUEUED");
         verify(jdbc).update("insert into simulation_seats(simulation_id, seat_id, seat_label, status) values (?, ?, ?, 'AVAILABLE') on conflict (simulation_id, seat_id) do nothing", simulationId, 1L, "A-1");
     }
+
+    @Test
+    void registersLiveEventParticipantInSimulationInventory() {
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000020");
+        UUID participantId = UUID.fromString("00000000-0000-0000-0000-000000000120");
+        SimulationSnapshot snapshot = new SimulationSnapshot(
+                simulationId,
+                List.of(),
+                List.of(),
+                new SimulationMetrics(0, 0, 0, 0, 0, 0),
+                List.of(),
+                false
+        );
+        VirtualUserView participant = new VirtualUserView(
+                participantId,
+                "권",
+                ParticipantType.HUMAN,
+                VirtualUserStatus.WAITING_ROOM,
+                null,
+                List.of(new TimelineEntry("입장", "이벤트에 입장했습니다.")),
+                0,
+                0,
+                0,
+                null
+        );
+
+        service.registerParticipant(snapshot, participant);
+
+        verify(jdbc).update("insert into virtual_users(id, simulation_id, display_name, status) values (?, ?, ?, ?) on conflict (id) do nothing", participantId, simulationId, "권", "WAITING_ROOM");
+    }
 }

@@ -4,10 +4,14 @@ import com.timedeal.seatreservation.identity.ServerIdentity;
 import com.timedeal.seatreservation.simulation.CreateSimulationRequest;
 import com.timedeal.seatreservation.simulation.RunSimulationRequest;
 import com.timedeal.seatreservation.simulation.RunSimulationResponse;
+import com.timedeal.seatreservation.simulation.SimulationInventoryService;
 import com.timedeal.seatreservation.simulation.SimulationService;
 import com.timedeal.seatreservation.simulation.SimulationSnapshot;
 import com.timedeal.seatreservation.simulation.SimulationStateGateway;
+import com.timedeal.seatreservation.simulation.VirtualUserView;
 import com.timedeal.seatreservation.simulation.VirtualUserCommandResponse;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -20,20 +24,45 @@ import java.util.concurrent.atomic.AtomicReference;
 public class LiveEventService {
     private final SimulationService simulationService;
     private final SimulationStateGateway stateGateway;
+    private final SimulationInventoryService inventoryService;
     private final ServerIdentity serverIdentity;
     private final String title;
     private final int seatCount;
     private final AtomicReference<UUID> activeEventId = new AtomicReference<>();
 
+    @Autowired
     public LiveEventService(
             SimulationService simulationService,
             SimulationStateGateway stateGateway,
             ServerIdentity serverIdentity,
+            ObjectProvider<SimulationInventoryService> inventoryService,
             @Value("${live-event.title:Live Ticketing Event}") String title,
             @Value("${live-event.seat-count:120}") int seatCount
     ) {
+        this(simulationService, stateGateway, serverIdentity, inventoryService.getIfAvailable(), title, seatCount);
+    }
+
+    public LiveEventService(
+            SimulationService simulationService,
+            SimulationStateGateway stateGateway,
+            ServerIdentity serverIdentity,
+            String title,
+            int seatCount
+    ) {
+        this(simulationService, stateGateway, serverIdentity, (SimulationInventoryService) null, title, seatCount);
+    }
+
+    public LiveEventService(
+            SimulationService simulationService,
+            SimulationStateGateway stateGateway,
+            ServerIdentity serverIdentity,
+            SimulationInventoryService inventoryService,
+            String title,
+            int seatCount
+    ) {
         this.simulationService = simulationService;
         this.stateGateway = stateGateway;
+        this.inventoryService = inventoryService;
         this.serverIdentity = serverIdentity;
         this.title = title;
         this.seatCount = seatCount;
@@ -52,7 +81,14 @@ public class LiveEventService {
     public JoinEventResponse join(UUID eventId, JoinEventRequest request) {
         UUID participantId = UUID.randomUUID();
         String displayName = request.normalizedDisplayName();
-        stateGateway.registerParticipant(eventId, participantId, displayName, ParticipantType.HUMAN, serverIdentity.id());
+        SimulationSnapshot snapshot = stateGateway.registerParticipant(eventId, participantId, displayName, ParticipantType.HUMAN, serverIdentity.id());
+        if (inventoryService != null) {
+            VirtualUserView participant = snapshot.users().stream()
+                    .filter(user -> user.id().equals(participantId))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("Participant not found after join: " + participantId));
+            inventoryService.registerParticipant(snapshot, participant);
+        }
         return new JoinEventResponse(eventId, participantId, displayName, "WAITING_ROOM", serverIdentity.id());
     }
 

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 import java.util.Set;
 
+import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class DomainTransitionPolicyTest {
@@ -15,16 +16,18 @@ class DomainTransitionPolicyTest {
             SeatStatus.RESERVED, Set.of()
     );
 
-    private static final Map<VirtualUserStatus, Set<VirtualUserStatus>> ALLOWED_USER_TRANSITIONS = Map.of(
-            VirtualUserStatus.CREATED, Set.of(VirtualUserStatus.QUEUED),
-            VirtualUserStatus.QUEUED, Set.of(VirtualUserStatus.ADMITTED, VirtualUserStatus.SELECTING_SEAT, VirtualUserStatus.EXPIRED),
-            VirtualUserStatus.ADMITTED, Set.of(VirtualUserStatus.SELECTING_SEAT, VirtualUserStatus.EXPIRED),
-            VirtualUserStatus.SELECTING_SEAT, Set.of(VirtualUserStatus.SEAT_HELD, VirtualUserStatus.FAILED),
-            VirtualUserStatus.SEAT_HELD, Set.of(VirtualUserStatus.PAYMENT_IN_PROGRESS, VirtualUserStatus.EXPIRED),
-            VirtualUserStatus.PAYMENT_IN_PROGRESS, Set.of(VirtualUserStatus.RESERVED, VirtualUserStatus.FAILED),
-            VirtualUserStatus.RESERVED, Set.of(),
-            VirtualUserStatus.FAILED, Set.of(),
-            VirtualUserStatus.EXPIRED, Set.of()
+    private static final Map<VirtualUserStatus, Set<VirtualUserStatus>> ALLOWED_USER_TRANSITIONS = Map.ofEntries(
+            entry(VirtualUserStatus.CREATED, Set.of(VirtualUserStatus.WAITING_ROOM, VirtualUserStatus.QUEUED)),
+            entry(VirtualUserStatus.WAITING_ROOM, Set.of(VirtualUserStatus.QUEUED, VirtualUserStatus.EXPIRED)),
+            entry(VirtualUserStatus.QUEUED, Set.of(VirtualUserStatus.ADMITTED, VirtualUserStatus.SELECTING_SEAT, VirtualUserStatus.EXPIRED)),
+            entry(VirtualUserStatus.ADMITTED, Set.of(VirtualUserStatus.SELECTING_SEAT, VirtualUserStatus.EXPIRED)),
+            entry(VirtualUserStatus.SELECTING_SEAT, Set.of(VirtualUserStatus.SEAT_HELD, VirtualUserStatus.FAILED)),
+            entry(VirtualUserStatus.SEAT_HELD, Set.of(VirtualUserStatus.PAYMENT_IN_PROGRESS, VirtualUserStatus.EXPIRED)),
+            entry(VirtualUserStatus.PAYMENT_IN_PROGRESS, Set.of(VirtualUserStatus.RESERVED, VirtualUserStatus.PAYMENT_FAILED, VirtualUserStatus.FAILED)),
+            entry(VirtualUserStatus.PAYMENT_FAILED, Set.of(VirtualUserStatus.QUEUED, VirtualUserStatus.SELECTING_SEAT, VirtualUserStatus.FAILED)),
+            entry(VirtualUserStatus.RESERVED, Set.of()),
+            entry(VirtualUserStatus.FAILED, Set.of()),
+            entry(VirtualUserStatus.EXPIRED, Set.of())
     );
 
     private final DomainTransitionPolicy policy = new DomainTransitionPolicy();
