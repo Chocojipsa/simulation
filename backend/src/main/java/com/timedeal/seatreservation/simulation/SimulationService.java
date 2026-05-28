@@ -8,6 +8,7 @@ import com.timedeal.seatreservation.queue.WaitingQueueService;
 import com.timedeal.seatreservation.seat.SeatReservationOutcome;
 import com.timedeal.seatreservation.seat.SeatReservationResult;
 import com.timedeal.seatreservation.seat.SeatReservationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ public class SimulationService {
     private final KafkaTemplate<String, PaymentRequestedEvent> paymentKafkaTemplate;
     private final Random random;
 
+    @Autowired
     public SimulationService(
             SimulationStateGateway stateStore,
             ServerIdentity serverIdentity,
