@@ -55,6 +55,24 @@ public class SimulationService {
     }
 
     public VirtualUserCommandResponse enterQueue(UUID simulationId, UUID userId) {
-        return new VirtualUserCommandResponse(simulationId, userId, "QUEUED", serverIdentity.id());
+        return new VirtualUserCommandResponse(
+                simulationId,
+                userId,
+                "QUEUED",
+                serverIdentity.id(),
+                "대기열에 진입했습니다.",
+                null
+        );
+    }
+
+    public VirtualUserCommandResponse attemptSeat(UUID simulationId, UUID userId) {
+        return new VirtualUserCommandResponse(
+                simulationId,
+                userId,
+                "WAITING",
+                serverIdentity.id(),
+                "아직 대기 중입니다.",
+                null
+        );
     }
 }

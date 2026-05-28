@@ -50,6 +50,14 @@ public class SimulationController {
         return simulationService.enterQueue(simulationId, userId);
     }
 
+    @PostMapping("/{simulationId}/users/{userId}/seat-attempt")
+    public VirtualUserCommandResponse attemptSeat(
+            @PathVariable UUID simulationId,
+            @PathVariable UUID userId
+    ) {
+        return simulationService.attemptSeat(simulationId, userId);
+    }
+
     @GetMapping(path = "/{simulationId}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter events(@PathVariable UUID simulationId) {
         return simulationEventHub.open(simulationId);

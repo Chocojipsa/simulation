@@ -115,7 +115,9 @@ class SimulationControllerTest {
                 simulationId,
                 userId,
                 "QUEUED",
-                "api-test"
+                "api-test",
+                "대기열에 진입했습니다.",
+                null
         ));
 
         mvc.perform(post("/api/simulations/{simulationId}/users/{userId}/queue", simulationId, userId))
@@ -123,6 +125,31 @@ class SimulationControllerTest {
                 .andExpect(jsonPath("$.simulationId").value(simulationId.toString()))
                 .andExpect(jsonPath("$.virtualUserId").value(userId.toString()))
                 .andExpect(jsonPath("$.status").value("QUEUED"))
-                .andExpect(jsonPath("$.handledBy").value("api-test"));
+                .andExpect(jsonPath("$.handledBy").value("api-test"))
+                .andExpect(jsonPath("$.message").value("대기열에 진입했습니다."))
+                .andExpect(jsonPath("$.selectedSeatLabel").doesNotExist());
+    }
+
+    @Test
+    void virtualUserSeatAttemptReturnsHandlingServerAndSelectedSeat() throws Exception {
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000006");
+        UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000106");
+        when(simulationService.attemptSeat(eq(simulationId), eq(userId))).thenReturn(new VirtualUserCommandResponse(
+                simulationId,
+                userId,
+                "PAYMENT_REQUESTED",
+                "api-test",
+                "A-1 좌석을 선택했습니다. 결제를 요청했습니다.",
+                "A-1"
+        ));
+
+        mvc.perform(post("/api/simulations/{simulationId}/users/{userId}/seat-attempt", simulationId, userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.simulationId").value(simulationId.toString()))
+                .andExpect(jsonPath("$.virtualUserId").value(userId.toString()))
+                .andExpect(jsonPath("$.status").value("PAYMENT_REQUESTED"))
+                .andExpect(jsonPath("$.handledBy").value("api-test"))
+                .andExpect(jsonPath("$.message").value("A-1 좌석을 선택했습니다. 결제를 요청했습니다."))
+                .andExpect(jsonPath("$.selectedSeatLabel").value("A-1"));
     }
 }
