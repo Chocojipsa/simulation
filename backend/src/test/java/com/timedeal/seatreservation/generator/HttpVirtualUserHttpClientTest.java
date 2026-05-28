@@ -43,4 +43,52 @@ class HttpVirtualUserHttpClientTest {
                 "seat-attempt-2:http://nginx:8080:" + userId
         );
     }
+
+    @Test
+    void retriesTransientCommandFailuresForTheSameVirtualUser() {
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000041");
+        UUID userId = UUID.nameUUIDFromBytes((simulationId + ":1").getBytes(StandardCharsets.UTF_8));
+        List<String> calls = new ArrayList<>();
+        VirtualUserCommandClient commandClient = new VirtualUserCommandClient() {
+            private int queueAttempts;
+            private int seatAttempts;
+
+            @Override
+            public VirtualUserCommandResponse postQueue(String baseUrl, UUID simulationId, UUID virtualUserId) {
+                queueAttempts++;
+                calls.add("queue-" + queueAttempts + ":" + virtualUserId);
+                if (queueAttempts == 1) {
+                    throw new IllegalStateException("temporary queue failure");
+                }
+                return new VirtualUserCommandResponse(simulationId, virtualUserId, "QUEUED", "api-a", "queued", null);
+            }
+
+            @Override
+            public VirtualUserCommandResponse postSeatAttempt(String baseUrl, UUID simulationId, UUID virtualUserId) {
+                seatAttempts++;
+                calls.add("seat-" + seatAttempts + ":" + virtualUserId);
+                if (seatAttempts == 1) {
+                    throw new IllegalStateException("temporary seat failure");
+                }
+                return new VirtualUserCommandResponse(
+                        simulationId,
+                        virtualUserId,
+                        "PAYMENT_REQUESTED",
+                        "api-b",
+                        "payment requested",
+                        "A-1"
+                );
+            }
+        };
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 5, 0);
+
+        client.runUser("http://nginx:8080", simulationId, 1);
+
+        assertThat(calls).containsExactly(
+                "queue-1:" + userId,
+                "queue-2:" + userId,
+                "seat-1:" + userId,
+                "seat-2:" + userId
+        );
+    }
 }

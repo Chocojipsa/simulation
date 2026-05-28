@@ -29,8 +29,8 @@ import java.util.function.UnaryOperator;
 public class RedisSimulationStateStore implements SimulationStateGateway {
     private static final Duration TTL = Duration.ofHours(3);
     private static final Duration LOCK_TTL = Duration.ofSeconds(2);
-    private static final Duration LOCK_RETRY_DELAY = Duration.ofMillis(25);
-    private static final int LOCK_ATTEMPTS = 40;
+    private static final Duration LOCK_RETRY_DELAY = Duration.ofMillis(20);
+    private static final int LOCK_ATTEMPTS = 250;
     private static final int ROW_COUNT = 10;
     private static final int SEATS_PER_ROW = 12;
 
