@@ -20,22 +20,24 @@ public class SeatReservationService {
     static final String ACTIVE_RESERVATION_COUNT_SQL = """
             select count(*)
             from reservations
-            where seat_id = ?
+            where simulation_id = ?
+              and seat_id = ?
               and status in ('HELD', 'PAYMENT_IN_PROGRESS', 'RESERVED')
             """;
 
     static final String HOLD_SEAT_SQL = """
-            update seats
-            set status = 'HELD', updated_at = now()
-            where id = ?
+            update simulation_seats
+            set status = 'HELD', held_by_user_id = ?, updated_at = now()
+            where simulation_id = ?
+              and seat_id = ?
               and status = 'AVAILABLE'
             """;
 
     static final String NEXT_RESERVATION_ID_SQL = "select nextval('reservation_id_seq')";
 
     static final String INSERT_RESERVATION_SQL = """
-            insert into reservations(id, seat_id, virtual_user_id, status, idempotency_key)
-            values (?, ?, ?, ?, ?)
+            insert into reservations(id, simulation_id, seat_id, virtual_user_id, status, idempotency_key)
+            values (?, ?, ?, ?, ?, ?)
             """;
 
     private final JdbcTemplate jdbc;
@@ -52,16 +54,26 @@ public class SeatReservationService {
             long seatId,
             String idempotencyKey
     ) {
-        return transactions.execute(status -> holdSeatInTransaction(virtualUserId, seatId, idempotencyKey));
+        return transactions.execute(status -> holdSeatInTransaction(simulationId, virtualUserId, seatId, idempotencyKey));
     }
 
-    private SeatReservationResult holdSeatInTransaction(UUID virtualUserId, long seatId, String idempotencyKey) {
+    private SeatReservationResult holdSeatInTransaction(
+            UUID simulationId,
+            UUID virtualUserId,
+            long seatId,
+            String idempotencyKey
+    ) {
         SeatReservationResult existing = findExisting(idempotencyKey);
         if (existing != null) {
             return existing;
         }
 
-        Integer activeReservationCount = jdbc.queryForObject(ACTIVE_RESERVATION_COUNT_SQL, Integer.class, seatId);
+        Integer activeReservationCount = jdbc.queryForObject(
+                ACTIVE_RESERVATION_COUNT_SQL,
+                Integer.class,
+                simulationId,
+                seatId
+        );
         if (activeReservationCount != null && activeReservationCount > 0) {
             return new SeatReservationResult(
                     SeatReservationOutcome.ALREADY_HELD,
@@ -72,7 +84,7 @@ public class SeatReservationService {
             );
         }
 
-        int updatedSeats = jdbc.update(HOLD_SEAT_SQL, seatId);
+        int updatedSeats = jdbc.update(HOLD_SEAT_SQL, virtualUserId, simulationId, seatId);
         if (updatedSeats == 0) {
             return new SeatReservationResult(
                     SeatReservationOutcome.ALREADY_HELD,
@@ -84,7 +96,7 @@ public class SeatReservationService {
         }
 
         Long reservationId = jdbc.queryForObject(NEXT_RESERVATION_ID_SQL, Long.class);
-        jdbc.update(INSERT_RESERVATION_SQL, reservationId, seatId, virtualUserId, "HELD", idempotencyKey);
+        jdbc.update(INSERT_RESERVATION_SQL, reservationId, simulationId, seatId, virtualUserId, "HELD", idempotencyKey);
 
         return new SeatReservationResult(
                 SeatReservationOutcome.HELD,

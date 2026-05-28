@@ -29,9 +29,9 @@ class SeatReservationServiceTest {
 
         when(jdbc.queryForObject(eq(SeatReservationService.FIND_BY_IDEMPOTENCY_KEY_SQL), any(RowMapper.class), eq("hold-1")))
                 .thenThrow(new EmptyResultDataAccessException(1));
-        when(jdbc.queryForObject(SeatReservationService.ACTIVE_RESERVATION_COUNT_SQL, Integer.class, 10L))
+        when(jdbc.queryForObject(SeatReservationService.ACTIVE_RESERVATION_COUNT_SQL, Integer.class, simulationId, 10L))
                 .thenReturn(0);
-        when(jdbc.update(SeatReservationService.HOLD_SEAT_SQL, 10L))
+        when(jdbc.update(SeatReservationService.HOLD_SEAT_SQL, virtualUserId, simulationId, 10L))
                 .thenReturn(1);
         when(jdbc.queryForObject(SeatReservationService.NEXT_RESERVATION_ID_SQL, Long.class))
                 .thenReturn(100L);
@@ -46,6 +46,7 @@ class SeatReservationServiceTest {
         verify(jdbc).update(
                 SeatReservationService.INSERT_RESERVATION_SQL,
                 100L,
+                simulationId,
                 10L,
                 virtualUserId,
                 "HELD",
@@ -60,7 +61,7 @@ class SeatReservationServiceTest {
 
         when(jdbc.queryForObject(eq(SeatReservationService.FIND_BY_IDEMPOTENCY_KEY_SQL), any(RowMapper.class), eq("hold-2")))
                 .thenThrow(new EmptyResultDataAccessException(1));
-        when(jdbc.queryForObject(SeatReservationService.ACTIVE_RESERVATION_COUNT_SQL, Integer.class, 10L))
+        when(jdbc.queryForObject(SeatReservationService.ACTIVE_RESERVATION_COUNT_SQL, Integer.class, simulationId, 10L))
                 .thenReturn(1);
 
         SeatReservationResult result = service.holdSeat(simulationId, virtualUserId, 10L, "hold-2");
