@@ -91,14 +91,18 @@ public class SimulationService {
 
     public SimulationResponse createSimulation(CreateSimulationRequest request) {
         UUID simulationId = UUID.randomUUID();
-        SimulationSnapshot snapshot = stateStore.create(simulationId, request.virtualUserCount());
+        return createSimulation(simulationId, request.virtualUserCount());
+    }
+
+    public SimulationResponse createSimulation(UUID simulationId, int virtualUserCount) {
+        SimulationSnapshot snapshot = stateStore.create(simulationId, virtualUserCount);
         if (inventoryService != null) {
-            inventoryService.initialize(snapshot, request.virtualUserCount());
+            inventoryService.initialize(snapshot, virtualUserCount);
         }
         return new SimulationResponse(
                 simulationId,
                 "시뮬레이션이 생성되었습니다.",
-                request.virtualUserCount(),
+                virtualUserCount,
                 serverIdentity.id()
         );
     }

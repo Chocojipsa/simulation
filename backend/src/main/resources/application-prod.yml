@@ -8,6 +8,11 @@ payment:
   kafka:
     partitions: ${PAYMENT_KAFKA_PARTITIONS:5}
 
+live-event:
+  id: ${LIVE_EVENT_ID:00000000-0000-0000-0000-000000000001}
+  title: ${LIVE_EVENT_TITLE:부산 콘서트 티켓팅}
+  seat-count: ${LIVE_EVENT_SEAT_COUNT:120}
+
 spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL}

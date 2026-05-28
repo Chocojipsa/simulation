@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.kafka.core.KafkaTemplate;
 
 import java.util.Random;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -49,6 +50,38 @@ class LiveEventServiceTest {
                     assertThat(participant.type()).isEqualTo(ParticipantType.HUMAN);
                     assertThat(participant.status().name()).isEqualTo("WAITING_ROOM");
                 });
+    }
+
+    @Test
+    void activeEventUsesConfiguredSharedIdAcrossServiceInstances() {
+        UUID sharedEventId = UUID.fromString("00000000-0000-0000-0000-000000000777");
+        SimulationStateStore stateStore = new SimulationStateStore();
+        SimulationService simulationService = new SimulationService(stateStore);
+        LiveEventService apiA = new LiveEventService(
+                simulationService,
+                stateStore,
+                new ServerIdentity("api-a"),
+                (SimulationInventoryService) null,
+                sharedEventId,
+                "부산 콘서트 티켓팅",
+                120
+        );
+        LiveEventService apiB = new LiveEventService(
+                simulationService,
+                stateStore,
+                new ServerIdentity("api-b"),
+                (SimulationInventoryService) null,
+                sharedEventId,
+                "부산 콘서트 티켓팅",
+                120
+        );
+
+        LiveEventResponse first = apiA.activeEvent();
+        LiveEventResponse second = apiB.activeEvent();
+
+        assertThat(first.eventId()).isEqualTo(sharedEventId);
+        assertThat(second.eventId()).isEqualTo(sharedEventId);
+        assertThat(apiB.snapshot(sharedEventId, null).seats()).hasSize(120);
     }
 
     @Test

@@ -27,7 +27,7 @@ public class SimulationInventoryService {
         }
 
         jdbc.update(
-                "insert into simulation_sessions(id, concert_id, requested_users, status) values (?, 1, ?, 'CREATED')",
+                "insert into simulation_sessions(id, concert_id, requested_users, status) values (?, 1, ?, 'CREATED') on conflict (id) do nothing",
                 snapshot.simulationId(),
                 requestedUsers
         );

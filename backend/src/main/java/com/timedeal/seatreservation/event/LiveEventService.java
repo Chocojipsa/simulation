@@ -17,15 +17,19 @@ import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 public class LiveEventService {
+    private static final UUID DEFAULT_EVENT_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
+
     private final SimulationService simulationService;
     private final SimulationStateGateway stateGateway;
     private final SimulationInventoryService inventoryService;
     private final ServerIdentity serverIdentity;
+    private final UUID configuredEventId;
     private final String title;
     private final int seatCount;
     private final AtomicReference<UUID> activeEventId = new AtomicReference<>();
@@ -36,10 +40,11 @@ public class LiveEventService {
             SimulationStateGateway stateGateway,
             ServerIdentity serverIdentity,
             ObjectProvider<SimulationInventoryService> inventoryService,
+            @Value("${live-event.id:00000000-0000-0000-0000-000000000001}") UUID configuredEventId,
             @Value("${live-event.title:Live Ticketing Event}") String title,
             @Value("${live-event.seat-count:120}") int seatCount
     ) {
-        this(simulationService, stateGateway, serverIdentity, inventoryService.getIfAvailable(), title, seatCount);
+        this(simulationService, stateGateway, serverIdentity, inventoryService.getIfAvailable(), configuredEventId, title, seatCount);
     }
 
     public LiveEventService(
@@ -49,7 +54,7 @@ public class LiveEventService {
             String title,
             int seatCount
     ) {
-        this(simulationService, stateGateway, serverIdentity, (SimulationInventoryService) null, title, seatCount);
+        this(simulationService, stateGateway, serverIdentity, (SimulationInventoryService) null, DEFAULT_EVENT_ID, title, seatCount);
     }
 
     public LiveEventService(
@@ -60,22 +65,44 @@ public class LiveEventService {
             String title,
             int seatCount
     ) {
+        this(simulationService, stateGateway, serverIdentity, inventoryService, DEFAULT_EVENT_ID, title, seatCount);
+    }
+
+    public LiveEventService(
+            SimulationService simulationService,
+            SimulationStateGateway stateGateway,
+            ServerIdentity serverIdentity,
+            SimulationInventoryService inventoryService,
+            UUID configuredEventId,
+            String title,
+            int seatCount
+    ) {
         this.simulationService = simulationService;
         this.stateGateway = stateGateway;
         this.inventoryService = inventoryService;
         this.serverIdentity = serverIdentity;
+        this.configuredEventId = configuredEventId;
         this.title = title;
         this.seatCount = seatCount;
     }
 
     public LiveEventResponse activeEvent() {
-        UUID eventId = activeEventId.updateAndGet(current -> {
-            if (current != null) {
-                return current;
-            }
-            return simulationService.createSimulation(new CreateSimulationRequest(0)).simulationId();
-        });
+        UUID eventId = ensureActiveEventId();
         return new LiveEventResponse(eventId, title, "OPEN", Instant.now(Clock.systemUTC()), seatCount);
+    }
+
+    private UUID ensureActiveEventId() {
+        UUID current = activeEventId.get();
+        if (current != null) {
+            return current;
+        }
+        try {
+            simulationService.getSimulation(configuredEventId);
+        } catch (NoSuchElementException exception) {
+            simulationService.createSimulation(configuredEventId, 0);
+        }
+        activeEventId.compareAndSet(null, configuredEventId);
+        return activeEventId.get();
     }
 
     public JoinEventResponse join(UUID eventId, JoinEventRequest request) {

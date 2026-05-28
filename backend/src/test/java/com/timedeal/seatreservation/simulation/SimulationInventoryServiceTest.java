@@ -44,7 +44,7 @@ class SimulationInventoryServiceTest {
 
         verify(jdbc).update("insert into concerts(id, title) values (1, ?) on conflict (id) do nothing", "분산 좌석 예매 콘서트");
         verify(jdbc).update("insert into seats(id, concert_id, seat_label, status) values (?, 1, ?, 'AVAILABLE') on conflict (id) do nothing", 1L, "A-1");
-        verify(jdbc).update("insert into simulation_sessions(id, concert_id, requested_users, status) values (?, 1, ?, 'CREATED')", simulationId, 1);
+        verify(jdbc).update("insert into simulation_sessions(id, concert_id, requested_users, status) values (?, 1, ?, 'CREATED') on conflict (id) do nothing", simulationId, 1);
         verify(jdbc).update("insert into virtual_users(id, simulation_id, display_name, status) values (?, ?, ?, ?) on conflict (id) do nothing", userId, simulationId, "사용자 1", "QUEUED");
         verify(jdbc).update("insert into simulation_seats(simulation_id, seat_id, seat_label, status) values (?, ?, ?, 'AVAILABLE') on conflict (simulation_id, seat_id) do nothing", simulationId, 1L, "A-1");
     }
