@@ -4,11 +4,15 @@ import App from './App';
 
 vi.mock('./hooks/useLiveEventRoom', () => ({
   useLiveEventRoom: () => ({
+    eventId: 'event-1',
+    participantId: 'participant-1',
     snapshot: {
       eventId: 'event-1',
       title: '부산 콘서트 티켓팅',
-      status: 'OPEN',
-      opensAt: '2026-05-28T12:00:00Z',
+      status: 'READY',
+      generation: 1,
+      opensAt: null,
+      endsAt: null,
       seats: [{ id: 1, label: 'A-1', status: 'AVAILABLE' }],
       participants: [{
         id: 'participant-1',
@@ -25,7 +29,7 @@ vi.mock('./hooks/useLiveEventRoom', () => ({
       metrics: { queueSize: 0, admittedCount: 0, heldCount: 0, paymentInProgressCount: 0, reservedCount: 0, failedCount: 0 },
       serverStats: [{ serverId: 'api-a', requestCount: 1, conflictCount: 0, successCount: 0 }],
       running: false,
-      myParticipantId: null,
+      myParticipantId: 'participant-1',
     },
     myParticipant: {
       id: 'participant-1',
@@ -41,21 +45,26 @@ vi.mock('./hooks/useLiveEventRoom', () => ({
     },
     loading: false,
     error: null,
+    message: null,
     join: vi.fn(),
     reserve: vi.fn(),
     selectSeat: vi.fn(),
     pay: vi.fn(),
+    start: vi.fn(),
+    reset: vi.fn(),
     startAi: vi.fn(),
   }),
 }));
 
 describe('App', () => {
-  it('renders Korean live event room', () => {
+  it('renders user-started live event room', () => {
     render(<App />);
 
     expect(screen.getByText('부산 콘서트 티켓팅')).toBeInTheDocument();
-    expect(screen.getByText('예매 진행 중')).toBeInTheDocument();
-    expect(screen.getByText('예약하기')).toBeInTheDocument();
-    expect(screen.getByText('AI 참가자 시작')).toBeInTheDocument();
+    expect(screen.getByText('시작 전')).toBeInTheDocument();
+    expect(screen.getByText('이벤트 시작하기')).toBeInTheDocument();
+    expect(screen.queryByText('AI 참가자 시작')).not.toBeInTheDocument();
+    expect(screen.getByText('대기열')).toBeInTheDocument();
+    expect(screen.getByText('예매가 아직 시작되지 않았습니다.')).toBeInTheDocument();
   });
 });

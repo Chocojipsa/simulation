@@ -1,8 +1,9 @@
 import { CreditCard, LogIn, Ticket } from 'lucide-react';
-import type { EventParticipantView } from '../api/liveEventApi';
+import type { EventParticipantView, LiveEventStatus } from '../api/liveEventApi';
 import { canConfirmPayment, canReserve } from '../domain/liveEventSelectors';
 
 interface MyTicketPanelProps {
+  status: LiveEventStatus;
   participant: EventParticipantView | null;
   loading: boolean;
   onJoin: () => void;
@@ -10,7 +11,10 @@ interface MyTicketPanelProps {
   onPay: () => void;
 }
 
-export function MyTicketPanel({ participant, loading, onJoin, onReserve, onPay }: MyTicketPanelProps) {
+export function MyTicketPanel({ status, participant, loading, onJoin, onReserve, onPay }: MyTicketPanelProps) {
+  const reserveDisabled = !participant || status === 'READY' || status === 'ENDED' || !canReserve(participant);
+  const reserveLabel = status === 'COUNTDOWN' ? '대기열 입장' : '예약하기';
+
   return (
     <section className="panel my-ticket-panel">
       <h2>내 예매 상태</h2>
@@ -31,8 +35,8 @@ export function MyTicketPanel({ participant, loading, onJoin, onReserve, onPay }
           <LogIn size={18} /> 이벤트 입장
         </button>
       ) : (
-        <button className="primary-action icon-action" disabled={!canReserve(participant)} onClick={onReserve}>
-          <Ticket size={18} /> 예약하기
+        <button className="primary-action icon-action" disabled={reserveDisabled} onClick={onReserve}>
+          <Ticket size={18} /> {reserveLabel}
         </button>
       )}
       <button className="secondary-action icon-action" disabled={!canConfirmPayment(participant)} onClick={onPay}>

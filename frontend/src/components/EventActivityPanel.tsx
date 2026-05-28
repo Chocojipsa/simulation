@@ -2,10 +2,11 @@ import type { LiveEventSnapshot } from '../api/liveEventApi';
 
 interface EventActivityPanelProps {
   snapshot: LiveEventSnapshot;
-  onStartAi: () => void;
+  onStart: () => void;
+  onReset: () => void;
 }
 
-export function EventActivityPanel({ snapshot, onStartAi }: EventActivityPanelProps) {
+export function EventActivityPanel({ snapshot, onStart, onReset }: EventActivityPanelProps) {
   const recent = snapshot.participants.flatMap((participant) =>
     participant.timeline.slice(-2).map((entry) => ({
       id: `${participant.id}-${entry.label}-${entry.message}`,
@@ -19,7 +20,12 @@ export function EventActivityPanel({ snapshot, onStartAi }: EventActivityPanelPr
     <section className="panel activity-panel">
       <div className="panel-title-row">
         <h2>실시간 진행</h2>
-        <button className="secondary-action compact" onClick={onStartAi}>AI 참가자 시작</button>
+        {snapshot.status === 'READY' ? (
+          <button className="secondary-action compact" onClick={onStart}>이벤트 시작하기</button>
+        ) : null}
+        {snapshot.status === 'ENDED' ? (
+          <button className="secondary-action compact" onClick={onReset}>새 이벤트 시작</button>
+        ) : null}
       </div>
       <div className="infra-grid">
         {snapshot.serverStats.map((stat) => (

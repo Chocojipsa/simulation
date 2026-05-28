@@ -1,5 +1,5 @@
 import type { LiveEventSnapshot } from '../api/liveEventApi';
-import { formatEventStatus } from '../domain/liveEventSelectors';
+import { formatEventStatus, getTimeLabel } from '../domain/liveEventSelectors';
 
 interface EventHeaderProps {
   snapshot: LiveEventSnapshot;
@@ -14,7 +14,8 @@ export function EventHeader({ snapshot }: EventHeaderProps) {
       </div>
       <div className="event-status">
         <strong>{formatEventStatus(snapshot.status)}</strong>
-        <span>예약 완료 {snapshot.metrics.reservedCount}석</span>
+        <span>{getTimeLabel(snapshot.status, snapshot.opensAt, snapshot.endsAt)}</span>
+        <span>예약 완료 {snapshot.metrics.reservedCount}명</span>
       </div>
     </header>
   );

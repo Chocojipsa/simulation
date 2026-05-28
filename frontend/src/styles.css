@@ -338,6 +338,60 @@ input {
   color: #991b1b;
 }
 
+.info-banner {
+  margin: 12px 12px 0;
+  padding: 10px 12px;
+  border: 1px solid #93c5fd;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.side-column {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.queue-panel {
+  min-height: 220px;
+}
+
+.queue-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.queue-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.queue-row-me {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.queue-row em {
+  font-size: 12px;
+  font-style: normal;
+  color: #64748b;
+}
+
+.seat-map-message {
+  margin: 8px 0 10px;
+  color: #b45309;
+  font-weight: 700;
+}
+
 .empty-state {
   min-height: 320px;
   display: flex;
