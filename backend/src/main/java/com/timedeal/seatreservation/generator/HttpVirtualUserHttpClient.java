@@ -12,7 +12,7 @@ import java.util.function.Supplier;
 @Component
 @Profile("generator")
 public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
-    private static final int DEFAULT_MAX_SEAT_ATTEMPTS = 30;
+    private static final int DEFAULT_MAX_SEAT_ATTEMPTS = 300;
     private static final long DEFAULT_RETRY_DELAY_MILLIS = 100L;
     private static final int COMMAND_RETRY_ATTEMPTS = 5;
 

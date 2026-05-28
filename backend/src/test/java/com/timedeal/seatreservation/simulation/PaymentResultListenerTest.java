@@ -1,18 +1,29 @@
 package com.timedeal.seatreservation.simulation;
 
 import com.timedeal.seatreservation.payment.PaymentResultEvent;
+import com.timedeal.seatreservation.seat.SeatReservationService;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Profile;
 
 import java.util.UUID;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class PaymentResultListenerTest {
     @Test
+    void runsOnlyOnApiProcesses() {
+        Profile profile = PaymentResultListener.class.getAnnotation(Profile.class);
+
+        assertThat(profile.value()).containsExactly("!demo & !worker & !generator");
+    }
+
+    @Test
     void appliesPaymentResultToStateStore() {
         SimulationStateGateway stateStore = mock(SimulationStateGateway.class);
-        PaymentResultListener listener = new PaymentResultListener(stateStore);
+        SeatReservationService seatReservationService = mock(SeatReservationService.class);
+        PaymentResultListener listener = new PaymentResultListener(stateStore, seatReservationService);
         PaymentResultEvent event = new PaymentResultEvent(
                 UUID.fromString("00000000-0000-0000-0000-000000000060"),
                 UUID.fromString("00000000-0000-0000-0000-000000000160"),
@@ -25,6 +36,7 @@ class PaymentResultListenerTest {
 
         listener.handle(event);
 
+        verify(seatReservationService).applyPaymentResult(event);
         verify(stateStore).applyPaymentResult(event);
     }
 }

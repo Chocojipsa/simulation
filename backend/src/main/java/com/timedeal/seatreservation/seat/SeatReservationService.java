@@ -1,5 +1,6 @@
 package com.timedeal.seatreservation.seat;
 
+import com.timedeal.seatreservation.payment.PaymentResultEvent;
 import org.springframework.context.annotation.Profile;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -39,6 +40,18 @@ public class SeatReservationService {
             insert into reservations(id, simulation_id, seat_id, virtual_user_id, status, idempotency_key)
             values (?, ?, ?, ?, ?, ?)
             """;
+    static final String UPDATE_RESERVATION_PAYMENT_RESULT_SQL = """
+            update reservations
+            set status = ?, updated_at = now()
+            where id = ?
+              and simulation_id = ?
+            """;
+    static final String UPDATE_SIMULATION_SEAT_PAYMENT_RESULT_SQL = """
+            update simulation_seats
+            set status = ?, held_by_user_id = ?, updated_at = now()
+            where simulation_id = ?
+              and seat_id = ?
+            """;
 
     private final JdbcTemplate jdbc;
     private final TransactionOperations transactions;
@@ -55,6 +68,29 @@ public class SeatReservationService {
             String idempotencyKey
     ) {
         return transactions.execute(status -> holdSeatInTransaction(simulationId, virtualUserId, seatId, idempotencyKey));
+    }
+
+    public void applyPaymentResult(PaymentResultEvent event) {
+        transactions.execute(status -> {
+            String reservationStatus = event.success() ? "RESERVED" : "FAILED";
+            String seatStatus = event.success() ? "RESERVED" : "AVAILABLE";
+            UUID heldByUserId = event.success() ? event.virtualUserId() : null;
+
+            jdbc.update(
+                    UPDATE_RESERVATION_PAYMENT_RESULT_SQL,
+                    reservationStatus,
+                    event.reservationId(),
+                    event.simulationId()
+            );
+            jdbc.update(
+                    UPDATE_SIMULATION_SEAT_PAYMENT_RESULT_SQL,
+                    seatStatus,
+                    heldByUserId,
+                    event.simulationId(),
+                    event.seatId()
+            );
+            return null;
+        });
     }
 
     private SeatReservationResult holdSeatInTransaction(

@@ -124,6 +124,26 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
     }
 
     @Override
+    public SimulationSnapshot recordSeatSelectionWaiting(UUID simulationId, UUID virtualUserId, String handledBy) {
+        return mutate(simulationId, current -> new SimulationSnapshot(
+                current.simulationId(),
+                current.seats(),
+                updateUser(current.users(), virtualUserId, user -> appendTimeline(
+                        user,
+                        VirtualUserStatus.SELECTING_SEAT,
+                        user.selectedSeatLabel(),
+                        "좌석 선택 대기",
+                        "결제 결과를 기다린 뒤 다시 좌석을 선택합니다.",
+                        0,
+                        0
+                )),
+                current.metrics(),
+                incrementServerStats(current.serverStats(), handledBy, false, false),
+                current.running()
+        ));
+    }
+
+    @Override
     public SimulationSnapshot recordSeatConflict(UUID simulationId, UUID virtualUserId, SeatView seat, String handledBy) {
         return mutate(simulationId, current -> new SimulationSnapshot(
                 current.simulationId(),

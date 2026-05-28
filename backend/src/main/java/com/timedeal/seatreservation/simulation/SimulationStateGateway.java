@@ -15,6 +15,8 @@ public interface SimulationStateGateway {
 
     SimulationSnapshot recordWaiting(UUID simulationId, UUID virtualUserId, String handledBy);
 
+    SimulationSnapshot recordSeatSelectionWaiting(UUID simulationId, UUID virtualUserId, String handledBy);
+
     SimulationSnapshot recordSeatConflict(UUID simulationId, UUID virtualUserId, SeatView seat, String handledBy);
 
     SimulationSnapshot recordNoSeatAvailable(UUID simulationId, UUID virtualUserId, String handledBy);

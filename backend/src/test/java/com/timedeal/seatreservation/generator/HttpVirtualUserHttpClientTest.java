@@ -91,4 +91,38 @@ class HttpVirtualUserHttpClientTest {
                 "seat-2:" + userId
         );
     }
+
+    @Test
+    void defaultRetryBudgetKeepsUserAliveLongEnoughForPaymentFailureResale() {
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000042");
+        VirtualUserCommandClient commandClient = new VirtualUserCommandClient() {
+            private int seatAttempts;
+
+            @Override
+            public VirtualUserCommandResponse postQueue(String baseUrl, UUID simulationId, UUID virtualUserId) {
+                return new VirtualUserCommandResponse(simulationId, virtualUserId, "QUEUED", "api-a", "queued", null);
+            }
+
+            @Override
+            public VirtualUserCommandResponse postSeatAttempt(String baseUrl, UUID simulationId, UUID virtualUserId) {
+                seatAttempts++;
+                if (seatAttempts < 60) {
+                    return new VirtualUserCommandResponse(simulationId, virtualUserId, "WAITING", "api-b", "waiting", null);
+                }
+                return new VirtualUserCommandResponse(
+                        simulationId,
+                        virtualUserId,
+                        "PAYMENT_REQUESTED",
+                        "api-b",
+                        "payment requested",
+                        "A-1"
+                );
+            }
+        };
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient);
+
+        client.runUser("http://nginx:8080", simulationId, 1);
+
+        assertThat(commandClient).extracting("seatAttempts").isEqualTo(60);
+    }
 }

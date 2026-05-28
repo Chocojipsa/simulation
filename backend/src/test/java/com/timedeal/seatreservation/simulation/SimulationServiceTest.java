@@ -154,6 +154,24 @@ class SimulationServiceTest {
     }
 
     @Test
+    void seatAttemptWaitsWhenNoSeatIsAvailableButPaymentsAreStillInProgress() {
+        SimulationStateGateway stateStore = mock(SimulationStateGateway.class);
+        WaitingQueueService waitingQueue = mock(WaitingQueueService.class);
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000036");
+        UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000136");
+        SeatView seat = new SeatView(1L, "A-1", SeatStatus.PAYMENT_IN_PROGRESS);
+        when(waitingQueue.hasAdmissionToken(simulationId.toString(), userId.toString())).thenReturn(true);
+        when(stateStore.snapshot(simulationId)).thenReturn(snapshot(simulationId, userId, seat));
+        SimulationService service = service(stateStore, waitingQueue, null, null);
+
+        VirtualUserCommandResponse response = service.attemptSeat(simulationId, userId);
+
+        verify(stateStore).recordSeatSelectionWaiting(simulationId, userId, "api-test");
+        assertThat(response.status()).isEqualTo("WAITING");
+        assertThat(response.message()).isEqualTo("결제 결과를 기다린 뒤 다시 좌석을 선택합니다.");
+    }
+
+    @Test
     void seatAttemptPublishesPaymentRequestAfterSuccessfulHold() {
         SimulationStateGateway stateStore = mock(SimulationStateGateway.class);
         WaitingQueueService waitingQueue = mock(WaitingQueueService.class);

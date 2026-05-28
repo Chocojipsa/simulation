@@ -1,6 +1,13 @@
 app:
   instance-id: ${APP_INSTANCE_ID}
 
+payment:
+  failure-rate-percent: ${PAYMENT_FAILURE_RATE_PERCENT:5}
+  simulation-delay-min-ms: ${PAYMENT_SIMULATION_DELAY_MIN_MS:300}
+  simulation-delay-max-ms: ${PAYMENT_SIMULATION_DELAY_MAX_MS:900}
+  kafka:
+    partitions: ${PAYMENT_KAFKA_PARTITIONS:5}
+
 spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL}

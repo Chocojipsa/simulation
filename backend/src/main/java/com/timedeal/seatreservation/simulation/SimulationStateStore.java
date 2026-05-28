@@ -89,6 +89,17 @@ public class SimulationStateStore implements SimulationStateGateway {
     }
 
     @Override
+    public SimulationSnapshot recordSeatSelectionWaiting(UUID simulationId, UUID virtualUserId, String handledBy) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            MutableVirtualUser user = user(state, virtualUserId);
+            user.status = VirtualUserStatus.SELECTING_SEAT;
+            user.timeline.add(new TimelineEntry("좌석 선택 대기", "결제 결과를 기다린 뒤 다시 좌석을 선택합니다."));
+        }
+        return snapshot(simulationId);
+    }
+
+    @Override
     public SimulationSnapshot recordSeatConflict(UUID simulationId, UUID virtualUserId, SeatView seat, String handledBy) {
         MutableSimulationState state = state(simulationId);
         synchronized (state) {

@@ -1,5 +1,6 @@
 package com.timedeal.seatreservation.seat;
 
+import com.timedeal.seatreservation.payment.PaymentResultEvent;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -90,6 +91,56 @@ class SeatReservationServiceTest {
         SeatReservationResult result = service.holdSeat(simulationId, virtualUserId, 10L, "hold-3");
 
         assertThat(result).isEqualTo(existing);
+    }
+
+    @Test
+    void applySuccessfulPaymentMarksReservationAndSimulationSeatReserved() {
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000304");
+        UUID virtualUserId = UUID.fromString("00000000-0000-0000-0000-000000000404");
+
+        service.applyPaymentResult(new PaymentResultEvent(
+                simulationId,
+                virtualUserId,
+                100L,
+                10L,
+                true,
+                "결제 성공",
+                "worker"
+        ));
+
+        verify(jdbc).update(SeatReservationService.UPDATE_RESERVATION_PAYMENT_RESULT_SQL, "RESERVED", 100L, simulationId);
+        verify(jdbc).update(
+                SeatReservationService.UPDATE_SIMULATION_SEAT_PAYMENT_RESULT_SQL,
+                "RESERVED",
+                virtualUserId,
+                simulationId,
+                10L
+        );
+    }
+
+    @Test
+    void applyFailedPaymentReopensSimulationSeatForResale() {
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000305");
+        UUID virtualUserId = UUID.fromString("00000000-0000-0000-0000-000000000405");
+
+        service.applyPaymentResult(new PaymentResultEvent(
+                simulationId,
+                virtualUserId,
+                101L,
+                11L,
+                false,
+                "결제 실패",
+                "worker"
+        ));
+
+        verify(jdbc).update(SeatReservationService.UPDATE_RESERVATION_PAYMENT_RESULT_SQL, "FAILED", 101L, simulationId);
+        verify(jdbc).update(
+                SeatReservationService.UPDATE_SIMULATION_SEAT_PAYMENT_RESULT_SQL,
+                "AVAILABLE",
+                null,
+                simulationId,
+                11L
+        );
     }
 
     private static final class ImmediateTransactionOperations implements TransactionOperations {

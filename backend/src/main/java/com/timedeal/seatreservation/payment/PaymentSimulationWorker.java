@@ -22,37 +22,42 @@ public class PaymentSimulationWorker {
     private final ServerIdentity serverIdentity;
     private final IntSupplier paymentDelayMillis;
     private final IntConsumer sleeper;
+    private final int failureRatePercent;
 
     @Autowired
     public PaymentSimulationWorker(
             KafkaTemplate<String, PaymentResultEvent> kafkaTemplate,
             ServerIdentity serverIdentity,
             @Value("${payment.simulation-delay-min-ms:300}") int paymentDelayMinMillis,
-            @Value("${payment.simulation-delay-max-ms:900}") int paymentDelayMaxMillis
+            @Value("${payment.simulation-delay-max-ms:900}") int paymentDelayMaxMillis,
+            @Value("${payment.failure-rate-percent:5}") int failureRatePercent
     ) {
         this(
                 kafkaTemplate,
                 serverIdentity,
                 randomDelaySupplier(paymentDelayMinMillis, paymentDelayMaxMillis),
-                PaymentSimulationWorker::sleep
+                PaymentSimulationWorker::sleep,
+                failureRatePercent
         );
     }
 
     PaymentSimulationWorker(KafkaTemplate<String, PaymentResultEvent> kafkaTemplate, ServerIdentity serverIdentity) {
         this(kafkaTemplate, serverIdentity, () -> 0, ignored -> {
-        });
+        }, 5);
     }
 
     PaymentSimulationWorker(
             KafkaTemplate<String, PaymentResultEvent> kafkaTemplate,
             ServerIdentity serverIdentity,
             IntSupplier paymentDelayMillis,
-            IntConsumer sleeper
+            IntConsumer sleeper,
+            int failureRatePercent
     ) {
         this.kafkaTemplate = kafkaTemplate;
         this.serverIdentity = serverIdentity;
         this.paymentDelayMillis = paymentDelayMillis;
         this.sleeper = sleeper;
+        this.failureRatePercent = Math.max(0, Math.min(100, failureRatePercent));
     }
 
     @KafkaListener(topics = PAYMENT_EVENTS_TOPIC, groupId = "payment-simulation-worker")
@@ -65,7 +70,7 @@ public class PaymentSimulationWorker {
     }
 
     public PaymentResultEvent simulate(PaymentRequestedEvent event) {
-        boolean success = event.reservationId() % 5 != 0;
+        boolean success = event.reservationId() % 100 >= failureRatePercent;
         String message = success ? "결제 성공" : "결제 실패";
         return new PaymentResultEvent(
                 event.simulationId(),

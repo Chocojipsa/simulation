@@ -146,6 +146,17 @@ public class SimulationService {
                 .filter(seat -> seat.status() == SeatStatus.AVAILABLE)
                 .toList();
         if (availableSeats.isEmpty()) {
+            if (hasPendingPaymentSeats(snapshot)) {
+                stateStore.recordSeatSelectionWaiting(simulationId, userId, serverIdentity.id());
+                return new VirtualUserCommandResponse(
+                        simulationId,
+                        userId,
+                        "WAITING",
+                        serverIdentity.id(),
+                        "결제 결과를 기다린 뒤 다시 좌석을 선택합니다.",
+                        null
+                );
+            }
             stateStore.recordNoSeatAvailable(simulationId, userId, serverIdentity.id());
             return new VirtualUserCommandResponse(
                     simulationId,
@@ -177,6 +188,12 @@ public class SimulationService {
                 serverIdentity.id(),
                 seat.label() + " 좌석을 선택했습니다. 결제를 요청했습니다.",
                 seat.label()
+        );
+    }
+
+    private boolean hasPendingPaymentSeats(SimulationSnapshot snapshot) {
+        return snapshot.seats().stream().anyMatch(seat ->
+                seat.status() == SeatStatus.HELD || seat.status() == SeatStatus.PAYMENT_IN_PROGRESS
         );
     }
 
