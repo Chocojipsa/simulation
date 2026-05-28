@@ -3,6 +3,7 @@ package com.timedeal.seatreservation.simulation.redis;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.timedeal.seatreservation.domain.SeatStatus;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
+import com.timedeal.seatreservation.payment.PaymentResultEvent;
 import com.timedeal.seatreservation.simulation.SeatView;
 import com.timedeal.seatreservation.simulation.ServerStatsView;
 import com.timedeal.seatreservation.simulation.SimulationMetrics;
@@ -113,5 +114,45 @@ class RedisSimulationStateStoreTest {
         assertThat(updated.users().get(0).status()).isEqualTo(VirtualUserStatus.FAILED);
         assertThat(updated.users().get(0).seatAttemptCount()).isEqualTo(30);
         assertThat(updated.users().get(0).conflictCount()).isEqualTo(30);
+    }
+
+    @Test
+    void applyPaymentResultStopsRunningWhenNoUsersAreActive() throws Exception {
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(Boolean.TRUE);
+
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000024");
+        UUID userId = UUID.nameUUIDFromBytes((simulationId + ":1").getBytes(StandardCharsets.UTF_8));
+        SimulationSnapshot initial = new SimulationSnapshot(
+                simulationId,
+                List.of(new SeatView(1L, "A-1", SeatStatus.PAYMENT_IN_PROGRESS)),
+                List.of(new VirtualUserView(
+                        userId,
+                        "user 1",
+                        VirtualUserStatus.PAYMENT_IN_PROGRESS,
+                        "A-1",
+                        List.of(new TimelineEntry("결제", "결제를 진행 중입니다.")),
+                        1,
+                        0
+                )),
+                new SimulationMetrics(0, 1, 0, 1, 0, 0),
+                List.of(new ServerStatsView("api-a", 1, 0, 1)),
+                true
+        );
+
+        when(values.get("simulation:00000000-0000-0000-0000-000000000024:snapshot"))
+                .thenReturn(objectMapper.writeValueAsString(initial));
+
+        SimulationSnapshot updated = store.applyPaymentResult(new PaymentResultEvent(
+                simulationId,
+                userId,
+                1L,
+                1L,
+                true,
+                "결제 성공",
+                "worker"
+        ));
+
+        assertThat(updated.running()).isFalse();
     }
 }

@@ -296,7 +296,16 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
                 snapshot.users(),
                 new SimulationMetrics(queueSize, admittedCount, heldCount, paymentInProgressCount, reservedCount, failedCount),
                 snapshot.serverStats(),
-                snapshot.running()
+                snapshot.running() && hasActiveUsers(snapshot.users())
+        );
+    }
+
+    private boolean hasActiveUsers(List<VirtualUserView> users) {
+        return users.stream().anyMatch(user ->
+                user.status() == VirtualUserStatus.QUEUED
+                        || user.status() == VirtualUserStatus.SELECTING_SEAT
+                        || user.status() == VirtualUserStatus.SEAT_HELD
+                        || user.status() == VirtualUserStatus.PAYMENT_IN_PROGRESS
         );
     }
 
