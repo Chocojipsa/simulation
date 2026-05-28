@@ -1,5 +1,6 @@
 package com.timedeal.seatreservation.event;
 
+import com.timedeal.seatreservation.simulation.RunSimulationResponse;
 import com.timedeal.seatreservation.simulation.VirtualUserCommandResponse;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -65,5 +66,13 @@ public class LiveEventController {
             @PathVariable UUID participantId
     ) {
         return liveEventService.confirmPayment(eventId, participantId);
+    }
+
+    @PostMapping("/{eventId}/ai/start")
+    public RunSimulationResponse startAiParticipants(
+            @PathVariable UUID eventId,
+            @Valid @RequestBody StartAiParticipantsRequest request
+    ) {
+        return liveEventService.startAiParticipants(eventId, request);
     }
 }

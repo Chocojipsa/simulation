@@ -1,11 +1,11 @@
 package com.timedeal.seatreservation.generator;
 
-import com.timedeal.seatreservation.simulation.VirtualUserCommandResponse;
+import com.timedeal.seatreservation.event.JoinEventResponse;
+import com.timedeal.seatreservation.event.SeatHoldResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -37,23 +37,25 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
 
     @Override
     public void runUser(String baseUrl, UUID simulationId, int virtualUserNumber) {
-        UUID virtualUserId = UUID.nameUUIDFromBytes(
-                (simulationId + ":" + virtualUserNumber).getBytes(StandardCharsets.UTF_8)
-        );
+        String displayName = "AI-" + virtualUserNumber;
+        JoinEventResponse joined = runWithTransientRetry(() -> commandClient.joinEvent(baseUrl, simulationId, displayName));
+        UUID participantId = joined.participantId();
 
-        runWithTransientRetry(() -> commandClient.postQueue(baseUrl, simulationId, virtualUserId));
+        runWithTransientRetry(() -> commandClient.postQueue(baseUrl, simulationId, participantId));
         for (int attempt = 0; attempt < maxSeatAttempts; attempt++) {
-            VirtualUserCommandResponse response = runWithTransientRetry(
-                    () -> commandClient.postSeatAttempt(baseUrl, simulationId, virtualUserId)
-            );
-            if (isTerminal(response.status())) {
+            SeatHoldResponse hold = runWithTransientRetry(() -> commandClient.holdRandomSeat(baseUrl, simulationId, participantId));
+            if ("PAYMENT_PENDING".equals(hold.status()) || "PAYMENT_REQUESTED".equals(hold.status())) {
+                runWithTransientRetry(() -> commandClient.confirmPayment(baseUrl, simulationId, participantId));
+                return;
+            }
+            if ("FAILED".equals(hold.status())) {
                 return;
             }
             sleepBriefly();
         }
     }
 
-    private VirtualUserCommandResponse runWithTransientRetry(Supplier<VirtualUserCommandResponse> command) {
+    private <T> T runWithTransientRetry(Supplier<T> command) {
         RuntimeException lastException = null;
         for (int attempt = 0; attempt < COMMAND_RETRY_ATTEMPTS; attempt++) {
             try {
@@ -64,12 +66,6 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
             }
         }
         throw lastException;
-    }
-
-    private boolean isTerminal(String status) {
-        return "PAYMENT_REQUESTED".equals(status)
-                || "COMPLETED".equals(status)
-                || "FAILED".equals(status);
     }
 
     private void sleepBriefly() {

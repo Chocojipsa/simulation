@@ -2,6 +2,8 @@ package com.timedeal.seatreservation.event;
 
 import com.timedeal.seatreservation.identity.ServerIdentity;
 import com.timedeal.seatreservation.simulation.CreateSimulationRequest;
+import com.timedeal.seatreservation.simulation.RunSimulationRequest;
+import com.timedeal.seatreservation.simulation.RunSimulationResponse;
 import com.timedeal.seatreservation.simulation.SimulationService;
 import com.timedeal.seatreservation.simulation.SimulationSnapshot;
 import com.timedeal.seatreservation.simulation.SimulationStateGateway;
@@ -96,6 +98,10 @@ public class LiveEventService {
                 response.message(),
                 response.handledBy()
         );
+    }
+
+    public RunSimulationResponse startAiParticipants(UUID eventId, StartAiParticipantsRequest request) {
+        return simulationService.runSimulation(eventId, new RunSimulationRequest(request.participantCount(), request.concurrency()));
     }
 
     private String status(SimulationSnapshot snapshot) {
