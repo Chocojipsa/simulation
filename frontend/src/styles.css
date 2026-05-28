@@ -40,3 +40,144 @@ input {
   margin: 4px 0 0;
   color: #cfd8dc;
 }
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 280px minmax(420px, 1fr) 320px;
+  gap: 12px;
+  padding: 12px;
+}
+
+.panel {
+  background: #ffffff;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.panel h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.segmented button,
+.primary-action,
+.user-row {
+  border: 1px solid #cfd8dc;
+  background: #f7f9fb;
+  border-radius: 6px;
+  padding: 9px;
+  cursor: pointer;
+}
+
+.segmented button.active,
+.user-row.active {
+  border-color: #2563eb;
+  background: #e8f0ff;
+}
+
+.primary-action {
+  width: 100%;
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+.seat-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(30px, 1fr));
+  gap: 6px;
+}
+
+.seat {
+  min-height: 30px;
+  border: 0;
+  border-radius: 5px;
+  color: #111827;
+  font-size: 11px;
+}
+
+.seat-available { background: #51c878; }
+.seat-held { background: #60a5fa; }
+.seat-payment { background: #facc15; }
+.seat-reserved { background: #9ca3af; }
+.seat-highlighted {
+  outline: 3px solid #ef4444;
+  outline-offset: 1px;
+}
+
+.insight-column {
+  display: grid;
+  gap: 12px;
+}
+
+.metric-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px;
+  padding: 7px 0;
+  border-top: 1px solid #edf1f5;
+}
+
+.metric-row small {
+  grid-column: 1 / -1;
+  color: #6b7280;
+}
+
+.user-panel {
+  margin: 0 12px 12px;
+}
+
+.user-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 420px) 1fr;
+  gap: 12px;
+}
+
+.user-list {
+  display: grid;
+  max-height: 260px;
+  overflow: auto;
+  gap: 6px;
+}
+
+.user-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  text-align: left;
+}
+
+.user-row small {
+  grid-column: 1 / -1;
+  color: #6b7280;
+}
+
+.timeline-entry {
+  border-left: 3px solid #2563eb;
+  padding: 4px 0 8px 10px;
+}
+
+.timeline-entry p {
+  margin: 4px 0 0;
+  color: #4b5563;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-grid,
+  .user-layout {
+    grid-template-columns: 1fr;
+  }
+}
