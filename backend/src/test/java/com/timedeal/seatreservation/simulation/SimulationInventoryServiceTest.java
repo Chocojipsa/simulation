@@ -2,6 +2,7 @@ package com.timedeal.seatreservation.simulation;
 
 import com.timedeal.seatreservation.domain.SeatStatus;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
+import com.timedeal.seatreservation.event.ParticipantType;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -25,11 +26,14 @@ class SimulationInventoryServiceTest {
                 List.of(new VirtualUserView(
                         userId,
                         "사용자 1",
+                        ParticipantType.AI,
                         VirtualUserStatus.QUEUED,
                         null,
                         List.of(new TimelineEntry("대기열", "대기열에 진입했습니다.")),
                         0,
-                        0
+                        0,
+                        0,
+                        null
                 )),
                 new SimulationMetrics(1, 0, 0, 0, 0, 0),
                 List.of(),

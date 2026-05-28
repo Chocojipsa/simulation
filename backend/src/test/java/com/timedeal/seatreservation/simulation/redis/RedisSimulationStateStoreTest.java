@@ -3,6 +3,7 @@ package com.timedeal.seatreservation.simulation.redis;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.timedeal.seatreservation.domain.SeatStatus;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
+import com.timedeal.seatreservation.event.ParticipantType;
 import com.timedeal.seatreservation.payment.PaymentResultEvent;
 import com.timedeal.seatreservation.simulation.SeatView;
 import com.timedeal.seatreservation.simulation.ServerStatsView;
@@ -95,11 +96,14 @@ class RedisSimulationStateStoreTest {
                 List.of(new VirtualUserView(
                         userId,
                         "user 1",
+                        ParticipantType.AI,
                         VirtualUserStatus.SELECTING_SEAT,
                         "A-1",
                         List.of(new TimelineEntry("attempt", "attempt")),
                         29,
-                        29
+                        29,
+                        0,
+                        null
                 )),
                 new SimulationMetrics(0, 1, 0, 0, 0, 29),
                 List.of(new ServerStatsView("api-a", 29, 29, 0)),
@@ -129,11 +133,14 @@ class RedisSimulationStateStoreTest {
                 List.of(new VirtualUserView(
                         userId,
                         "user 1",
+                        ParticipantType.AI,
                         VirtualUserStatus.PAYMENT_IN_PROGRESS,
                         "A-1",
                         List.of(new TimelineEntry("결제", "결제를 진행 중입니다.")),
                         1,
-                        0
+                        0,
+                        0,
+                        null
                 )),
                 new SimulationMetrics(0, 1, 0, 1, 0, 0),
                 List.of(new ServerStatsView("api-a", 1, 0, 1)),
@@ -171,20 +178,26 @@ class RedisSimulationStateStoreTest {
                         new VirtualUserView(
                                 payingUserId,
                                 "user 1",
+                                ParticipantType.AI,
                                 VirtualUserStatus.PAYMENT_IN_PROGRESS,
                                 "A-1",
                                 List.of(new TimelineEntry("결제", "결제를 진행 중입니다.")),
                                 1,
-                                0
+                                0,
+                                0,
+                                null
                         ),
                         new VirtualUserView(
                                 queuedUserId,
                                 "user 2",
+                                ParticipantType.AI,
                                 VirtualUserStatus.QUEUED,
                                 null,
                                 List.of(new TimelineEntry("대기열", "대기열에 진입했습니다.")),
                                 0,
-                                0
+                                0,
+                                0,
+                                null
                         )
                 ),
                 new SimulationMetrics(1, 1, 0, 1, 0, 0),

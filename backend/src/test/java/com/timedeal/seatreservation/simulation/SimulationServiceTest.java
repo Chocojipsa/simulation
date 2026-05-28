@@ -2,6 +2,7 @@ package com.timedeal.seatreservation.simulation;
 
 import com.timedeal.seatreservation.domain.SeatStatus;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
+import com.timedeal.seatreservation.event.ParticipantType;
 import com.timedeal.seatreservation.generator.TrafficGeneratorClient;
 import com.timedeal.seatreservation.identity.ServerIdentity;
 import com.timedeal.seatreservation.payment.PaymentRequestedEvent;
@@ -119,11 +120,14 @@ class SimulationServiceTest {
                 List.of(new VirtualUserView(
                         userId,
                         "user 1",
+                        ParticipantType.AI,
                         VirtualUserStatus.FAILED,
                         "A-1",
                         List.of(new TimelineEntry("attempt", "attempt")),
                         30,
-                        30
+                        30,
+                        0,
+                        null
                 )),
                 new SimulationMetrics(0, 0, 0, 0, 0, 30),
                 List.of(),
@@ -221,11 +225,14 @@ class SimulationServiceTest {
                 List.of(new VirtualUserView(
                         userId,
                         "사용자 1",
+                        ParticipantType.AI,
                         VirtualUserStatus.QUEUED,
                         null,
                         List.of(new TimelineEntry("대기열", "대기열에 진입했습니다.")),
                         0,
-                        0
+                        0,
+                        0,
+                        null
                 )),
                 new SimulationMetrics(1, 0, 0, 0, 0, 0),
                 List.of(),

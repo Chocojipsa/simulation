@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.timedeal.seatreservation.domain.SeatStatus;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
+import com.timedeal.seatreservation.event.ParticipantType;
 import com.timedeal.seatreservation.payment.PaymentResultEvent;
 import com.timedeal.seatreservation.simulation.SeatView;
 import com.timedeal.seatreservation.simulation.ServerStatsView;
@@ -353,11 +354,14 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
         return new VirtualUserView(
                 user.id(),
                 user.displayName(),
+                user.type(),
                 status,
                 selectedSeatLabel,
                 timeline,
                 user.seatAttemptCount() + seatAttemptIncrement,
-                user.conflictCount() + conflictIncrement
+                user.conflictCount() + conflictIncrement,
+                user.paymentAttemptCount(),
+                user.reservationId()
         );
     }
 
@@ -414,11 +418,14 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
             users.add(new VirtualUserView(
                     userId,
                     "사용자 " + index,
+                    ParticipantType.AI,
                     VirtualUserStatus.QUEUED,
                     null,
                     List.of(new TimelineEntry("생성", "가상 사용자가 생성되었습니다.")),
                     0,
-                    0
+                    0,
+                    0,
+                    null
             ));
         }
         return users;

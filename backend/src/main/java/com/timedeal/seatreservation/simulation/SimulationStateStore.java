@@ -2,6 +2,7 @@ package com.timedeal.seatreservation.simulation;
 
 import com.timedeal.seatreservation.domain.SeatStatus;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
+import com.timedeal.seatreservation.event.ParticipantType;
 import com.timedeal.seatreservation.payment.PaymentResultEvent;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -39,11 +40,14 @@ public class SimulationStateStore implements SimulationStateGateway {
                     .map(user -> new VirtualUserView(
                             user.id,
                             user.displayName,
+                            ParticipantType.AI,
                             user.status,
                             user.selectedSeatLabel,
                             List.copyOf(user.timeline),
                             countTimelineEntries(user, "좌석 선택"),
-                            countTimelineEntries(user, "좌석 선택 실패")
+                            countTimelineEntries(user, "좌석 선택 실패"),
+                            0,
+                            null
                     ))
                     .toList();
 
