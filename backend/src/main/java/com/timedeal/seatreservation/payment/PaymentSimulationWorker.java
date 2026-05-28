@@ -1,5 +1,6 @@
 package com.timedeal.seatreservation.payment;
 
+import com.timedeal.seatreservation.identity.ServerIdentity;
 import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -12,9 +13,11 @@ public class PaymentSimulationWorker {
     static final String PAYMENT_RESULTS_TOPIC = "payment-results.events";
 
     private final KafkaTemplate<String, PaymentResultEvent> kafkaTemplate;
+    private final ServerIdentity serverIdentity;
 
-    public PaymentSimulationWorker(KafkaTemplate<String, PaymentResultEvent> kafkaTemplate) {
+    public PaymentSimulationWorker(KafkaTemplate<String, PaymentResultEvent> kafkaTemplate, ServerIdentity serverIdentity) {
         this.kafkaTemplate = kafkaTemplate;
+        this.serverIdentity = serverIdentity;
     }
 
     @KafkaListener(topics = PAYMENT_EVENTS_TOPIC, groupId = "payment-simulation-worker")
@@ -28,6 +31,14 @@ public class PaymentSimulationWorker {
     public PaymentResultEvent simulate(PaymentRequestedEvent event) {
         boolean success = event.reservationId() % 5 != 0;
         String message = success ? "결제 성공" : "결제 실패";
-        return new PaymentResultEvent(event.reservationId(), event.seatId(), success, message);
+        return new PaymentResultEvent(
+                event.simulationId(),
+                event.virtualUserId(),
+                event.reservationId(),
+                event.seatId(),
+                success,
+                message,
+                serverIdentity.id()
+        );
     }
 }
