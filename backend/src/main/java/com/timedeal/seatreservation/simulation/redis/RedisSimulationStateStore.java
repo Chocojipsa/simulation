@@ -85,6 +85,39 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
     }
 
     @Override
+    public SimulationSnapshot registerParticipant(
+            UUID simulationId,
+            UUID participantId,
+            String displayName,
+            ParticipantType type,
+            String handledBy
+    ) {
+        return mutate(simulationId, current -> {
+            List<VirtualUserView> users = new ArrayList<>(current.users());
+            users.add(new VirtualUserView(
+                    participantId,
+                    displayName,
+                    type,
+                    VirtualUserStatus.WAITING_ROOM,
+                    null,
+                    List.of(new TimelineEntry("입장", "이벤트에 입장했습니다.")),
+                    0,
+                    0,
+                    0,
+                    null
+            ));
+            return new SimulationSnapshot(
+                    current.simulationId(),
+                    current.seats(),
+                    users,
+                    current.metrics(),
+                    incrementServerStats(current.serverStats(), handledBy, false, false),
+                    current.running()
+            );
+        });
+    }
+
+    @Override
     public SimulationSnapshot registerQueueEntry(UUID simulationId, UUID virtualUserId, String handledBy) {
         return mutate(simulationId, current -> new SimulationSnapshot(
                 current.simulationId(),

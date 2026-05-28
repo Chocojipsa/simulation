@@ -40,7 +40,7 @@ public class SimulationStateStore implements SimulationStateGateway {
                     .map(user -> new VirtualUserView(
                             user.id,
                             user.displayName,
-                            ParticipantType.AI,
+                            user.type,
                             user.status,
                             user.selectedSeatLabel,
                             List.copyOf(user.timeline),
@@ -67,6 +67,24 @@ public class SimulationStateStore implements SimulationStateGateway {
         MutableSimulationState state = state(simulationId);
         synchronized (state) {
             state.running = true;
+        }
+        return snapshot(simulationId);
+    }
+
+    @Override
+    public SimulationSnapshot registerParticipant(
+            UUID simulationId,
+            UUID participantId,
+            String displayName,
+            ParticipantType type,
+            String handledBy
+    ) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            MutableVirtualUser user = new MutableVirtualUser(participantId, displayName, type);
+            user.status = VirtualUserStatus.WAITING_ROOM;
+            user.timeline.add(new TimelineEntry("입장", "이벤트에 입장했습니다."));
+            state.users.add(user);
         }
         return snapshot(simulationId);
     }
@@ -201,7 +219,7 @@ public class SimulationStateStore implements SimulationStateGateway {
     private List<MutableVirtualUser> createUsers(int virtualUserCount) {
         List<MutableVirtualUser> users = new ArrayList<>(virtualUserCount);
         for (int index = 1; index <= virtualUserCount; index++) {
-            MutableVirtualUser user = new MutableVirtualUser(UUID.randomUUID(), "사용자 " + index);
+            MutableVirtualUser user = new MutableVirtualUser(UUID.randomUUID(), "사용자 " + index, ParticipantType.AI);
             user.timeline.add(new TimelineEntry("대기열", "대기열에 진입했습니다."));
             users.add(user);
         }
@@ -278,13 +296,15 @@ public class SimulationStateStore implements SimulationStateGateway {
     static final class MutableVirtualUser {
         final UUID id;
         final String displayName;
+        final ParticipantType type;
         final List<TimelineEntry> timeline = new ArrayList<>();
         VirtualUserStatus status = VirtualUserStatus.QUEUED;
         String selectedSeatLabel;
 
-        MutableVirtualUser(UUID id, String displayName) {
+        MutableVirtualUser(UUID id, String displayName, ParticipantType type) {
             this.id = id;
             this.displayName = displayName;
+            this.type = type;
         }
     }
 }
