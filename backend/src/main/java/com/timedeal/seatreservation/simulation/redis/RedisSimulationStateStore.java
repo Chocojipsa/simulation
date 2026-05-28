@@ -29,6 +29,8 @@ import java.util.function.UnaryOperator;
 public class RedisSimulationStateStore implements SimulationStateGateway {
     private static final Duration TTL = Duration.ofHours(3);
     private static final Duration LOCK_TTL = Duration.ofSeconds(2);
+    private static final Duration LOCK_RETRY_DELAY = Duration.ofMillis(25);
+    private static final int LOCK_ATTEMPTS = 40;
     private static final int ROW_COUNT = 10;
     private static final int SEATS_PER_ROW = 12;
 
@@ -209,16 +211,33 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
 
     private SimulationSnapshot mutate(UUID simulationId, UnaryOperator<SimulationSnapshot> mutator) {
         String lockKey = "simulation:%s:lock".formatted(simulationId);
-        Boolean locked = redisTemplate.opsForValue().setIfAbsent(lockKey, "locked", LOCK_TTL);
-        if (!Boolean.TRUE.equals(locked)) {
-            throw new IllegalStateException("Simulation snapshot is busy: " + simulationId);
-        }
+        acquireLock(simulationId, lockKey);
         try {
             SimulationSnapshot updated = withMetrics(mutator.apply(snapshot(simulationId)));
             save(updated);
             return updated;
         } finally {
             redisTemplate.delete(lockKey);
+        }
+    }
+
+    private void acquireLock(UUID simulationId, String lockKey) {
+        for (int attempt = 0; attempt < LOCK_ATTEMPTS; attempt++) {
+            Boolean locked = redisTemplate.opsForValue().setIfAbsent(lockKey, "locked", LOCK_TTL);
+            if (Boolean.TRUE.equals(locked)) {
+                return;
+            }
+            sleepBeforeLockRetry(simulationId);
+        }
+        throw new IllegalStateException("Simulation snapshot is busy: " + simulationId);
+    }
+
+    private void sleepBeforeLockRetry(UUID simulationId) {
+        try {
+            Thread.sleep(LOCK_RETRY_DELAY.toMillis());
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting for simulation snapshot lock: " + simulationId, exception);
         }
     }
 

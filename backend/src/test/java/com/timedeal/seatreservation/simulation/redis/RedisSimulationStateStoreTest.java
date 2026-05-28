@@ -54,4 +54,22 @@ class RedisSimulationStateStoreTest {
         assertThat(updated.users().get(0).timeline()).anyMatch(entry -> entry.message().equals("대기열에 진입했습니다."));
         assertThat(updated.serverStats()).anyMatch(stats -> stats.serverId().equals("api-a") && stats.requestCount() == 1);
     }
+
+    @Test
+    void registerQueueEntryRetriesWhenSnapshotLockIsBusy() throws Exception {
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.setIfAbsent(anyString(), anyString(), any(Duration.class)))
+                .thenReturn(Boolean.FALSE, Boolean.TRUE);
+
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000022");
+        UUID userId = UUID.nameUUIDFromBytes((simulationId + ":1").getBytes(StandardCharsets.UTF_8));
+        SimulationSnapshot initial = store.create(simulationId, 1);
+
+        when(values.get("simulation:00000000-0000-0000-0000-000000000022:snapshot"))
+                .thenReturn(objectMapper.writeValueAsString(initial));
+
+        SimulationSnapshot updated = store.registerQueueEntry(simulationId, userId, "api-a");
+
+        assertThat(updated.serverStats()).anyMatch(stats -> stats.serverId().equals("api-a"));
+    }
 }
