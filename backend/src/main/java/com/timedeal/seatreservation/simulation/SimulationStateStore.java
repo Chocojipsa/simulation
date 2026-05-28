@@ -2,6 +2,7 @@ package com.timedeal.seatreservation.simulation;
 
 import com.timedeal.seatreservation.domain.SeatStatus;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
+import com.timedeal.seatreservation.payment.PaymentResultEvent;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -65,12 +66,94 @@ public class SimulationStateStore implements SimulationStateGateway {
         return snapshot(simulationId);
     }
 
+    @Override
+    public SimulationSnapshot registerQueueEntry(UUID simulationId, UUID virtualUserId, String handledBy) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            MutableVirtualUser user = user(state, virtualUserId);
+            user.status = VirtualUserStatus.QUEUED;
+            user.timeline.add(new TimelineEntry("대기열", "대기열에 진입했습니다."));
+        }
+        return snapshot(simulationId);
+    }
+
+    @Override
+    public SimulationSnapshot recordWaiting(UUID simulationId, UUID virtualUserId, String handledBy) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            MutableVirtualUser user = user(state, virtualUserId);
+            user.timeline.add(new TimelineEntry("대기 중", "아직 대기 중입니다."));
+        }
+        return snapshot(simulationId);
+    }
+
+    @Override
+    public SimulationSnapshot recordSeatConflict(UUID simulationId, UUID virtualUserId, SeatView seat, String handledBy) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            MutableVirtualUser user = user(state, virtualUserId);
+            user.status = VirtualUserStatus.SELECTING_SEAT;
+            user.selectedSeatLabel = seat.label();
+            user.timeline.add(new TimelineEntry("좌석 선택 실패", "이미 선택된 좌석입니다: " + seat.label()));
+        }
+        return snapshot(simulationId);
+    }
+
+    @Override
+    public SimulationSnapshot recordNoSeatAvailable(UUID simulationId, UUID virtualUserId, String handledBy) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            MutableVirtualUser user = user(state, virtualUserId);
+            user.status = VirtualUserStatus.FAILED;
+            user.timeline.add(new TimelineEntry("좌석 선택 실패", "선택 가능한 좌석이 없습니다."));
+        }
+        return snapshot(simulationId);
+    }
+
+    @Override
+    public SimulationSnapshot recordPaymentRequested(UUID simulationId, UUID virtualUserId, SeatView seat, String handledBy) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            MutableVirtualUser user = user(state, virtualUserId);
+            user.status = VirtualUserStatus.PAYMENT_IN_PROGRESS;
+            user.selectedSeatLabel = seat.label();
+            user.timeline.add(new TimelineEntry("좌석 선택", seat.label() + " 좌석을 선택했습니다. 결제를 요청했습니다."));
+            state.seats.stream()
+                    .filter(candidate -> candidate.id == seat.id())
+                    .findFirst()
+                    .ifPresent(candidate -> candidate.status = SeatStatus.PAYMENT_IN_PROGRESS);
+        }
+        return snapshot(simulationId);
+    }
+
+    @Override
+    public SimulationSnapshot applyPaymentResult(PaymentResultEvent event) {
+        MutableSimulationState state = state(event.simulationId());
+        synchronized (state) {
+            MutableVirtualUser user = user(state, event.virtualUserId());
+            user.status = event.success() ? VirtualUserStatus.RESERVED : VirtualUserStatus.FAILED;
+            user.timeline.add(new TimelineEntry(event.success() ? "결제 성공" : "결제 실패", event.success() ? "결제 성공" : "결제 실패"));
+            state.seats.stream()
+                    .filter(candidate -> candidate.id == event.seatId())
+                    .findFirst()
+                    .ifPresent(candidate -> candidate.status = event.success() ? SeatStatus.RESERVED : SeatStatus.AVAILABLE);
+        }
+        return snapshot(event.simulationId());
+    }
+
     MutableSimulationState state(UUID simulationId) {
         MutableSimulationState state = simulations.get(simulationId);
         if (state == null) {
             throw new NoSuchElementException("Simulation not found: " + simulationId);
         }
         return state;
+    }
+
+    private MutableVirtualUser user(MutableSimulationState state, UUID virtualUserId) {
+        return state.users.stream()
+                .filter(user -> user.id.equals(virtualUserId))
+                .findFirst()
+                .orElseThrow(() -> new NoSuchElementException("Virtual user not found: " + virtualUserId));
     }
 
     private int countTimelineEntries(MutableVirtualUser user, String label) {
