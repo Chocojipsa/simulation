@@ -19,8 +19,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -196,6 +198,38 @@ class SimulationServiceTest {
         verify(kafkaTemplate).send(eq("payment.events"), eq("101"), any(PaymentRequestedEvent.class));
         assertThat(response.status()).isEqualTo("PAYMENT_REQUESTED");
         assertThat(response.selectedSeatLabel()).isEqualTo("A-1");
+    }
+
+    @Test
+    void participantCannotHoldMultipleSeats() {
+        SimulationStateStore stateStore = new SimulationStateStore();
+        SeatReservationService seatReservationService = mock(SeatReservationService.class);
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000010");
+        UUID participantId = UUID.fromString("00000000-0000-0000-0000-000000000020");
+        stateStore.create(simulationId, 0);
+        stateStore.registerParticipant(simulationId, participantId, "Kwon", ParticipantType.HUMAN, "api-test");
+        stateStore.registerQueueEntry(simulationId, participantId, "api-test");
+        when(seatReservationService.holdSeat(eq(simulationId), eq(participantId), eq(1L), any()))
+                .thenReturn(new SeatReservationResult(SeatReservationOutcome.HELD, 100L, 1L, participantId, "hold-1"));
+        SimulationService service = new SimulationService(
+                stateStore,
+                new ServerIdentity("api-test"),
+                (id, request) -> {
+                },
+                null,
+                null,
+                seatReservationService,
+                null,
+                new Random(1)
+        );
+
+        VirtualUserCommandResponse first = service.holdExplicitSeat(simulationId, participantId, 1L);
+        VirtualUserCommandResponse second = service.holdExplicitSeat(simulationId, participantId, 2L);
+
+        assertThat(first.status()).isEqualTo("PAYMENT_PENDING");
+        assertThat(second.status()).isEqualTo("ALREADY_HOLDING");
+        assertThat(second.selectedSeatLabel()).isEqualTo("A-1");
+        verify(seatReservationService, times(1)).holdSeat(eq(simulationId), eq(participantId), anyLong(), any());
     }
 
     private SimulationService service(

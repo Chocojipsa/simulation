@@ -10,6 +10,13 @@ public interface SimulationStateGateway {
 
     SimulationSnapshot snapshot(UUID simulationId);
 
+    default VirtualUserView participant(UUID simulationId, UUID participantId) {
+        return snapshot(simulationId).users().stream()
+                .filter(user -> user.id().equals(participantId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Participant not found: " + participantId));
+    }
+
     SimulationSnapshot markRunning(UUID simulationId);
 
     SimulationSnapshot registerParticipant(UUID simulationId, UUID participantId, String displayName, ParticipantType type, String handledBy);

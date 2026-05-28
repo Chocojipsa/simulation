@@ -218,11 +218,25 @@ public class LiveEventService {
 
     public VirtualUserCommandResponse enterQueue(UUID eventId, UUID participantId) {
         ensureExpectedEvent(eventId);
+        LiveEventStatus status = currentStatus(eventId);
+        if (status == LiveEventStatus.READY) {
+            return new VirtualUserCommandResponse(eventId, participantId, "NOT_STARTED", serverIdentity.id(), "이벤트 시작 전입니다.", null);
+        }
+        if (status == LiveEventStatus.ENDED) {
+            return new VirtualUserCommandResponse(eventId, participantId, "EVENT_ENDED", serverIdentity.id(), "이벤트가 종료되었습니다.", null);
+        }
         return simulationService.enterParticipantQueue(eventId, participantId);
     }
 
     public SeatHoldResponse holdSeat(UUID eventId, UUID participantId, long seatId) {
         ensureExpectedEvent(eventId);
+        LiveEventStatus eventStatus = currentStatus(eventId);
+        if (eventStatus == LiveEventStatus.READY || eventStatus == LiveEventStatus.COUNTDOWN) {
+            return new SeatHoldResponse(eventId, participantId, seatId, "NOT_OPEN", "예매가 아직 시작되지 않았습니다.", null, serverIdentity.id());
+        }
+        if (eventStatus == LiveEventStatus.ENDED) {
+            return new SeatHoldResponse(eventId, participantId, seatId, "EVENT_ENDED", "이벤트가 종료되었습니다.", null, serverIdentity.id());
+        }
         VirtualUserCommandResponse response = simulationService.holdExplicitSeat(eventId, participantId, seatId);
         return new SeatHoldResponse(
                 eventId,
@@ -237,6 +251,12 @@ public class LiveEventService {
 
     public PaymentConfirmResponse confirmPayment(UUID eventId, UUID participantId) {
         ensureExpectedEvent(eventId);
+        LiveEventStatus eventStatus = currentStatus(eventId);
+        if (eventStatus != LiveEventStatus.OPEN) {
+            String status = eventStatus == LiveEventStatus.ENDED ? "EVENT_ENDED" : "NOT_OPEN";
+            String message = eventStatus == LiveEventStatus.ENDED ? "이벤트가 종료되었습니다." : "예매가 아직 시작되지 않았습니다.";
+            return new PaymentConfirmResponse(eventId, participantId, status, message, serverIdentity.id());
+        }
         VirtualUserCommandResponse response = simulationService.confirmPayment(eventId, participantId);
         return new PaymentConfirmResponse(
                 eventId,
@@ -264,6 +284,10 @@ public class LiveEventService {
         if (!configuredEventId.equals(eventId)) {
             throw new NoSuchElementException("Live event not found: " + eventId);
         }
+    }
+
+    private LiveEventStatus currentStatus(UUID eventId) {
+        return eventStateStore.getOrCreate(eventId, now()).statusAt(now());
     }
 
     private LiveEventResponse response(LiveEventMetadata metadata) {

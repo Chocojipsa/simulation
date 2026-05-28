@@ -7,6 +7,7 @@ import com.timedeal.seatreservation.event.LiveEventResponse;
 import com.timedeal.seatreservation.event.LiveEventService;
 import com.timedeal.seatreservation.event.LiveEventSnapshot;
 import com.timedeal.seatreservation.event.ParticipantType;
+import com.timedeal.seatreservation.event.SeatHoldResponse;
 import com.timedeal.seatreservation.identity.ServerIdentity;
 import com.timedeal.seatreservation.payment.PaymentRequestedEvent;
 import com.timedeal.seatreservation.seat.SeatReservationOutcome;
@@ -63,6 +64,52 @@ class LiveEventServiceTest {
         assertThat(snapshot.generation()).isEqualTo(1);
         assertThat(reset.status()).isEqualTo("READY");
         assertThat(reset.generation()).isEqualTo(2);
+    }
+
+    @Test
+    void rejectsSeatHoldBeforeOpenAndAfterEndedWithDomainStatus() {
+        UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000777");
+        SimulationStateStore stateStore = new SimulationStateStore();
+        SimulationService simulationService = new SimulationService(stateStore);
+        InMemoryLiveEventStateStore eventStateStore = new InMemoryLiveEventStateStore();
+        LiveEventService readyService = new LiveEventService(
+                simulationService,
+                stateStore,
+                eventStateStore,
+                new ServerIdentity("api-test"),
+                null,
+                eventId,
+                "Busan Ticketing",
+                120,
+                Duration.ofSeconds(60),
+                Duration.ofMinutes(5),
+                Clock.fixed(Instant.parse("2026-05-28T12:00:00Z"), ZoneOffset.UTC)
+        );
+
+        readyService.activeEvent();
+        JoinEventResponse joined = readyService.join(eventId, new JoinEventRequest("Kwon"));
+        SeatHoldResponse readyHold = readyService.holdSeat(eventId, joined.participantId(), 1L);
+
+        assertThat(readyHold.status()).isEqualTo("NOT_OPEN");
+
+        eventStateStore.startCountdown(eventId, Instant.parse("2026-05-28T12:00:00Z"), Duration.ofSeconds(60), Duration.ofMinutes(5));
+        LiveEventService endedService = new LiveEventService(
+                simulationService,
+                stateStore,
+                eventStateStore,
+                new ServerIdentity("api-test"),
+                null,
+                eventId,
+                "Busan Ticketing",
+                120,
+                Duration.ofSeconds(60),
+                Duration.ofMinutes(5),
+                Clock.fixed(Instant.parse("2026-05-28T12:07:00Z"), ZoneOffset.UTC)
+        );
+
+        SeatHoldResponse endedHold = endedService.holdSeat(eventId, joined.participantId(), 1L);
+
+        assertThat(endedHold.status()).isEqualTo("EVENT_ENDED");
     }
 
     @Test
@@ -176,6 +223,7 @@ class LiveEventServiceTest {
         );
 
         LiveEventResponse active = service.activeEvent();
+        service.startEvent(active.eventId());
         JoinEventResponse joined = service.join(active.eventId(), new JoinEventRequest("권"));
         when(seatReservationService.holdSeat(eq(active.eventId()), eq(joined.participantId()), eq(1L), any()))
                 .thenReturn(new SeatReservationResult(

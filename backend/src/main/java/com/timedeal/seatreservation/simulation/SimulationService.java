@@ -153,6 +153,20 @@ public class SimulationService {
     }
 
     public VirtualUserCommandResponse holdExplicitSeat(UUID simulationId, UUID participantId, long seatId) {
+        VirtualUserView participant = stateStore.participant(simulationId, participantId);
+        if (participant.status() == VirtualUserStatus.SEAT_HELD
+                || participant.status() == VirtualUserStatus.PAYMENT_IN_PROGRESS
+                || participant.status() == VirtualUserStatus.RESERVED) {
+            return new VirtualUserCommandResponse(
+                    simulationId,
+                    participantId,
+                    "ALREADY_HOLDING",
+                    serverIdentity.id(),
+                    "이미 선점한 좌석이 있습니다.",
+                    participant.selectedSeatLabel()
+            );
+        }
+
         if (!admitIfPossible(simulationId, participantId)) {
             stateStore.recordWaiting(simulationId, participantId, serverIdentity.id());
             return new VirtualUserCommandResponse(
@@ -198,6 +212,16 @@ public class SimulationService {
                 .filter(user -> user.id().equals(participantId))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Participant not found: " + participantId));
+        if (participant.selectedSeatLabel() == null) {
+            return new VirtualUserCommandResponse(
+                    simulationId,
+                    participantId,
+                    "NO_HELD_SEAT",
+                    serverIdentity.id(),
+                    "결제할 선점 좌석이 없습니다.",
+                    null
+            );
+        }
         SeatView seat = snapshot.seats().stream()
                 .filter(candidate -> candidate.label().equals(participant.selectedSeatLabel()))
                 .findFirst()
