@@ -12,6 +12,11 @@ live-event:
   id: ${LIVE_EVENT_ID:00000000-0000-0000-0000-000000000001}
   title: ${LIVE_EVENT_TITLE:부산 콘서트 티켓팅}
   seat-count: ${LIVE_EVENT_SEAT_COUNT:120}
+  countdown-seconds: ${LIVE_EVENT_COUNTDOWN_SECONDS:60}
+  open-window-seconds: ${LIVE_EVENT_OPEN_WINDOW_SECONDS:300}
+  ai:
+    participant-count: ${LIVE_EVENT_AI_PARTICIPANT_COUNT:150}
+    concurrency: ${LIVE_EVENT_AI_CONCURRENCY:50}
 
 spring:
   datasource:
