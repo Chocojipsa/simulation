@@ -7,7 +7,9 @@ const emptySnapshot = {
   eventId: 'event-1',
   title: '부산 콘서트 티켓팅',
   status: 'OPEN',
+  generation: 1,
   opensAt: '2026-05-28T12:00:00Z',
+  endsAt: '2026-05-28T12:05:00Z',
   seats: [],
   participants: [],
   metrics: { queueSize: 0, admittedCount: 0, heldCount: 0, paymentInProgressCount: 0, reservedCount: 0, failedCount: 0 },
@@ -27,7 +29,9 @@ describe('useLiveEventRoom', () => {
       eventId: 'event-1',
       title: '부산 콘서트 티켓팅',
       status: 'OPEN',
+      generation: 1,
       opensAt: '2026-05-28T12:00:00Z',
+      endsAt: '2026-05-28T12:05:00Z',
       seatCount: 120,
     });
     vi.spyOn(api, 'fetchEventSnapshot')

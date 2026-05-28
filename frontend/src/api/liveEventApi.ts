@@ -1,6 +1,7 @@
 import type { SeatView, ServerStatsView, SimulationMetrics, TimelineEntry } from './simulationApi';
 
 export type ParticipantType = 'HUMAN' | 'AI';
+export type LiveEventStatus = 'READY' | 'COUNTDOWN' | 'OPEN' | 'ENDED';
 export type ParticipantStatus =
   | 'CREATED'
   | 'WAITING_ROOM'
@@ -30,16 +31,20 @@ export interface EventParticipantView {
 export interface LiveEventResponse {
   eventId: string;
   title: string;
-  status: string;
-  opensAt: string;
+  status: LiveEventStatus;
+  generation: number;
+  opensAt: string | null;
+  endsAt: string | null;
   seatCount: number;
 }
 
 export interface LiveEventSnapshot {
   eventId: string;
   title: string;
-  status: string;
-  opensAt: string;
+  status: LiveEventStatus;
+  generation: number;
+  opensAt: string | null;
+  endsAt: string | null;
   seats: SeatView[];
   participants: EventParticipantView[];
   metrics: SimulationMetrics;
@@ -76,6 +81,14 @@ async function readJson<T>(response: Response): Promise<T> {
 
 export async function fetchActiveEvent(apiBaseUrl: string): Promise<LiveEventResponse> {
   return readJson(await fetch(`${apiBaseUrl}/api/events/active`));
+}
+
+export async function startEvent(apiBaseUrl: string, eventId: string): Promise<LiveEventResponse> {
+  return readJson(await fetch(`${apiBaseUrl}/api/events/${eventId}/start`, { method: 'POST' }));
+}
+
+export async function resetEvent(apiBaseUrl: string, eventId: string): Promise<LiveEventResponse> {
+  return readJson(await fetch(`${apiBaseUrl}/api/events/${eventId}/reset`, { method: 'POST' }));
 }
 
 export async function fetchEventSnapshot(apiBaseUrl: string, eventId: string, participantId: string | null): Promise<LiveEventSnapshot> {

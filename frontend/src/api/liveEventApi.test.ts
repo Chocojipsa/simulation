@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { confirmPayment, fetchActiveEvent, holdSeat, joinEvent, queueParticipant, startAiParticipants } from './liveEventApi';
+import { confirmPayment, fetchActiveEvent, holdSeat, joinEvent, queueParticipant, resetEvent, startAiParticipants, startEvent } from './liveEventApi';
 
 describe('liveEventApi', () => {
   afterEach(() => {
@@ -10,6 +10,8 @@ describe('liveEventApi', () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({ ok: true })));
 
     await fetchActiveEvent('');
+    await startEvent('', 'event-1');
+    await resetEvent('', 'event-1');
     await joinEvent('', 'event-1', '권');
     await queueParticipant('', 'event-1', 'participant-1');
     await holdSeat('', 'event-1', 'participant-1', 7);
@@ -19,6 +21,8 @@ describe('liveEventApi', () => {
     const calls = fetchMock.mock.calls.map(([url, init]) => [url, init?.method ?? 'GET']);
     expect(calls).toEqual([
       ['/api/events/active', 'GET'],
+      ['/api/events/event-1/start', 'POST'],
+      ['/api/events/event-1/reset', 'POST'],
       ['/api/events/event-1/participants', 'POST'],
       ['/api/events/event-1/participants/participant-1/queue', 'POST'],
       ['/api/events/event-1/participants/participant-1/seats/7/hold', 'POST'],

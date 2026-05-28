@@ -6,7 +6,10 @@ import {
   holdSeat,
   joinEvent,
   queueParticipant,
+  resetEvent,
   startAiParticipants,
+  startEvent,
+  type CommandResponse,
   type LiveEventSnapshot,
 } from '../api/liveEventApi';
 import { getMyParticipant } from '../domain/liveEventSelectors';
@@ -19,12 +22,17 @@ export function useLiveEventRoom(apiBaseUrl: string) {
   const [snapshot, setSnapshot] = useState<LiveEventSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!eventId) return;
     const next = await fetchEventSnapshot(apiBaseUrl, eventId, participantId);
     setSnapshot(next);
   }, [apiBaseUrl, eventId, participantId]);
+
+  const applyCommandMessage = useCallback((response: CommandResponse) => {
+    setMessage(response.message);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,21 +80,37 @@ export function useLiveEventRoom(apiBaseUrl: string) {
 
   const reserve = useCallback(async () => {
     if (!eventId || !participantId) return;
-    await queueParticipant(apiBaseUrl, eventId, participantId);
+    applyCommandMessage(await queueParticipant(apiBaseUrl, eventId, participantId));
     await refresh();
   }, [apiBaseUrl, eventId, participantId, refresh]);
 
   const selectSeat = useCallback(async (seatId: number) => {
     if (!eventId || !participantId) return;
-    await holdSeat(apiBaseUrl, eventId, participantId, seatId);
+    applyCommandMessage(await holdSeat(apiBaseUrl, eventId, participantId, seatId));
     await refresh();
   }, [apiBaseUrl, eventId, participantId, refresh]);
 
   const pay = useCallback(async () => {
     if (!eventId || !participantId) return;
-    await confirmPayment(apiBaseUrl, eventId, participantId);
+    applyCommandMessage(await confirmPayment(apiBaseUrl, eventId, participantId));
     await refresh();
   }, [apiBaseUrl, eventId, participantId, refresh]);
+
+  const start = useCallback(async () => {
+    if (!eventId) return;
+    await startEvent(apiBaseUrl, eventId);
+    setMessage('이벤트 카운트다운이 시작되었습니다.');
+    await refresh();
+  }, [apiBaseUrl, eventId, refresh]);
+
+  const reset = useCallback(async () => {
+    if (!eventId) return;
+    const resetResponse = await resetEvent(apiBaseUrl, eventId);
+    window.localStorage.removeItem(participantStorageKey);
+    setParticipantId(null);
+    setMessage('새 이벤트가 준비되었습니다.');
+    setSnapshot(await fetchEventSnapshot(apiBaseUrl, resetResponse.eventId, null));
+  }, [apiBaseUrl, eventId]);
 
   const startAi = useCallback(async (count: number, concurrency: number) => {
     if (!eventId) return;
@@ -96,5 +120,5 @@ export function useLiveEventRoom(apiBaseUrl: string) {
 
   const myParticipant = useMemo(() => getMyParticipant(snapshot, participantId), [snapshot, participantId]);
 
-  return { eventId, participantId, snapshot, myParticipant, loading, error, join, reserve, selectSeat, pay, startAi, refresh };
+  return { eventId, participantId, snapshot, myParticipant, loading, error, message, join, reserve, selectSeat, pay, start, reset, startAi, refresh };
 }
