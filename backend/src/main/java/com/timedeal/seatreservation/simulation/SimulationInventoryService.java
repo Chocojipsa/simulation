@@ -4,6 +4,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 @Service
 @Profile("!demo")
 public class SimulationInventoryService {
@@ -60,5 +62,13 @@ public class SimulationInventoryService {
                 participant.displayName(),
                 participant.status().name()
         );
+    }
+
+    public void resetSimulation(UUID simulationId) {
+        jdbc.update("delete from payments where simulation_id = ?", simulationId);
+        jdbc.update("delete from reservations where simulation_id = ?", simulationId);
+        jdbc.update("delete from simulation_seats where simulation_id = ?", simulationId);
+        jdbc.update("delete from virtual_users where simulation_id = ?", simulationId);
+        jdbc.update("delete from simulation_sessions where id = ?", simulationId);
     }
 }

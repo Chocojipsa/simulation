@@ -35,6 +35,16 @@ public class LiveEventController {
         return liveEventService.snapshot(eventId, participantId);
     }
 
+    @PostMapping("/{eventId}/start")
+    public LiveEventResponse startEvent(@PathVariable UUID eventId) {
+        return liveEventService.startEvent(eventId);
+    }
+
+    @PostMapping("/{eventId}/reset")
+    public LiveEventResponse resetEvent(@PathVariable UUID eventId) {
+        return liveEventService.resetEvent(eventId);
+    }
+
     @PostMapping("/{eventId}/participants")
     public JoinEventResponse join(
             @PathVariable UUID eventId,

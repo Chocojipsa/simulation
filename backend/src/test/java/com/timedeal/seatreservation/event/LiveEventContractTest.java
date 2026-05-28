@@ -26,8 +26,10 @@ class LiveEventContractTest {
         LiveEventSnapshot snapshot = new LiveEventSnapshot(
                 eventId,
                 "부산 콘서트 티켓팅",
-                "OPEN",
-                Instant.parse("2026-05-28T12:00:00Z"),
+                "COUNTDOWN",
+                1,
+                Instant.parse("2026-05-28T12:01:00Z"),
+                Instant.parse("2026-05-28T12:06:00Z"),
                 List.of(new SeatView(1, "A-1", SeatStatus.AVAILABLE)),
                 List.of(new VirtualUserView(
                         participantId,
@@ -51,6 +53,10 @@ class LiveEventContractTest {
 
         assertThat(json).contains("\"eventId\":\"" + eventId + "\"");
         assertThat(json).contains("\"title\":\"부산 콘서트 티켓팅\"");
+        assertThat(json).contains("\"status\":\"COUNTDOWN\"");
+        assertThat(json).contains("\"generation\":1");
+        assertThat(json).contains("\"opensAt\":\"2026-05-28T12:01:00Z\"");
+        assertThat(json).contains("\"endsAt\":\"2026-05-28T12:06:00Z\"");
         assertThat(json).contains("\"type\":\"HUMAN\"");
         assertThat(json).contains("\"myParticipantId\":\"" + participantId + "\"");
     }

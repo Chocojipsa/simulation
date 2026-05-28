@@ -4,17 +4,33 @@ import com.timedeal.seatreservation.domain.SeatStatus;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
 import com.timedeal.seatreservation.event.ParticipantType;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
 import java.util.UUID;
 
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 class SimulationInventoryServiceTest {
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
     private final SimulationInventoryService service = new SimulationInventoryService(jdbc);
+
+    @Test
+    void resetsSimulationInventoryInForeignKeyOrder() {
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000010");
+
+        service.resetSimulation(simulationId);
+
+        InOrder inOrder = inOrder(jdbc);
+        inOrder.verify(jdbc).update("delete from payments where simulation_id = ?", simulationId);
+        inOrder.verify(jdbc).update("delete from reservations where simulation_id = ?", simulationId);
+        inOrder.verify(jdbc).update("delete from simulation_seats where simulation_id = ?", simulationId);
+        inOrder.verify(jdbc).update("delete from virtual_users where simulation_id = ?", simulationId);
+        inOrder.verify(jdbc).update("delete from simulation_sessions where id = ?", simulationId);
+    }
 
     @Test
     void initializesConcertSeatsSessionVirtualUsersAndSimulationSeats() {

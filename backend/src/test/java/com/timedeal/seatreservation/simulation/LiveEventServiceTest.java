@@ -2,6 +2,7 @@ package com.timedeal.seatreservation.simulation;
 
 import com.timedeal.seatreservation.event.JoinEventRequest;
 import com.timedeal.seatreservation.event.JoinEventResponse;
+import com.timedeal.seatreservation.event.InMemoryLiveEventStateStore;
 import com.timedeal.seatreservation.event.LiveEventResponse;
 import com.timedeal.seatreservation.event.LiveEventService;
 import com.timedeal.seatreservation.event.LiveEventSnapshot;
@@ -14,6 +15,10 @@ import com.timedeal.seatreservation.seat.SeatReservationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.kafka.core.KafkaTemplate;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Random;
 import java.util.UUID;
 
@@ -26,6 +31,40 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class LiveEventServiceTest {
+    @Test
+    void visitorStartsCountdownAndResetCreatesReadyNextGeneration() {
+        UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000777");
+        SimulationStateStore stateStore = new SimulationStateStore();
+        SimulationService simulationService = new SimulationService(stateStore);
+        InMemoryLiveEventStateStore eventStateStore = new InMemoryLiveEventStateStore();
+        LiveEventService service = new LiveEventService(
+                simulationService,
+                stateStore,
+                eventStateStore,
+                new ServerIdentity("api-test"),
+                null,
+                eventId,
+                "Busan Ticketing",
+                120,
+                Duration.ofSeconds(60),
+                Duration.ofMinutes(5),
+                Clock.fixed(Instant.parse("2026-05-28T12:00:00Z"), ZoneOffset.UTC)
+        );
+
+        LiveEventResponse active = service.activeEvent();
+        LiveEventResponse countdown = service.startEvent(eventId);
+        LiveEventSnapshot snapshot = service.snapshot(eventId, null);
+        LiveEventResponse reset = service.resetEvent(eventId);
+
+        assertThat(active.status()).isEqualTo("READY");
+        assertThat(countdown.status()).isEqualTo("COUNTDOWN");
+        assertThat(countdown.opensAt()).isEqualTo(Instant.parse("2026-05-28T12:01:00Z"));
+        assertThat(countdown.endsAt()).isEqualTo(Instant.parse("2026-05-28T12:06:00Z"));
+        assertThat(snapshot.generation()).isEqualTo(1);
+        assertThat(reset.status()).isEqualTo("READY");
+        assertThat(reset.generation()).isEqualTo(2);
+    }
+
     @Test
     void createsActiveEventOnceAndLetsHumanJoinWaitingRoom() {
         SimulationStateStore stateStore = new SimulationStateStore();

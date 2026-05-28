@@ -1,5 +1,6 @@
 package com.timedeal.seatreservation.event;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.timedeal.seatreservation.simulation.SeatView;
 import com.timedeal.seatreservation.simulation.ServerStatsView;
 import com.timedeal.seatreservation.simulation.SimulationMetrics;
@@ -13,7 +14,11 @@ public record LiveEventSnapshot(
         UUID eventId,
         String title,
         String status,
+        int generation,
+        @JsonFormat(shape = JsonFormat.Shape.STRING)
         Instant opensAt,
+        @JsonFormat(shape = JsonFormat.Shape.STRING)
+        Instant endsAt,
         List<SeatView> seats,
         List<VirtualUserView> participants,
         SimulationMetrics metrics,

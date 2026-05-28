@@ -23,6 +23,41 @@ class LiveEventControllerTest {
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @Test
+    void startsAndResetsLiveEvent() throws Exception {
+        LiveEventService service = mock(LiveEventService.class);
+        UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        when(service.startEvent(eventId)).thenReturn(new LiveEventResponse(
+                eventId,
+                "Busan Ticketing",
+                "COUNTDOWN",
+                1,
+                Instant.parse("2026-05-28T12:01:00Z"),
+                Instant.parse("2026-05-28T12:06:00Z"),
+                120
+        ));
+        when(service.resetEvent(eventId)).thenReturn(new LiveEventResponse(
+                eventId,
+                "Busan Ticketing",
+                "READY",
+                2,
+                null,
+                null,
+                120
+        ));
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new LiveEventController(service)).build();
+
+        mvc.perform(post("/api/events/{eventId}/start", eventId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("COUNTDOWN")))
+                .andExpect(jsonPath("$.generation", is(1)));
+
+        mvc.perform(post("/api/events/{eventId}/reset", eventId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("READY")))
+                .andExpect(jsonPath("$.generation", is(2)));
+    }
+
+    @Test
     void exposesActiveEventAndJoinEndpoint() throws Exception {
         LiveEventService service = mock(LiveEventService.class);
         UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000700");
@@ -31,7 +66,9 @@ class LiveEventControllerTest {
                 eventId,
                 "부산 콘서트 티켓팅",
                 "OPEN",
+                1,
                 Instant.parse("2026-05-28T12:00:00Z"),
+                Instant.parse("2026-05-28T12:05:00Z"),
                 120
         ));
         when(service.join(eventId, new JoinEventRequest("권"))).thenReturn(new JoinEventResponse(

@@ -107,6 +107,22 @@ public class SimulationService {
         );
     }
 
+    public SimulationResponse resetSimulation(UUID simulationId, int virtualUserCount) {
+        if (inventoryService != null) {
+            inventoryService.resetSimulation(simulationId);
+        }
+        SimulationSnapshot snapshot = stateStore.create(simulationId, virtualUserCount);
+        if (inventoryService != null) {
+            inventoryService.initialize(snapshot, virtualUserCount);
+        }
+        return new SimulationResponse(
+                simulationId,
+                "?쒕??덉씠?섏씠 珥덇린?붾릺?덉뒿?덈떎.",
+                virtualUserCount,
+                serverIdentity.id()
+        );
+    }
+
     public SimulationSnapshot getSimulation(UUID simulationId) {
         return stateStore.snapshot(simulationId);
     }
