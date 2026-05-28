@@ -1,6 +1,7 @@
 package com.timedeal.seatreservation.generator;
 
 import com.timedeal.seatreservation.simulation.VirtualUserCommandResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -17,6 +18,7 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
     private final int maxSeatAttempts;
     private final long retryDelayMillis;
 
+    @Autowired
     public HttpVirtualUserHttpClient(VirtualUserCommandClient commandClient) {
         this(commandClient, DEFAULT_MAX_SEAT_ATTEMPTS, DEFAULT_RETRY_DELAY_MILLIS);
     }
