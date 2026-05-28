@@ -8,24 +8,20 @@ import java.util.UUID;
 
 @Service
 public class SimulationService {
-    private final SimulationStateStore stateStore;
-    private final SimulationRunner simulationRunner;
+    private final SimulationStateGateway stateStore;
     private final ServerIdentity serverIdentity;
 
     @Autowired
     public SimulationService(
-            SimulationStateStore stateStore,
-            SimulationRunner simulationRunner,
+            SimulationStateGateway stateStore,
             ServerIdentity serverIdentity
     ) {
         this.stateStore = stateStore;
-        this.simulationRunner = simulationRunner;
         this.serverIdentity = serverIdentity;
     }
 
-    SimulationService(SimulationStateStore stateStore) {
+    SimulationService(SimulationStateGateway stateStore) {
         this.stateStore = stateStore;
-        this.simulationRunner = null;
         this.serverIdentity = new ServerIdentity("api-test");
     }
 

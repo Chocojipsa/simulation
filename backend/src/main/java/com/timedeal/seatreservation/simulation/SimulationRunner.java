@@ -5,6 +5,7 @@ import com.timedeal.seatreservation.domain.VirtualUserStatus;
 import com.timedeal.seatreservation.events.SimulationEventHub;
 import com.timedeal.seatreservation.queue.AdmissionQueue;
 import jakarta.annotation.PreDestroy;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 @Component
+@Profile("demo")
 public class SimulationRunner {
     private static final int ACTIVE_SELECTION_LIMIT = 30;
 

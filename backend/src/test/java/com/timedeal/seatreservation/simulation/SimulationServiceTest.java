@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SimulationServiceTest {
-    private final SimulationStateStore stateStore = new SimulationStateStore();
+    private final SimulationStateGateway stateStore = new SimulationStateStore();
     private final SimulationService simulationService = new SimulationService(stateStore);
 
     @Test
@@ -25,6 +25,6 @@ class SimulationServiceTest {
         assertThat(snapshot.seats()).allMatch(seat -> seat.status() == SeatStatus.AVAILABLE);
         assertThat(snapshot.users()).allMatch(user -> user.status() == VirtualUserStatus.QUEUED);
         assertThat(snapshot.metrics().queueSize()).isEqualTo(25);
-        assertThat(snapshot.running()).isTrue();
+        assertThat(snapshot.running()).isFalse();
     }
 }

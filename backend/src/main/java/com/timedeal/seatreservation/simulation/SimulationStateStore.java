@@ -2,6 +2,7 @@ package com.timedeal.seatreservation.simulation;
 
 import com.timedeal.seatreservation.domain.SeatStatus;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -11,18 +12,21 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
-public class SimulationStateStore {
+@Profile("demo")
+public class SimulationStateStore implements SimulationStateGateway {
     private static final int ROW_COUNT = 10;
     private static final int SEATS_PER_ROW = 12;
 
     private final ConcurrentHashMap<UUID, MutableSimulationState> simulations = new ConcurrentHashMap<>();
 
+    @Override
     public SimulationSnapshot create(UUID simulationId, int virtualUserCount) {
         MutableSimulationState state = new MutableSimulationState(simulationId, createSeats(), createUsers(virtualUserCount));
         simulations.put(simulationId, state);
         return snapshot(simulationId);
     }
 
+    @Override
     public SimulationSnapshot snapshot(UUID simulationId) {
         MutableSimulationState state = state(simulationId);
         synchronized (state) {
@@ -50,6 +54,15 @@ public class SimulationStateStore {
                     state.running
             );
         }
+    }
+
+    @Override
+    public SimulationSnapshot markRunning(UUID simulationId) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            state.running = true;
+        }
+        return snapshot(simulationId);
     }
 
     MutableSimulationState state(UUID simulationId) {
@@ -136,7 +149,7 @@ public class SimulationStateStore {
         final List<MutableVirtualUser> users;
         long tick;
         boolean queueSeeded;
-        boolean running = true;
+        boolean running;
 
         MutableSimulationState(UUID simulationId, List<MutableSeat> seats, List<MutableVirtualUser> users) {
             this.simulationId = simulationId;

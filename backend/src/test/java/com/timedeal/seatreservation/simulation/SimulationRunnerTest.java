@@ -19,6 +19,7 @@ class SimulationRunnerTest {
     void oneTickAdmitsQueuedUsersIntoSeatSelection() {
         UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000201");
         stateStore.create(simulationId, 40);
+        stateStore.markRunning(simulationId);
 
         SimulationSnapshot snapshot = runner.tick(simulationId);
 
@@ -32,6 +33,7 @@ class SimulationRunnerTest {
     void usersEventuallyReserveWithoutOverbooking() {
         UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000202");
         stateStore.create(simulationId, 30);
+        stateStore.markRunning(simulationId);
 
         SimulationSnapshot snapshot = stateStore.snapshot(simulationId);
         for (int index = 0; index < 80 && snapshot.running(); index++) {
@@ -53,6 +55,7 @@ class SimulationRunnerTest {
     void concurrentSeatSelectionRecordsTriedSeatAndKeepsConflictedUsersRetrying() {
         UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000203");
         stateStore.create(simulationId, 90);
+        stateStore.markRunning(simulationId);
 
         runner.tick(simulationId);
         SimulationSnapshot snapshot = runner.tick(simulationId);
@@ -75,6 +78,7 @@ class SimulationRunnerTest {
     void successfulReservationsOpenAdmissionSlotsForQueuedUsers() {
         UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000204");
         stateStore.create(simulationId, 45);
+        stateStore.markRunning(simulationId);
 
         SimulationSnapshot snapshot = stateStore.snapshot(simulationId);
         for (int index = 0; index < 8; index++) {
@@ -91,6 +95,7 @@ class SimulationRunnerTest {
     void soldOutUsersStillCountAsSeatAttempt() {
         UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000205");
         stateStore.create(simulationId, 1);
+        stateStore.markRunning(simulationId);
         SimulationStateStore.MutableSimulationState state = stateStore.state(simulationId);
         state.seats.forEach(seat -> seat.status = SeatStatus.RESERVED);
         state.users.get(0).status = VirtualUserStatus.SELECTING_SEAT;
