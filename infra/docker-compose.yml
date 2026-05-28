@@ -102,6 +102,8 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: local,worker
       APP_INSTANCE_ID: worker
+      PAYMENT_SIMULATION_DELAY_MIN_MS: 300
+      PAYMENT_SIMULATION_DELAY_MAX_MS: 900
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seat_reservation
       SPRING_DATASOURCE_USERNAME: app
       SPRING_DATASOURCE_PASSWORD: app
@@ -123,6 +125,8 @@ services:
       SPRING_PROFILES_ACTIVE: local,generator
       APP_INSTANCE_ID: traffic-generator
       TRAFFIC_GENERATOR_TARGET_BASE_URL: http://nginx:8080
+      TRAFFIC_GENERATOR_VIRTUAL_USER_DELAY_MIN_MS: 80
+      TRAFFIC_GENERATOR_VIRTUAL_USER_DELAY_MAX_MS: 300
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seat_reservation
       SPRING_DATASOURCE_USERNAME: app
       SPRING_DATASOURCE_PASSWORD: app

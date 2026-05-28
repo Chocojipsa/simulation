@@ -4,6 +4,8 @@ import com.timedeal.seatreservation.identity.ServerIdentity;
 import org.junit.jupiter.api.Test;
 import org.springframework.kafka.core.KafkaTemplate;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -66,6 +68,28 @@ class PaymentSimulationWorkerTest {
 
         worker.handle(new PaymentRequestedEvent(SIMULATION_ID, USER_ID, 201L, 10L, "payment-201", "api-a"));
 
+        verify(kafkaTemplate).send(
+                "payment-results.events",
+                "201",
+                new PaymentResultEvent(SIMULATION_ID, USER_ID, 201L, 10L, true, "결제 성공", "worker-test")
+        );
+    }
+
+    @Test
+    void handleAppliesConfiguredDelayBeforePublishingResult() {
+        @SuppressWarnings("unchecked")
+        KafkaTemplate<String, PaymentResultEvent> kafkaTemplate = mock(KafkaTemplate.class);
+        List<Integer> delays = new ArrayList<>();
+        PaymentSimulationWorker worker = new PaymentSimulationWorker(
+                kafkaTemplate,
+                new ServerIdentity("worker-test"),
+                () -> 700,
+                delays::add
+        );
+
+        worker.handle(new PaymentRequestedEvent(SIMULATION_ID, USER_ID, 201L, 10L, "payment-201", "api-a"));
+
+        assertThat(delays).containsExactly(700);
         verify(kafkaTemplate).send(
                 "payment-results.events",
                 "201",
