@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -84,5 +85,44 @@ class SimulationControllerTest {
                 .andExpect(jsonPath("$.metrics.queueSize").value(1))
                 .andExpect(jsonPath("$.serverStats[0].serverId").value("api-test"))
                 .andExpect(jsonPath("$.running").value(true));
+    }
+
+    @Test
+    void runSimulationStartsTrafficGenerator() throws Exception {
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000003");
+        when(simulationService.runSimulation(eq(simulationId), any())).thenReturn(new RunSimulationResponse(
+                simulationId,
+                150,
+                "RUNNING",
+                "api-test"
+        ));
+
+        mvc.perform(post("/api/simulations/{simulationId}/run", simulationId)
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"virtualUserCount\":150,\"concurrency\":30}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.simulationId").value(simulationId.toString()))
+                .andExpect(jsonPath("$.virtualUserCount").value(150))
+                .andExpect(jsonPath("$.status").value("RUNNING"))
+                .andExpect(jsonPath("$.handledBy").value("api-test"));
+    }
+
+    @Test
+    void virtualUserEnterQueueReturnsHandlingServer() throws Exception {
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000005");
+        UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000105");
+        when(simulationService.enterQueue(eq(simulationId), eq(userId))).thenReturn(new VirtualUserCommandResponse(
+                simulationId,
+                userId,
+                "QUEUED",
+                "api-test"
+        ));
+
+        mvc.perform(post("/api/simulations/{simulationId}/users/{userId}/queue", simulationId, userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.simulationId").value(simulationId.toString()))
+                .andExpect(jsonPath("$.virtualUserId").value(userId.toString()))
+                .andExpect(jsonPath("$.status").value("QUEUED"))
+                .andExpect(jsonPath("$.handledBy").value("api-test"));
     }
 }

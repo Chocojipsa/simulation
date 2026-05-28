@@ -34,6 +34,22 @@ public class SimulationController {
         return simulationService.getSimulation(simulationId);
     }
 
+    @PostMapping("/{simulationId}/run")
+    public RunSimulationResponse runSimulation(
+            @PathVariable UUID simulationId,
+            @Valid @RequestBody RunSimulationRequest request
+    ) {
+        return simulationService.runSimulation(simulationId, request);
+    }
+
+    @PostMapping("/{simulationId}/users/{userId}/queue")
+    public VirtualUserCommandResponse enterQueue(
+            @PathVariable UUID simulationId,
+            @PathVariable UUID userId
+    ) {
+        return simulationService.enterQueue(simulationId, userId);
+    }
+
     @GetMapping(path = "/{simulationId}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter events(@PathVariable UUID simulationId) {
         return simulationEventHub.open(simulationId);
