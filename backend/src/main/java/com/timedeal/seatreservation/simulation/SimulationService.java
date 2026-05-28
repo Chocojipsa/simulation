@@ -13,17 +13,20 @@ public class SimulationService {
     private final SimulationStateGateway stateStore;
     private final ServerIdentity serverIdentity;
     private final TrafficGeneratorClient trafficGeneratorClient;
+    private final SimulationInventoryService inventoryService;
 
     @Autowired
     public SimulationService(
             SimulationStateGateway stateStore,
             ServerIdentity serverIdentity,
-            ObjectProvider<TrafficGeneratorClient> trafficGeneratorClient
+            ObjectProvider<TrafficGeneratorClient> trafficGeneratorClient,
+            ObjectProvider<SimulationInventoryService> inventoryService
     ) {
         this.stateStore = stateStore;
         this.serverIdentity = serverIdentity;
         this.trafficGeneratorClient = trafficGeneratorClient.getIfAvailable(() -> (simulationId, request) -> {
         });
+        this.inventoryService = inventoryService.getIfAvailable();
     }
 
     SimulationService(SimulationStateGateway stateStore) {
@@ -31,11 +34,15 @@ public class SimulationService {
         this.serverIdentity = new ServerIdentity("api-test");
         this.trafficGeneratorClient = (simulationId, request) -> {
         };
+        this.inventoryService = null;
     }
 
     public SimulationResponse createSimulation(CreateSimulationRequest request) {
         UUID simulationId = UUID.randomUUID();
-        stateStore.create(simulationId, request.virtualUserCount());
+        SimulationSnapshot snapshot = stateStore.create(simulationId, request.virtualUserCount());
+        if (inventoryService != null) {
+            inventoryService.initialize(snapshot, request.virtualUserCount());
+        }
         return new SimulationResponse(
                 simulationId,
                 "시뮬레이션이 생성되었습니다.",
