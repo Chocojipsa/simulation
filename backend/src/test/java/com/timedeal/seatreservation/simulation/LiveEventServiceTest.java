@@ -3,6 +3,7 @@ package com.timedeal.seatreservation.simulation;
 import com.timedeal.seatreservation.event.JoinEventRequest;
 import com.timedeal.seatreservation.event.JoinEventResponse;
 import com.timedeal.seatreservation.event.InMemoryLiveEventStateStore;
+import com.timedeal.seatreservation.event.LiveEventAiStarter;
 import com.timedeal.seatreservation.event.LiveEventResponse;
 import com.timedeal.seatreservation.event.LiveEventService;
 import com.timedeal.seatreservation.event.LiveEventSnapshot;
@@ -28,6 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -110,6 +112,36 @@ class LiveEventServiceTest {
         SeatHoldResponse endedHold = endedService.holdSeat(eventId, joined.participantId(), 1L);
 
         assertThat(endedHold.status()).isEqualTo("EVENT_ENDED");
+    }
+
+    @Test
+    void startsAiOnceWhenEventIsOpen() {
+        UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000777");
+        SimulationStateStore stateStore = new SimulationStateStore();
+        SimulationService simulationService = new SimulationService(stateStore);
+        InMemoryLiveEventStateStore eventStateStore = new InMemoryLiveEventStateStore();
+        LiveEventAiStarter aiStarter = mock(LiveEventAiStarter.class);
+        Instant start = Instant.parse("2026-05-28T12:00:00Z");
+        eventStateStore.startCountdown(eventId, start, Duration.ofSeconds(60), Duration.ofMinutes(5));
+        LiveEventService service = new LiveEventService(
+                simulationService,
+                stateStore,
+                eventStateStore,
+                new ServerIdentity("api-test"),
+                null,
+                eventId,
+                "Busan Ticketing",
+                120,
+                Duration.ofSeconds(60),
+                Duration.ofMinutes(5),
+                Clock.fixed(start.plusSeconds(61), ZoneOffset.UTC),
+                aiStarter
+        );
+
+        service.snapshot(eventId, null);
+        service.snapshot(eventId, null);
+
+        verify(aiStarter, times(1)).start(eventId);
     }
 
     @Test

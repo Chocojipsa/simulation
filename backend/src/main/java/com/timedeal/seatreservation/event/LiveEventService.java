@@ -35,6 +35,7 @@ public class LiveEventService {
     private final Duration countdownDuration;
     private final Duration openWindow;
     private final Clock clock;
+    private final LiveEventAiStarter aiStarter;
 
     @Autowired
     public LiveEventService(
@@ -43,6 +44,7 @@ public class LiveEventService {
             LiveEventStateStore eventStateStore,
             ServerIdentity serverIdentity,
             ObjectProvider<SimulationInventoryService> inventoryService,
+            ObjectProvider<LiveEventAiStarter> aiStarter,
             @Value("${live-event.id:00000000-0000-0000-0000-000000000001}") UUID configuredEventId,
             @Value("${live-event.title:Live Ticketing Event}") String title,
             @Value("${live-event.seat-count:120}") int seatCount,
@@ -60,7 +62,8 @@ public class LiveEventService {
                 seatCount,
                 Duration.ofSeconds(countdownSeconds),
                 Duration.ofSeconds(openWindowSeconds),
-                Clock.systemUTC()
+                Clock.systemUTC(),
+                aiStarter.getIfAvailable()
         );
     }
 
@@ -82,7 +85,8 @@ public class LiveEventService {
                 seatCount,
                 Duration.ZERO,
                 Duration.ofMinutes(5),
-                Clock.systemUTC()
+                Clock.systemUTC(),
+                null
         );
     }
 
@@ -105,7 +109,8 @@ public class LiveEventService {
                 seatCount,
                 Duration.ZERO,
                 Duration.ofMinutes(5),
-                Clock.systemUTC()
+                Clock.systemUTC(),
+                null
         );
     }
 
@@ -129,7 +134,8 @@ public class LiveEventService {
                 seatCount,
                 Duration.ZERO,
                 Duration.ofMinutes(5),
-                Clock.systemUTC()
+                Clock.systemUTC(),
+                null
         );
     }
 
@@ -146,6 +152,36 @@ public class LiveEventService {
             Duration openWindow,
             Clock clock
     ) {
+        this(
+                simulationService,
+                stateGateway,
+                eventStateStore,
+                serverIdentity,
+                inventoryService,
+                configuredEventId,
+                title,
+                seatCount,
+                countdownDuration,
+                openWindow,
+                clock,
+                null
+        );
+    }
+
+    public LiveEventService(
+            SimulationService simulationService,
+            SimulationStateGateway stateGateway,
+            LiveEventStateStore eventStateStore,
+            ServerIdentity serverIdentity,
+            SimulationInventoryService inventoryService,
+            UUID configuredEventId,
+            String title,
+            int seatCount,
+            Duration countdownDuration,
+            Duration openWindow,
+            Clock clock,
+            LiveEventAiStarter aiStarter
+    ) {
         this.simulationService = simulationService;
         this.stateGateway = stateGateway;
         this.eventStateStore = eventStateStore;
@@ -157,11 +193,13 @@ public class LiveEventService {
         this.countdownDuration = countdownDuration;
         this.openWindow = openWindow;
         this.clock = clock;
+        this.aiStarter = aiStarter;
     }
 
     public LiveEventResponse activeEvent() {
         ensureSimulationExists();
         LiveEventMetadata metadata = eventStateStore.getOrCreate(configuredEventId, now());
+        triggerAiIfOpen(metadata);
         return response(metadata);
     }
 
@@ -169,6 +207,7 @@ public class LiveEventService {
         ensureExpectedEvent(eventId);
         ensureSimulationExists();
         LiveEventMetadata metadata = eventStateStore.startCountdown(eventId, now(), countdownDuration, openWindow);
+        triggerAiIfOpen(metadata);
         return response(metadata);
     }
 
@@ -199,6 +238,7 @@ public class LiveEventService {
         ensureExpectedEvent(eventId);
         ensureSimulationExists();
         LiveEventMetadata metadata = eventStateStore.getOrCreate(eventId, now()).withDerivedStatus(now());
+        triggerAiIfOpen(metadata);
         SimulationSnapshot snapshot = simulationService.getSimulation(eventId);
         return new LiveEventSnapshot(
                 eventId,
@@ -288,6 +328,15 @@ public class LiveEventService {
 
     private LiveEventStatus currentStatus(UUID eventId) {
         return eventStateStore.getOrCreate(eventId, now()).statusAt(now());
+    }
+
+    private void triggerAiIfOpen(LiveEventMetadata metadata) {
+        if (aiStarter == null || metadata.statusAt(now()) != LiveEventStatus.OPEN || metadata.aiStarted()) {
+            return;
+        }
+        if (eventStateStore.claimAiStart(metadata.eventId())) {
+            aiStarter.start(metadata.eventId());
+        }
     }
 
     private LiveEventResponse response(LiveEventMetadata metadata) {
