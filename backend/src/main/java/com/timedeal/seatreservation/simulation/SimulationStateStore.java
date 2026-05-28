@@ -46,6 +46,7 @@ public class SimulationStateStore {
                     seats,
                     users,
                     metrics(state),
+                    List.of(),
                     state.running
             );
         }

@@ -8,6 +8,7 @@ public record SimulationSnapshot(
         List<SeatView> seats,
         List<VirtualUserView> users,
         SimulationMetrics metrics,
+        List<ServerStatsView> serverStats,
         boolean running
 ) {
 }

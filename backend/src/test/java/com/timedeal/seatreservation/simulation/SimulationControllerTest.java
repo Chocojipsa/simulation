@@ -36,8 +36,9 @@ class SimulationControllerTest {
         UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000001");
         when(simulationService.createSimulation(any())).thenReturn(new SimulationResponse(
                 simulationId,
-                "시뮬레이션이 시작되었습니다.",
-                100
+                "시뮬레이션이 생성되었습니다.",
+                100,
+                "api-test"
         ));
 
         mvc.perform(post("/api/simulations")
@@ -45,8 +46,9 @@ class SimulationControllerTest {
                         .content("{\"virtualUserCount\":100}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.simulationId").value(simulationId.toString()))
-                .andExpect(jsonPath("$.message").value("시뮬레이션이 시작되었습니다."))
-                .andExpect(jsonPath("$.virtualUserCount").value(100));
+                .andExpect(jsonPath("$.message").value("시뮬레이션이 생성되었습니다."))
+                .andExpect(jsonPath("$.virtualUserCount").value(100))
+                .andExpect(jsonPath("$.handledBy").value("api-test"));
     }
 
     @Test
@@ -66,6 +68,7 @@ class SimulationControllerTest {
                         2
                 )),
                 new SimulationMetrics(1, 0, 0, 0, 0, 0),
+                List.of(new ServerStatsView("api-test", 1, 0, 0)),
                 true
         );
         when(simulationService.getSimulation(simulationId)).thenReturn(snapshot);
@@ -79,6 +82,7 @@ class SimulationControllerTest {
                 .andExpect(jsonPath("$.users[0].seatAttemptCount").value(3))
                 .andExpect(jsonPath("$.users[0].conflictCount").value(2))
                 .andExpect(jsonPath("$.metrics.queueSize").value(1))
+                .andExpect(jsonPath("$.serverStats[0].serverId").value("api-test"))
                 .andExpect(jsonPath("$.running").value(true));
     }
 }

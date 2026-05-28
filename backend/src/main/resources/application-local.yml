@@ -1,6 +1,9 @@
 server:
   port: 8080
 
+app:
+  instance-id: ${APP_INSTANCE_ID:local-api}
+
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/seat_reservation

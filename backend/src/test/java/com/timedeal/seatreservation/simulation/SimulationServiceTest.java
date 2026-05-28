@@ -17,7 +17,8 @@ class SimulationServiceTest {
         SimulationSnapshot snapshot = simulationService.getSimulation(response.simulationId());
 
         assertThat(response.virtualUserCount()).isEqualTo(25);
-        assertThat(response.message()).isEqualTo("시뮬레이션이 시작되었습니다.");
+        assertThat(response.message()).isEqualTo("시뮬레이션이 생성되었습니다.");
+        assertThat(response.handledBy()).isEqualTo("api-test");
         assertThat(snapshot.simulationId()).isEqualTo(response.simulationId());
         assertThat(snapshot.seats()).hasSize(120);
         assertThat(snapshot.users()).hasSize(25);

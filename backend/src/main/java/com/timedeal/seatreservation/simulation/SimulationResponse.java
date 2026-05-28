@@ -5,6 +5,7 @@ import java.util.UUID;
 public record SimulationResponse(
         UUID simulationId,
         String message,
-        int virtualUserCount
+        int virtualUserCount,
+        String handledBy
 ) {
 }
