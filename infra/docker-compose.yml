@@ -47,6 +47,8 @@ services:
       context: ../backend
     environment:
       SPRING_PROFILES_ACTIVE: local
+      APP_INSTANCE_ID: api-a
+      TRAFFIC_GENERATOR_CONTROL_BASE_URL: http://traffic-generator:8080
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seat_reservation
       SPRING_DATASOURCE_USERNAME: app
       SPRING_DATASOURCE_PASSWORD: app
@@ -72,6 +74,8 @@ services:
       context: ../backend
     environment:
       SPRING_PROFILES_ACTIVE: local
+      APP_INSTANCE_ID: api-b
+      TRAFFIC_GENERATOR_CONTROL_BASE_URL: http://traffic-generator:8080
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seat_reservation
       SPRING_DATASOURCE_USERNAME: app
       SPRING_DATASOURCE_PASSWORD: app
@@ -97,6 +101,7 @@ services:
       context: ../backend
     environment:
       SPRING_PROFILES_ACTIVE: local,worker
+      APP_INSTANCE_ID: worker
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seat_reservation
       SPRING_DATASOURCE_USERNAME: app
       SPRING_DATASOURCE_PASSWORD: app
@@ -104,6 +109,29 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+
+  traffic-generator:
+    build:
+      context: ../backend
+    environment:
+      SPRING_PROFILES_ACTIVE: local,generator
+      APP_INSTANCE_ID: traffic-generator
+      TRAFFIC_GENERATOR_TARGET_BASE_URL: http://nginx:8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seat_reservation
+      SPRING_DATASOURCE_USERNAME: app
+      SPRING_DATASOURCE_PASSWORD: app
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      nginx:
+        condition: service_started
       postgres:
         condition: service_healthy
       redis:

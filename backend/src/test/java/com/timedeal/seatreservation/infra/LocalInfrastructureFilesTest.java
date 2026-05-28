@@ -31,6 +31,12 @@ class LocalInfrastructureFilesTest {
 """);
         assertThat(compose).contains("api-a:");
         assertThat(compose).contains("api-b:");
+        assertThat(compose).contains("traffic-generator:");
+        assertThat(compose).contains("SPRING_PROFILES_ACTIVE: local,generator");
+        assertThat(compose).contains("TRAFFIC_GENERATOR_TARGET_BASE_URL: http://nginx:8080");
+        assertThat(compose).contains("TRAFFIC_GENERATOR_CONTROL_BASE_URL: http://traffic-generator:8080");
+        assertThat(compose).contains("APP_INSTANCE_ID: api-a");
+        assertThat(compose).contains("APP_INSTANCE_ID: api-b");
         assertThat(compose).contains("worker:");
         assertThat(compose).contains("nginx:");
     }
@@ -62,5 +68,13 @@ class LocalInfrastructureFilesTest {
         assertThat(localProfile).contains("jdbc:postgresql://localhost:5432/seat_reservation");
         assertThat(localProfile).contains("host: localhost");
         assertThat(localProfile).contains("bootstrap-servers: localhost:9094");
+    }
+
+    @Test
+    void productionDeploymentDocsAndProfileExist() {
+        assertThat(Files.exists(Path.of("src/main/resources/application-prod.yml"))).isTrue();
+        assertThat(Files.exists(Path.of("../docs/deployment/production-v1.md"))).isTrue();
+        assertThat(Files.exists(Path.of("../docs/deployment/environment-variables.md"))).isTrue();
+        assertThat(Files.exists(Path.of("../docs/deployment/vercel-env.example"))).isTrue();
     }
 }
