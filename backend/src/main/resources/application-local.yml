@@ -15,6 +15,9 @@ live-event:
   seat-count: ${LIVE_EVENT_SEAT_COUNT:120}
   countdown-seconds: ${LIVE_EVENT_COUNTDOWN_SECONDS:60}
   open-window-seconds: ${LIVE_EVENT_OPEN_WINDOW_SECONDS:300}
+  ai-user-count: ${LIVE_EVENT_AI_USER_COUNT:150}
+  ai-batch-enabled: ${LIVE_EVENT_AI_BATCH_ENABLED:true}
+  ai-start-delay-millis: ${LIVE_EVENT_AI_START_DELAY_MILLIS:0}
   ai:
     participant-count: ${LIVE_EVENT_AI_PARTICIPANT_COUNT:150}
     concurrency: ${LIVE_EVENT_AI_CONCURRENCY:50}
