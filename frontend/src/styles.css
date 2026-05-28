@@ -175,6 +175,22 @@ input {
   color: #4b5563;
 }
 
+.error-banner {
+  margin: 12px 12px 0;
+  padding: 10px 12px;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  background: #fff1f2;
+  color: #991b1b;
+}
+
+.empty-state {
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 @media (max-width: 1100px) {
   .dashboard-grid,
   .user-layout {

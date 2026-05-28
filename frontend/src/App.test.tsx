@@ -1,8 +1,55 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SimulationSnapshot } from './api/simulationApi';
 import App from './App';
 
+const mockSnapshot: SimulationSnapshot = {
+  simulationId: 'sim-1',
+  seats: Array.from({ length: 120 }, (_, index) => ({
+    id: index + 1,
+    label: `${String.fromCharCode(65 + Math.floor(index / 12))}-${(index % 12) + 1}`,
+    status: index % 3 === 0 ? 'RESERVED' : 'AVAILABLE',
+  })),
+  users: [
+    {
+      id: 'u1',
+      displayName: '사용자 1',
+      status: 'FAILED',
+      selectedSeatLabel: 'A-1',
+      timeline: [{ label: '좌석 선택 실패', message: '이미 선택된 좌석입니다: A-1' }],
+      seatAttemptCount: 30,
+      conflictCount: 30,
+    },
+  ],
+  metrics: { queueSize: 0, admittedCount: 96, heldCount: 0, paymentInProgressCount: 0, reservedCount: 96, failedCount: 54 },
+  serverStats: [
+    { serverId: 'api-a', requestCount: 595, conflictCount: 448, successCount: 70 },
+    { serverId: 'api-b', requestCount: 595, conflictCount: 471, successCount: 50 },
+  ],
+  running: false,
+};
+
+const startSimulation = vi.fn();
+const setSelectedUserId = vi.fn();
+
+vi.mock('./hooks/useSimulationDashboard', () => ({
+  useSimulationDashboard: () => ({
+    snapshot: mockSnapshot,
+    selectedUserId: 'u1',
+    setSelectedUserId,
+    lastCommandServer: 'api-b',
+    loading: false,
+    error: null,
+    startSimulation,
+    refresh: vi.fn(),
+  }),
+}));
+
 describe('App', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('renders the Korean operations dashboard', () => {
     render(<App />);
 
