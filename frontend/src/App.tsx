@@ -23,7 +23,7 @@ export default function App() {
 
   return (
     <main className="dashboard">
-      <EventHeader snapshot={room.snapshot} />
+      <EventHeader snapshot={room.snapshot} onStart={() => void room.start()} onReset={() => void room.reset()} />
       {room.error ? <div className="error-banner">{room.error}</div> : null}
       {room.message ? <div className="info-banner">{room.message}</div> : null}
       <div className="dashboard-grid">
@@ -31,7 +31,7 @@ export default function App() {
           status={room.snapshot.status}
           participant={room.myParticipant}
           loading={room.loading}
-          onJoin={() => void room.join('나')}
+          onJoin={() => void room.join(randomGuestName())}
           onReserve={() => void room.reserve()}
           onPay={() => void room.pay()}
         />
@@ -44,9 +44,13 @@ export default function App() {
         />
         <div className="side-column">
           <QueuePanel snapshot={room.snapshot} participantId={room.participantId} />
-          <EventActivityPanel snapshot={room.snapshot} onStart={() => void room.start()} onReset={() => void room.reset()} />
+          <EventActivityPanel snapshot={room.snapshot} participantId={room.participantId} />
         </div>
       </div>
     </main>
   );
+}
+
+function randomGuestName() {
+  return `게스트-${Math.floor(1000 + Math.random() * 9000)}`;
 }

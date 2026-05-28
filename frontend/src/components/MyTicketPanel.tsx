@@ -12,8 +12,8 @@ interface MyTicketPanelProps {
 }
 
 export function MyTicketPanel({ status, participant, loading, onJoin, onReserve, onPay }: MyTicketPanelProps) {
-  const reserveDisabled = !participant || status === 'READY' || status === 'ENDED' || !canReserve(participant);
-  const reserveLabel = status === 'COUNTDOWN' ? '대기열 입장' : '예약하기';
+  const joinDisabled = loading || status === 'READY' || status === 'ENDED';
+  const reserveDisabled = !participant || status !== 'OPEN' || !canReserve(participant);
 
   return (
     <section className="panel my-ticket-panel">
@@ -31,12 +31,12 @@ export function MyTicketPanel({ status, participant, loading, onJoin, onReserve,
         <strong>{participant?.selectedSeatLabel ?? '-'}</strong>
       </div>
       {!participant ? (
-        <button className="primary-action icon-action" disabled={loading} onClick={onJoin}>
+        <button className="primary-action icon-action" disabled={joinDisabled} onClick={onJoin}>
           <LogIn size={18} /> 이벤트 입장
         </button>
       ) : (
         <button className="primary-action icon-action" disabled={reserveDisabled} onClick={onReserve}>
-          <Ticket size={18} /> {reserveLabel}
+          <Ticket size={18} /> 예약하기
         </button>
       )}
       <button className="secondary-action icon-action" disabled={!canConfirmPayment(participant)} onClick={onPay}>

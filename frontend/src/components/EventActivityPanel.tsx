@@ -2,13 +2,15 @@ import type { LiveEventSnapshot } from '../api/liveEventApi';
 
 interface EventActivityPanelProps {
   snapshot: LiveEventSnapshot;
-  onStart: () => void;
-  onReset: () => void;
+  participantId: string | null;
 }
 
-export function EventActivityPanel({ snapshot, onStart, onReset }: EventActivityPanelProps) {
-  const recent = snapshot.participants.flatMap((participant) =>
-    participant.timeline.slice(-2).map((entry) => ({
+export function EventActivityPanel({ snapshot, participantId }: EventActivityPanelProps) {
+  const targetParticipants = participantId
+    ? snapshot.participants.filter((participant) => participant.id === participantId)
+    : snapshot.participants;
+  const recent = targetParticipants.flatMap((participant) =>
+    participant.timeline.slice(-6).map((entry) => ({
       id: `${participant.id}-${entry.label}-${entry.message}`,
       participant: participant.displayName,
       label: entry.label,
@@ -19,13 +21,7 @@ export function EventActivityPanel({ snapshot, onStart, onReset }: EventActivity
   return (
     <section className="panel activity-panel">
       <div className="panel-title-row">
-        <h2>실시간 진행</h2>
-        {snapshot.status === 'READY' ? (
-          <button className="secondary-action compact" onClick={onStart}>이벤트 시작하기</button>
-        ) : null}
-        {snapshot.status === 'ENDED' ? (
-          <button className="secondary-action compact" onClick={onReset}>새 이벤트 시작</button>
-        ) : null}
+        <h2>{participantId ? '내 진행' : '전체 진행'}</h2>
       </div>
       <div className="infra-grid">
         {snapshot.serverStats.map((stat) => (
@@ -35,15 +31,19 @@ export function EventActivityPanel({ snapshot, onStart, onReset }: EventActivity
           </div>
         ))}
       </div>
-      <ol className="activity-list">
-        {recent.map((entry) => (
-          <li key={entry.id}>
-            <strong>{entry.participant}</strong>
-            <span>{entry.label}</span>
-            <p>{entry.message}</p>
-          </li>
-        ))}
-      </ol>
+      {recent.length === 0 ? (
+        <p className="empty-log">아직 표시할 진행 내역이 없습니다.</p>
+      ) : (
+        <ol className="activity-list">
+          {recent.map((entry) => (
+            <li key={entry.id}>
+              <strong>{entry.participant}</strong>
+              <span>{entry.label}</span>
+              <p>{entry.message}</p>
+            </li>
+          ))}
+        </ol>
+      )}
     </section>
   );
 }

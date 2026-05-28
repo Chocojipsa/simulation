@@ -262,6 +262,9 @@ public class LiveEventService {
         if (status == LiveEventStatus.READY) {
             return new VirtualUserCommandResponse(eventId, participantId, "NOT_STARTED", serverIdentity.id(), "이벤트 시작 전입니다.", null);
         }
+        if (status == LiveEventStatus.COUNTDOWN) {
+            return new VirtualUserCommandResponse(eventId, participantId, "NOT_OPEN", serverIdentity.id(), "예매가 아직 시작되지 않았습니다.", null);
+        }
         if (status == LiveEventStatus.ENDED) {
             return new VirtualUserCommandResponse(eventId, participantId, "EVENT_ENDED", serverIdentity.id(), "이벤트가 종료되었습니다.", null);
         }

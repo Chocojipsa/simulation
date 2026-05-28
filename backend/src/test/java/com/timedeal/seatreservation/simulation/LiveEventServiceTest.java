@@ -115,6 +115,34 @@ class LiveEventServiceTest {
     }
 
     @Test
+    void rejectsQueueEntryDuringCountdown() {
+        UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000777");
+        SimulationStateStore stateStore = new SimulationStateStore();
+        SimulationService simulationService = new SimulationService(stateStore);
+        InMemoryLiveEventStateStore eventStateStore = new InMemoryLiveEventStateStore();
+        LiveEventService service = new LiveEventService(
+                simulationService,
+                stateStore,
+                eventStateStore,
+                new ServerIdentity("api-test"),
+                null,
+                eventId,
+                "Busan Ticketing",
+                120,
+                Duration.ofSeconds(60),
+                Duration.ofMinutes(5),
+                Clock.fixed(Instant.parse("2026-05-28T12:00:00Z"), ZoneOffset.UTC)
+        );
+
+        service.activeEvent();
+        service.startEvent(eventId);
+        JoinEventResponse joined = service.join(eventId, new JoinEventRequest("Kwon"));
+        VirtualUserCommandResponse queued = service.enterQueue(eventId, joined.participantId());
+
+        assertThat(queued.status()).isEqualTo("NOT_OPEN");
+    }
+
+    @Test
     void startsAiOnceWhenEventIsOpen() {
         UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000777");
         SimulationStateStore stateStore = new SimulationStateStore();

@@ -23,7 +23,7 @@ live-event:
     concurrency: ${LIVE_EVENT_AI_CONCURRENCY:50}
 
 payment:
-  failure-rate-percent: ${PAYMENT_FAILURE_RATE_PERCENT:5}
+  failure-rate-percent: ${PAYMENT_FAILURE_RATE_PERCENT:0}
   simulation-delay-min-ms: ${PAYMENT_SIMULATION_DELAY_MIN_MS:300}
   simulation-delay-max-ms: ${PAYMENT_SIMULATION_DELAY_MAX_MS:900}
   kafka:
