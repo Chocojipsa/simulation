@@ -4,7 +4,12 @@ import { canConfirmPayment, canReserve, formatEventStatus, getMyParticipant } fr
 
 describe('liveEventSelectors', () => {
   it('finds my participant and derives actions', () => {
-    const snapshot = {
+    const snapshot: LiveEventSnapshot = {
+      eventId: 'event-1',
+      title: '부산 콘서트 티켓팅',
+      status: 'OPEN',
+      opensAt: '2026-05-28T12:00:00Z',
+      seats: [],
       participants: [
         {
           id: 'me',
@@ -19,7 +24,18 @@ describe('liveEventSelectors', () => {
           reservationId: null,
         },
       ],
-    } as LiveEventSnapshot;
+      metrics: {
+        queueSize: 0,
+        admittedCount: 0,
+        heldCount: 0,
+        paymentInProgressCount: 0,
+        reservedCount: 0,
+        failedCount: 0,
+      },
+      serverStats: [],
+      running: false,
+      myParticipantId: 'me',
+    };
 
     const me = getMyParticipant(snapshot, 'me');
 

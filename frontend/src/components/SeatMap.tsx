@@ -1,33 +1,46 @@
 import type { SeatView } from '../api/simulationApi';
-import { getSeatClassName } from '../domain/simulationSelectors';
 
 interface SeatMapProps {
   seats: SeatView[];
   selectedSeatLabel: string | null;
+  onSelectSeat?: (seatId: number) => void;
 }
 
-export function SeatMap({ seats, selectedSeatLabel }: SeatMapProps) {
+function seatClassName(status: SeatView['status'], mine: boolean) {
+  const statusClass = status.toLowerCase().replace(/_/g, '-');
+  return `seat seat-${statusClass}${mine ? ' seat-mine' : ''}`;
+}
+
+export function SeatMap({ seats, selectedSeatLabel, onSelectSeat }: SeatMapProps) {
   return (
     <section className="panel seat-map-panel">
       <div className="panel-heading">
-        <h2>실시간 좌석표</h2>
+        <h2>좌석 현황</h2>
         <span>STAGE</span>
       </div>
       <div className="seat-legend">
         <span><i className="legend-available" /> 선택 가능</span>
+        <span><i className="legend-held" /> 선점</span>
         <span><i className="legend-payment" /> 결제 중</span>
         <span><i className="legend-reserved" /> 예약 완료</span>
       </div>
       <div className="seat-grid" aria-label="좌석표">
-        {seats.map((seat) => (
-          <button
-            key={seat.id}
-            className={getSeatClassName(seat.status, seat.label === selectedSeatLabel)}
-            title={`${seat.label} ${seat.status}`}
-          >
-            {seat.label}
-          </button>
-        ))}
+        {seats.map((seat) => {
+          const mine = seat.label === selectedSeatLabel;
+          const disabled = seat.status !== 'AVAILABLE';
+          return (
+            <button
+              key={seat.id}
+              type="button"
+              className={seatClassName(seat.status, mine)}
+              disabled={disabled}
+              title={`${seat.label} ${seat.status}`}
+              onClick={() => onSelectSeat?.(seat.id)}
+            >
+              {seat.label}
+            </button>
+          );
+        })}
       </div>
     </section>
   );
