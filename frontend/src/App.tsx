@@ -6,7 +6,7 @@ import { UserPanel } from './components/UserPanel';
 import { shortenId } from './domain/simulationSelectors';
 import { useSimulationDashboard } from './hooks/useSimulationDashboard';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export default function App() {
   const [virtualUserCount, setVirtualUserCount] = useState(150);

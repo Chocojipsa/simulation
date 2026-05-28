@@ -21,6 +21,20 @@ describe('simulationApi', () => {
     expect(response.handledBy).toBe('api-a');
   });
 
+  it('uses same-origin api paths when base url is empty', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ simulationId: 'sim-1', message: 'ok', virtualUserCount: 30, handledBy: 'api-a' })),
+    );
+
+    await createSimulation('', 30);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/simulations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ virtualUserCount: 30 }),
+    });
+  });
+
   it('starts a simulation run with count and concurrency', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ simulationId: 'sim-1', virtualUserCount: 150, status: 'RUNNING', handledBy: 'api-b' })),

@@ -34,10 +34,22 @@ http://localhost:5173
 
 ## Environment
 
-Create `frontend/.env.local` when needed:
+Local development uses the Vite `/api` proxy by default. The proxy forwards browser requests from:
 
 ```text
-VITE_API_BASE_URL=http://localhost:8080
+http://localhost:5173/api
+```
+
+to:
+
+```text
+http://localhost:8080/api
+```
+
+`frontend/.env.local` is usually unnecessary for local work. Set `VITE_API_BASE_URL` only when the frontend must call a deployed API directly, for example:
+
+```text
+VITE_API_BASE_URL=https://api.example.com
 ```
 
 ## Demo Scenario
