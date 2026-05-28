@@ -46,8 +46,8 @@ public class SimulationStateStore implements SimulationStateGateway {
                             List.copyOf(user.timeline),
                             countTimelineEntries(user, "좌석 선택"),
                             countTimelineEntries(user, "좌석 선택 실패"),
-                            0,
-                            null
+                            user.paymentAttemptCount,
+                            user.reservationId
                     ))
                     .toList();
 
@@ -165,6 +165,45 @@ public class SimulationStateStore implements SimulationStateGateway {
                     .ifPresent(candidate -> candidate.status = SeatStatus.PAYMENT_IN_PROGRESS);
         }
         return snapshot(simulationId);
+    }
+
+    @Override
+    public SimulationSnapshot recordSeatHeldForPayment(
+            UUID simulationId,
+            UUID virtualUserId,
+            SeatView seat,
+            Long reservationId,
+            String handledBy
+    ) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            MutableVirtualUser user = user(state, virtualUserId);
+            user.status = VirtualUserStatus.SEAT_HELD;
+            user.selectedSeatLabel = seat.label();
+            user.reservationId = reservationId;
+            user.timeline.add(new TimelineEntry("좌석 선점", seat.label() + " 좌석을 선점했습니다. 결제를 확인해 주세요."));
+            state.seats.stream()
+                    .filter(candidate -> candidate.id == seat.id())
+                    .findFirst()
+                    .ifPresent(candidate -> candidate.status = SeatStatus.HELD);
+        }
+        return snapshot(simulationId);
+    }
+
+    @Override
+    public Long markPaymentRequestedByParticipant(UUID simulationId, UUID virtualUserId, String handledBy) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            MutableVirtualUser user = user(state, virtualUserId);
+            user.status = VirtualUserStatus.PAYMENT_IN_PROGRESS;
+            user.paymentAttemptCount++;
+            user.timeline.add(new TimelineEntry("결제 확인", "결제 확인 요청을 보냈습니다."));
+            state.seats.stream()
+                    .filter(candidate -> candidate.label.equals(user.selectedSeatLabel))
+                    .findFirst()
+                    .ifPresent(candidate -> candidate.status = SeatStatus.PAYMENT_IN_PROGRESS);
+            return user.reservationId;
+        }
     }
 
     @Override
@@ -300,6 +339,8 @@ public class SimulationStateStore implements SimulationStateGateway {
         final List<TimelineEntry> timeline = new ArrayList<>();
         VirtualUserStatus status = VirtualUserStatus.QUEUED;
         String selectedSeatLabel;
+        int paymentAttemptCount;
+        Long reservationId;
 
         MutableVirtualUser(UUID id, String displayName, ParticipantType type) {
             this.id = id;

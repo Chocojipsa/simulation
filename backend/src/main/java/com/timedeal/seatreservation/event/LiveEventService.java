@@ -5,6 +5,7 @@ import com.timedeal.seatreservation.simulation.CreateSimulationRequest;
 import com.timedeal.seatreservation.simulation.SimulationService;
 import com.timedeal.seatreservation.simulation.SimulationSnapshot;
 import com.timedeal.seatreservation.simulation.SimulationStateGateway;
+import com.timedeal.seatreservation.simulation.VirtualUserCommandResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -66,6 +67,34 @@ public class LiveEventService {
                 snapshot.serverStats(),
                 snapshot.running(),
                 myParticipantId
+        );
+    }
+
+    public VirtualUserCommandResponse enterQueue(UUID eventId, UUID participantId) {
+        return simulationService.enterParticipantQueue(eventId, participantId);
+    }
+
+    public SeatHoldResponse holdSeat(UUID eventId, UUID participantId, long seatId) {
+        VirtualUserCommandResponse response = simulationService.holdExplicitSeat(eventId, participantId, seatId);
+        return new SeatHoldResponse(
+                eventId,
+                participantId,
+                seatId,
+                response.status(),
+                response.message(),
+                response.selectedSeatLabel(),
+                response.handledBy()
+        );
+    }
+
+    public PaymentConfirmResponse confirmPayment(UUID eventId, UUID participantId) {
+        VirtualUserCommandResponse response = simulationService.confirmPayment(eventId, participantId);
+        return new PaymentConfirmResponse(
+                eventId,
+                participantId,
+                response.status(),
+                response.message(),
+                response.handledBy()
         );
     }
 

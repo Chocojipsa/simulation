@@ -24,6 +24,10 @@ public interface SimulationStateGateway {
 
     SimulationSnapshot recordNoSeatAvailable(UUID simulationId, UUID virtualUserId, String handledBy);
 
+    SimulationSnapshot recordSeatHeldForPayment(UUID simulationId, UUID virtualUserId, SeatView seat, Long reservationId, String handledBy);
+
+    Long markPaymentRequestedByParticipant(UUID simulationId, UUID virtualUserId, String handledBy);
+
     SimulationSnapshot recordPaymentRequested(UUID simulationId, UUID virtualUserId, SeatView seat, String handledBy);
 
     SimulationSnapshot applyPaymentResult(PaymentResultEvent event);

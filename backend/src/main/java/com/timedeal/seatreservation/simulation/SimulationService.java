@@ -128,6 +128,81 @@ public class SimulationService {
         );
     }
 
+    public VirtualUserCommandResponse enterParticipantQueue(UUID simulationId, UUID participantId) {
+        return enterQueue(simulationId, participantId);
+    }
+
+    public VirtualUserCommandResponse holdExplicitSeat(UUID simulationId, UUID participantId, long seatId) {
+        if (!admitIfPossible(simulationId, participantId)) {
+            stateStore.recordWaiting(simulationId, participantId, serverIdentity.id());
+            return new VirtualUserCommandResponse(
+                    simulationId,
+                    participantId,
+                    "WAITING",
+                    serverIdentity.id(),
+                    "아직 대기 중입니다.",
+                    null
+            );
+        }
+
+        SimulationSnapshot snapshot = stateStore.snapshot(simulationId);
+        SeatView seat = snapshot.seats().stream()
+                .filter(candidate -> candidate.id() == seatId)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Seat not found: " + seatId));
+
+        if (seatReservationService == null) {
+            return recordSeatConflict(simulationId, participantId, seat);
+        }
+
+        String idempotencyKey = simulationId + ":" + participantId + ":" + seat.id();
+        SeatReservationResult result = seatReservationService.holdSeat(simulationId, participantId, seat.id(), idempotencyKey);
+        if (result.outcome() == SeatReservationOutcome.ALREADY_HELD) {
+            return recordSeatConflict(simulationId, participantId, seat);
+        }
+
+        stateStore.recordSeatHeldForPayment(simulationId, participantId, seat, result.reservationId(), serverIdentity.id());
+        return new VirtualUserCommandResponse(
+                simulationId,
+                participantId,
+                "PAYMENT_PENDING",
+                serverIdentity.id(),
+                seat.label() + " 좌석을 선점했습니다. 결제를 확인해 주세요.",
+                seat.label()
+        );
+    }
+
+    public VirtualUserCommandResponse confirmPayment(UUID simulationId, UUID participantId) {
+        SimulationSnapshot snapshot = stateStore.snapshot(simulationId);
+        VirtualUserView participant = snapshot.users().stream()
+                .filter(user -> user.id().equals(participantId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Participant not found: " + participantId));
+        SeatView seat = snapshot.seats().stream()
+                .filter(candidate -> candidate.label().equals(participant.selectedSeatLabel()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Selected seat not found for participant: " + participantId));
+
+        Long reservationId = stateStore.markPaymentRequestedByParticipant(simulationId, participantId, serverIdentity.id());
+        if (paymentKafkaTemplate != null && reservationId != null) {
+            publishPaymentRequest(simulationId, participantId, seat, new SeatReservationResult(
+                    SeatReservationOutcome.HELD,
+                    reservationId,
+                    seat.id(),
+                    participantId,
+                    simulationId + ":" + participantId + ":" + seat.id()
+            ));
+        }
+        return new VirtualUserCommandResponse(
+                simulationId,
+                participantId,
+                "PAYMENT_REQUESTED",
+                serverIdentity.id(),
+                "결제 확인 요청을 보냈습니다.",
+                seat.label()
+        );
+    }
+
     public VirtualUserCommandResponse attemptSeat(UUID simulationId, UUID userId) {
         if (!admitIfPossible(simulationId, userId)) {
             stateStore.recordWaiting(simulationId, userId, serverIdentity.id());

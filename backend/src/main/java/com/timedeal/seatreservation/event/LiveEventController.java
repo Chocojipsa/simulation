@@ -1,5 +1,6 @@
 package com.timedeal.seatreservation.event;
 
+import com.timedeal.seatreservation.simulation.VirtualUserCommandResponse;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,5 +40,30 @@ public class LiveEventController {
             @Valid @RequestBody JoinEventRequest request
     ) {
         return liveEventService.join(eventId, request);
+    }
+
+    @PostMapping("/{eventId}/participants/{participantId}/queue")
+    public VirtualUserCommandResponse enterQueue(
+            @PathVariable UUID eventId,
+            @PathVariable UUID participantId
+    ) {
+        return liveEventService.enterQueue(eventId, participantId);
+    }
+
+    @PostMapping("/{eventId}/participants/{participantId}/seats/{seatId}/hold")
+    public SeatHoldResponse holdSeat(
+            @PathVariable UUID eventId,
+            @PathVariable UUID participantId,
+            @PathVariable long seatId
+    ) {
+        return liveEventService.holdSeat(eventId, participantId, seatId);
+    }
+
+    @PostMapping("/{eventId}/participants/{participantId}/payment-confirm")
+    public PaymentConfirmResponse confirmPayment(
+            @PathVariable UUID eventId,
+            @PathVariable UUID participantId
+    ) {
+        return liveEventService.confirmPayment(eventId, participantId);
     }
 }

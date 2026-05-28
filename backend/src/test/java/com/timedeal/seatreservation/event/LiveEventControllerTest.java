@@ -1,6 +1,7 @@
 package com.timedeal.seatreservation.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.timedeal.seatreservation.simulation.VirtualUserCommandResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -40,6 +41,30 @@ class LiveEventControllerTest {
                 "WAITING_ROOM",
                 "api-test"
         ));
+        when(service.enterQueue(eventId, participantId)).thenReturn(new VirtualUserCommandResponse(
+                eventId,
+                participantId,
+                "QUEUED",
+                "api-test",
+                "대기열에 진입했습니다.",
+                null
+        ));
+        when(service.holdSeat(eventId, participantId, 1L)).thenReturn(new SeatHoldResponse(
+                eventId,
+                participantId,
+                1L,
+                "PAYMENT_PENDING",
+                "A-1 좌석을 선점했습니다. 결제를 확인해 주세요.",
+                "A-1",
+                "api-test"
+        ));
+        when(service.confirmPayment(eventId, participantId)).thenReturn(new PaymentConfirmResponse(
+                eventId,
+                participantId,
+                "PAYMENT_REQUESTED",
+                "결제 확인 요청을 보냈습니다.",
+                "api-test"
+        ));
         MockMvc mvc = MockMvcBuilders.standaloneSetup(new LiveEventController(service)).build();
 
         String activeJson = mvc.perform(get("/api/events/active"))
@@ -58,5 +83,18 @@ class LiveEventControllerTest {
                 .andExpect(jsonPath("$.eventId", is(eventIdText)))
                 .andExpect(jsonPath("$.displayName", is("권")))
                 .andExpect(jsonPath("$.status", is("WAITING_ROOM")));
+
+        mvc.perform(post("/api/events/{eventId}/participants/{participantId}/queue", eventId, participantId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("QUEUED")));
+
+        mvc.perform(post("/api/events/{eventId}/participants/{participantId}/seats/1/hold", eventId, participantId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("PAYMENT_PENDING")))
+                .andExpect(jsonPath("$.selectedSeatLabel", is("A-1")));
+
+        mvc.perform(post("/api/events/{eventId}/participants/{participantId}/payment-confirm", eventId, participantId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("PAYMENT_REQUESTED")));
     }
 }

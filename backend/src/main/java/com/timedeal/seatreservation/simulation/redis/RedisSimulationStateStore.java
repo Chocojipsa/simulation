@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.UnaryOperator;
 
 @Component
@@ -245,6 +246,59 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
     }
 
     @Override
+    public SimulationSnapshot recordSeatHeldForPayment(
+            UUID simulationId,
+            UUID virtualUserId,
+            SeatView seat,
+            Long reservationId,
+            String handledBy
+    ) {
+        return mutate(simulationId, current -> new SimulationSnapshot(
+                current.simulationId(),
+                updateSeat(current.seats(), seat.id(), SeatStatus.HELD),
+                updateUser(current.users(), virtualUserId, user -> replaceUser(
+                        user,
+                        VirtualUserStatus.SEAT_HELD,
+                        seat.label(),
+                        appendEntry(user.timeline(), "좌석 선점", seat.label() + " 좌석을 선점했습니다. 결제를 확인해 주세요."),
+                        user.seatAttemptCount() + 1,
+                        user.conflictCount(),
+                        user.paymentAttemptCount(),
+                        reservationId
+                )),
+                current.metrics(),
+                incrementServerStats(current.serverStats(), handledBy, false, true),
+                current.running()
+        ));
+    }
+
+    @Override
+    public Long markPaymentRequestedByParticipant(UUID simulationId, UUID virtualUserId, String handledBy) {
+        AtomicReference<Long> reservationId = new AtomicReference<>();
+        mutate(simulationId, current -> new SimulationSnapshot(
+                current.simulationId(),
+                updateSelectedSeat(current.seats(), current.users(), virtualUserId, SeatStatus.PAYMENT_IN_PROGRESS),
+                updateUser(current.users(), virtualUserId, user -> {
+                    reservationId.set(user.reservationId());
+                    return replaceUser(
+                            user,
+                            VirtualUserStatus.PAYMENT_IN_PROGRESS,
+                            user.selectedSeatLabel(),
+                            appendEntry(user.timeline(), "결제 확인", "결제 확인 요청을 보냈습니다."),
+                            user.seatAttemptCount(),
+                            user.conflictCount(),
+                            user.paymentAttemptCount() + 1,
+                            user.reservationId()
+                    );
+                }),
+                current.metrics(),
+                incrementServerStats(current.serverStats(), handledBy, false, true),
+                current.running()
+        ));
+        return reservationId.get();
+    }
+
+    @Override
     public SimulationSnapshot applyPaymentResult(PaymentResultEvent event) {
         return mutate(event.simulationId(), current -> {
             SeatStatus seatStatus = event.success() ? SeatStatus.RESERVED : SeatStatus.AVAILABLE;
@@ -384,10 +438,8 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
     ) {
         List<TimelineEntry> timeline = new ArrayList<>(user.timeline());
         timeline.add(new TimelineEntry(label, message));
-        return new VirtualUserView(
-                user.id(),
-                user.displayName(),
-                user.type(),
+        return replaceUser(
+                user,
                 status,
                 selectedSeatLabel,
                 timeline,
@@ -398,10 +450,56 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
         );
     }
 
+    private VirtualUserView replaceUser(
+            VirtualUserView user,
+            VirtualUserStatus status,
+            String selectedSeatLabel,
+            List<TimelineEntry> timeline,
+            int seatAttemptCount,
+            int conflictCount,
+            int paymentAttemptCount,
+            Long reservationId
+    ) {
+        return new VirtualUserView(
+                user.id(),
+                user.displayName(),
+                user.type(),
+                status,
+                selectedSeatLabel,
+                timeline,
+                seatAttemptCount,
+                conflictCount,
+                paymentAttemptCount,
+                reservationId
+        );
+    }
+
+    private List<TimelineEntry> appendEntry(List<TimelineEntry> timeline, String label, String message) {
+        List<TimelineEntry> updated = new ArrayList<>(timeline);
+        updated.add(new TimelineEntry(label, message));
+        return updated;
+    }
+
     private List<SeatView> updateSeat(List<SeatView> seats, long seatId, SeatStatus status) {
         return seats.stream()
                 .map(seat -> seat.id() == seatId ? new SeatView(seat.id(), seat.label(), status) : seat)
                 .toList();
+    }
+
+    private List<SeatView> updateSelectedSeat(
+            List<SeatView> seats,
+            List<VirtualUserView> users,
+            UUID virtualUserId,
+            SeatStatus status
+    ) {
+        return users.stream()
+                .filter(user -> user.id().equals(virtualUserId))
+                .findFirst()
+                .map(VirtualUserView::selectedSeatLabel)
+                .map(label -> seats.stream()
+                        .map(seat -> seat.label().equals(label) ? new SeatView(seat.id(), seat.label(), status) : seat)
+                        .toList())
+                .orElse(seats);
     }
 
     private List<ServerStatsView> incrementServerStats(
