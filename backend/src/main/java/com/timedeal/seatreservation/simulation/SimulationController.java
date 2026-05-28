@@ -14,7 +14,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/simulations")
+@RequestMapping("/api/simulations")
 public class SimulationController {
     private final SimulationService simulationService;
     private final SimulationEventHub simulationEventHub;

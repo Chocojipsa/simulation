@@ -40,7 +40,7 @@ class SimulationControllerTest {
                 100
         ));
 
-        mvc.perform(post("/simulations")
+        mvc.perform(post("/api/simulations")
                         .contentType(APPLICATION_JSON)
                         .content("{\"virtualUserCount\":100}"))
                 .andExpect(status().isOk())
@@ -70,7 +70,7 @@ class SimulationControllerTest {
         );
         when(simulationService.getSimulation(simulationId)).thenReturn(snapshot);
 
-        mvc.perform(get("/simulations/{simulationId}", simulationId))
+        mvc.perform(get("/api/simulations/{simulationId}", simulationId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.simulationId").value(simulationId.toString()))
                 .andExpect(jsonPath("$.seats[0].label").value("A-1"))
