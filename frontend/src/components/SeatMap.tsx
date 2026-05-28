@@ -13,6 +13,11 @@ export function SeatMap({ seats, selectedSeatLabel }: SeatMapProps) {
         <h2>실시간 좌석표</h2>
         <span>STAGE</span>
       </div>
+      <div className="seat-legend">
+        <span><i className="legend-available" /> 선택 가능</span>
+        <span><i className="legend-payment" /> 결제 중</span>
+        <span><i className="legend-reserved" /> 예약 완료</span>
+      </div>
       <div className="seat-grid" aria-label="좌석표">
         {seats.map((seat) => (
           <button

@@ -89,6 +89,16 @@ input {
   background: #e8f0ff;
 }
 
+.segmented button {
+  display: grid;
+  gap: 2px;
+}
+
+.segmented button span {
+  font-size: 11px;
+  color: #6b7280;
+}
+
 .primary-action {
   width: 100%;
   background: #2563eb;
@@ -101,6 +111,32 @@ input {
   grid-template-columns: repeat(12, minmax(30px, 1fr));
   gap: 6px;
 }
+
+.seat-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 10px;
+  color: #4b5563;
+  font-size: 12px;
+}
+
+.seat-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.seat-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.legend-available { background: #51c878; }
+.legend-payment { background: #facc15; }
+.legend-reserved { background: #9ca3af; }
 
 .seat {
   min-height: 30px;

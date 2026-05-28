@@ -61,4 +61,12 @@ describe('App', () => {
     expect(screen.getByText('Kafka 결제')).toBeInTheDocument();
     expect(screen.getByText('가상 사용자')).toBeInTheDocument();
   });
+
+  it('shows scenario labels for portfolio demos', () => {
+    render(<App />);
+
+    expect(screen.getByText('가벼운 테스트')).toBeInTheDocument();
+    expect(screen.getByText('충돌 확인')).toBeInTheDocument();
+    expect(screen.getByText('고부하 데모')).toBeInTheDocument();
+  });
 });

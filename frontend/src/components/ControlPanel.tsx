@@ -15,13 +15,24 @@ export function ControlPanel({
   onConcurrencyChange,
   onStart,
 }: ControlPanelProps) {
+  const scenarios = [
+    { count: 30, label: '가벼운 테스트' },
+    { count: 150, label: '충돌 확인' },
+    { count: 300, label: '고부하 데모' },
+  ];
+
   return (
     <section className="panel control-panel">
       <h2>시뮬레이션 제어</h2>
       <div className="segmented">
-        {[30, 150, 300].map((value) => (
-          <button key={value} className={virtualUserCount === value ? 'active' : ''} onClick={() => onVirtualUserCountChange(value)}>
-            {value}명
+        {scenarios.map((scenario) => (
+          <button
+            key={scenario.count}
+            className={virtualUserCount === scenario.count ? 'active' : ''}
+            onClick={() => onVirtualUserCountChange(scenario.count)}
+          >
+            <strong>{scenario.count}명</strong>
+            <span>{scenario.label}</span>
           </button>
         ))}
       </div>
