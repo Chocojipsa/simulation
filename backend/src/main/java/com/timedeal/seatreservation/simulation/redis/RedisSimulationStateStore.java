@@ -31,6 +31,7 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
     private static final Duration LOCK_TTL = Duration.ofSeconds(2);
     private static final Duration LOCK_RETRY_DELAY = Duration.ofMillis(20);
     private static final int LOCK_ATTEMPTS = 250;
+    private static final int MAX_SEAT_ATTEMPTS = 30;
     private static final int ROW_COUNT = 10;
     private static final int SEATS_PER_ROW = 12;
 
@@ -129,7 +130,7 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
                 current.seats(),
                 updateUser(current.users(), virtualUserId, user -> appendTimeline(
                         user,
-                        VirtualUserStatus.SELECTING_SEAT,
+                        seatAttemptStatusAfter(user),
                         seat.label(),
                         "좌석 선택 실패",
                         "이미 선택된 좌석입니다: " + seat.label(),
@@ -140,6 +141,13 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
                 incrementServerStats(current.serverStats(), handledBy, true, false),
                 current.running()
         ));
+    }
+
+    private VirtualUserStatus seatAttemptStatusAfter(VirtualUserView user) {
+        if (user.seatAttemptCount() + 1 >= MAX_SEAT_ATTEMPTS) {
+            return VirtualUserStatus.FAILED;
+        }
+        return VirtualUserStatus.SELECTING_SEAT;
     }
 
     @Override

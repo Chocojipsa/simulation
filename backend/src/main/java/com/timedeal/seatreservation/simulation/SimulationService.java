@@ -1,6 +1,7 @@
 package com.timedeal.seatreservation.simulation;
 
 import com.timedeal.seatreservation.domain.SeatStatus;
+import com.timedeal.seatreservation.domain.VirtualUserStatus;
 import com.timedeal.seatreservation.generator.TrafficGeneratorClient;
 import com.timedeal.seatreservation.identity.ServerIdentity;
 import com.timedeal.seatreservation.payment.PaymentRequestedEvent;
@@ -149,7 +150,7 @@ public class SimulationService {
             return new VirtualUserCommandResponse(
                     simulationId,
                     userId,
-                    "RETRY",
+                    "FAILED",
                     serverIdentity.id(),
                     "선택 가능한 좌석이 없습니다.",
                     null
@@ -198,11 +199,17 @@ public class SimulationService {
     }
 
     private VirtualUserCommandResponse recordSeatConflict(UUID simulationId, UUID userId, SeatView seat) {
-        stateStore.recordSeatConflict(simulationId, userId, seat, serverIdentity.id());
+        SimulationSnapshot updated = stateStore.recordSeatConflict(simulationId, userId, seat, serverIdentity.id());
+        String status = updated.users().stream()
+                .filter(user -> user.id().equals(userId))
+                .findFirst()
+                .filter(user -> user.status() == VirtualUserStatus.FAILED)
+                .map(user -> "FAILED")
+                .orElse("RETRY");
         return new VirtualUserCommandResponse(
                 simulationId,
                 userId,
-                "RETRY",
+                status,
                 serverIdentity.id(),
                 "이미 선택된 좌석입니다: " + seat.label(),
                 seat.label()

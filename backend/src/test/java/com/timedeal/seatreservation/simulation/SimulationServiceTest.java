@@ -90,6 +90,8 @@ class SimulationServiceTest {
         when(stateStore.snapshot(simulationId)).thenReturn(snapshot(simulationId, userId, seat));
         when(seatReservationService.holdSeat(eq(simulationId), eq(userId), eq(1L), any()))
                 .thenReturn(new SeatReservationResult(SeatReservationOutcome.ALREADY_HELD, null, 1L, userId, "hold"));
+        when(stateStore.recordSeatConflict(simulationId, userId, seat, "api-test"))
+                .thenReturn(snapshot(simulationId, userId, seat));
         SimulationService service = service(stateStore, waitingQueue, seatReservationService, null);
 
         VirtualUserCommandResponse response = service.attemptSeat(simulationId, userId);
@@ -97,6 +99,58 @@ class SimulationServiceTest {
         verify(stateStore).recordSeatConflict(simulationId, userId, seat, "api-test");
         assertThat(response.status()).isEqualTo("RETRY");
         assertThat(response.message()).isEqualTo("이미 선택된 좌석입니다: A-1");
+    }
+
+    @Test
+    void seatAttemptReturnsFailedWhenConflictReachesAttemptLimit() {
+        SimulationStateGateway stateStore = mock(SimulationStateGateway.class);
+        WaitingQueueService waitingQueue = mock(WaitingQueueService.class);
+        SeatReservationService seatReservationService = mock(SeatReservationService.class);
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000034");
+        UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000134");
+        SeatView seat = new SeatView(1L, "A-1", SeatStatus.AVAILABLE);
+        when(waitingQueue.hasAdmissionToken(simulationId.toString(), userId.toString())).thenReturn(true);
+        when(stateStore.snapshot(simulationId)).thenReturn(snapshot(simulationId, userId, seat));
+        when(seatReservationService.holdSeat(eq(simulationId), eq(userId), eq(1L), any()))
+                .thenReturn(new SeatReservationResult(SeatReservationOutcome.ALREADY_HELD, null, 1L, userId, "hold"));
+        when(stateStore.recordSeatConflict(simulationId, userId, seat, "api-test")).thenReturn(new SimulationSnapshot(
+                simulationId,
+                List.of(seat),
+                List.of(new VirtualUserView(
+                        userId,
+                        "user 1",
+                        VirtualUserStatus.FAILED,
+                        "A-1",
+                        List.of(new TimelineEntry("attempt", "attempt")),
+                        30,
+                        30
+                )),
+                new SimulationMetrics(0, 0, 0, 0, 0, 30),
+                List.of(),
+                true
+        ));
+        SimulationService service = service(stateStore, waitingQueue, seatReservationService, null);
+
+        VirtualUserCommandResponse response = service.attemptSeat(simulationId, userId);
+
+        assertThat(response.status()).isEqualTo("FAILED");
+    }
+
+    @Test
+    void seatAttemptReturnsFailedWhenNoSeatIsAvailable() {
+        SimulationStateGateway stateStore = mock(SimulationStateGateway.class);
+        WaitingQueueService waitingQueue = mock(WaitingQueueService.class);
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000035");
+        UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000135");
+        SeatView seat = new SeatView(1L, "A-1", SeatStatus.RESERVED);
+        when(waitingQueue.hasAdmissionToken(simulationId.toString(), userId.toString())).thenReturn(true);
+        when(stateStore.snapshot(simulationId)).thenReturn(snapshot(simulationId, userId, seat));
+        SimulationService service = service(stateStore, waitingQueue, null, null);
+
+        VirtualUserCommandResponse response = service.attemptSeat(simulationId, userId);
+
+        verify(stateStore).recordNoSeatAvailable(simulationId, userId, "api-test");
+        assertThat(response.status()).isEqualTo("FAILED");
     }
 
     @Test

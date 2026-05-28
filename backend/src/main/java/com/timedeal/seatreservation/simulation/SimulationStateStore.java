@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 @Profile("demo")
 public class SimulationStateStore implements SimulationStateGateway {
+    private static final int MAX_SEAT_ATTEMPTS = 30;
     private static final int ROW_COUNT = 10;
     private static final int SEATS_PER_ROW = 12;
 
@@ -92,11 +93,18 @@ public class SimulationStateStore implements SimulationStateGateway {
         MutableSimulationState state = state(simulationId);
         synchronized (state) {
             MutableVirtualUser user = user(state, virtualUserId);
-            user.status = VirtualUserStatus.SELECTING_SEAT;
+            user.status = nextSeatAttemptStatus(user);
             user.selectedSeatLabel = seat.label();
             user.timeline.add(new TimelineEntry("좌석 선택 실패", "이미 선택된 좌석입니다: " + seat.label()));
         }
         return snapshot(simulationId);
+    }
+
+    private VirtualUserStatus nextSeatAttemptStatus(MutableVirtualUser user) {
+        if (countTimelineEntries(user, "좌석 선택 실패") + 1 >= MAX_SEAT_ATTEMPTS) {
+            return VirtualUserStatus.FAILED;
+        }
+        return VirtualUserStatus.SELECTING_SEAT;
     }
 
     @Override
