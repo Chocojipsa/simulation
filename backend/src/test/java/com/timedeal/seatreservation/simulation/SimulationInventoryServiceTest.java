@@ -49,6 +49,7 @@ class SimulationInventoryServiceTest {
                         0,
                         0,
                         0,
+                        null,
                         null
                 )),
                 new SimulationMetrics(1, 0, 0, 0, 0, 0),
@@ -87,6 +88,7 @@ class SimulationInventoryServiceTest {
                 0,
                 0,
                 0,
+                null,
                 null
         );
 

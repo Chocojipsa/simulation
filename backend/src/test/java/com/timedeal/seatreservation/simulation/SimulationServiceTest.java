@@ -13,6 +13,10 @@ import com.timedeal.seatreservation.seat.SeatReservationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.kafka.core.KafkaTemplate;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
@@ -54,6 +58,27 @@ class SimulationServiceTest {
         WaitingQueueService waitingQueue = mock(WaitingQueueService.class);
         UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000030");
         UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000130");
+        when(stateStore.snapshot(simulationId)).thenReturn(new SimulationSnapshot(
+                simulationId,
+                List.of(),
+                List.of(),
+                new SimulationMetrics(0, 0, 0, 0, 0, 0),
+                List.of(),
+                true
+        ));
+        when(stateStore.participant(simulationId, userId)).thenReturn(new VirtualUserView(
+                userId,
+                "사용자 1",
+                ParticipantType.HUMAN,
+                VirtualUserStatus.WAITING_ROOM,
+                null,
+                List.of(),
+                0,
+                0,
+                0,
+                null,
+                null
+        ));
         SimulationService service = service(stateStore, waitingQueue, null, null);
 
         VirtualUserCommandResponse response = service.enterQueue(simulationId, userId);
@@ -61,7 +86,123 @@ class SimulationServiceTest {
         verify(waitingQueue).enterQueue(simulationId.toString(), userId.toString());
         verify(stateStore).registerQueueEntry(simulationId, userId, "api-test");
         assertThat(response.status()).isEqualTo("QUEUED");
-        assertThat(response.message()).isEqualTo("대기열에 진입했습니다.");
+        assertThat(response.message()).isEqualTo("대기열에 진입했습니다. 아직 좌석을 선택할 수 없습니다.");
+    }
+
+    @Test
+    void queuedParticipantCanBeAdmittedByQueueStatusCheck() {
+        SimulationStateGateway stateStore = new SimulationStateStore();
+        WaitingQueueService waitingQueue = mock(WaitingQueueService.class);
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000037");
+        UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000137");
+        stateStore.create(simulationId, 0);
+        stateStore.registerParticipant(simulationId, userId, "Kwon", ParticipantType.HUMAN, "api-test");
+        when(waitingQueue.hasAdmissionToken(simulationId.toString(), userId.toString()))
+                .thenReturn(false, true);
+        when(waitingQueue.pickAdmissionCandidates(simulationId.toString(), 1))
+                .thenReturn(List.of(userId.toString()));
+        SimulationService service = service(stateStore, waitingQueue, null, null);
+
+        VirtualUserCommandResponse queued = service.enterQueue(simulationId, userId);
+        VirtualUserCommandResponse admitted = service.enterQueue(simulationId, userId);
+
+        assertThat(queued.status()).isEqualTo("QUEUED");
+        assertThat(admitted.status()).isEqualTo("ADMITTED");
+        assertThat(admitted.message()).isEqualTo("대기열을 통과했습니다. 좌석을 선택해 주세요.");
+        assertThat(stateStore.participant(simulationId, userId).status()).isEqualTo(VirtualUserStatus.SELECTING_SEAT);
+        verify(waitingQueue, times(1)).enterQueue(simulationId.toString(), userId.toString());
+    }
+
+    @Test
+    void seatHoldDoesNotAdmitQueuedParticipantImplicitly() {
+        SimulationStateGateway stateStore = new SimulationStateStore();
+        WaitingQueueService waitingQueue = mock(WaitingQueueService.class);
+        SeatReservationService seatReservationService = mock(SeatReservationService.class);
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000038");
+        UUID participantId = UUID.fromString("00000000-0000-0000-0000-000000000138");
+        stateStore.create(simulationId, 0);
+        stateStore.registerParticipant(simulationId, participantId, "Kwon", ParticipantType.HUMAN, "api-test");
+        stateStore.registerQueueEntry(simulationId, participantId, "api-test");
+        when(waitingQueue.hasAdmissionToken(simulationId.toString(), participantId.toString()))
+                .thenReturn(false, true);
+        when(waitingQueue.pickAdmissionCandidates(simulationId.toString(), 1))
+                .thenReturn(List.of(participantId.toString()));
+        when(seatReservationService.holdSeat(eq(simulationId), eq(participantId), eq(1L), any()))
+                .thenReturn(new SeatReservationResult(SeatReservationOutcome.HELD, 102L, 1L, participantId, "hold"));
+        SimulationService service = service(stateStore, waitingQueue, seatReservationService, null);
+
+        VirtualUserCommandResponse response = service.holdExplicitSeat(simulationId, participantId, 1L);
+
+        assertThat(response.status()).isEqualTo("WAITING");
+        assertThat(response.message()).isEqualTo("대기열 대기 중입니다. 통과 후 좌석을 선택할 수 있습니다.");
+        verify(seatReservationService, times(0)).holdSeat(any(), any(), anyLong(), any());
+    }
+
+    @Test
+    void queuedParticipantWaitsWhenActiveAdmissionSlotIsFull() {
+        SimulationStateGateway stateStore = new SimulationStateStore();
+        WaitingQueueService waitingQueue = mock(WaitingQueueService.class);
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000040");
+        UUID activeUserId = UUID.fromString("00000000-0000-0000-0000-000000000140");
+        UUID queuedUserId = UUID.fromString("00000000-0000-0000-0000-000000000141");
+        stateStore.create(simulationId, 0);
+        stateStore.registerParticipant(simulationId, activeUserId, "앞사람", ParticipantType.HUMAN, "api-test");
+        stateStore.registerParticipant(simulationId, queuedUserId, "뒷사람", ParticipantType.HUMAN, "api-test");
+        stateStore.registerQueueEntry(simulationId, queuedUserId, "api-test");
+        stateStore.recordAdmitted(simulationId, activeUserId, "api-test");
+        when(waitingQueue.hasAdmissionToken(simulationId.toString(), queuedUserId.toString())).thenReturn(false);
+        SimulationService service = service(stateStore, waitingQueue, null, null, 1, 1);
+
+        VirtualUserCommandResponse response = service.enterQueue(simulationId, queuedUserId);
+
+        assertThat(response.status()).isEqualTo("QUEUED");
+        assertThat(stateStore.participant(simulationId, queuedUserId).status()).isEqualTo(VirtualUserStatus.QUEUED);
+        verify(waitingQueue, times(0)).pickAdmissionCandidates(simulationId.toString(), 1);
+    }
+
+    @Test
+    void queuedParticipantIsAdmittedWhenActiveAdmissionSlotIsAvailable() {
+        SimulationStateGateway stateStore = new SimulationStateStore();
+        WaitingQueueService waitingQueue = mock(WaitingQueueService.class);
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000041");
+        UUID queuedUserId = UUID.fromString("00000000-0000-0000-0000-000000000142");
+        stateStore.create(simulationId, 0);
+        stateStore.registerParticipant(simulationId, queuedUserId, "뒷사람", ParticipantType.HUMAN, "api-test");
+        stateStore.registerQueueEntry(simulationId, queuedUserId, "api-test");
+        when(waitingQueue.hasAdmissionToken(simulationId.toString(), queuedUserId.toString()))
+                .thenReturn(false, true);
+        when(waitingQueue.pickAdmissionCandidates(simulationId.toString(), 1))
+                .thenReturn(List.of(queuedUserId.toString()));
+        SimulationService service = service(stateStore, waitingQueue, null, null, 1, 1);
+
+        VirtualUserCommandResponse response = service.enterQueue(simulationId, queuedUserId);
+
+        assertThat(response.status()).isEqualTo("ADMITTED");
+        assertThat(stateStore.participant(simulationId, queuedUserId).status()).isEqualTo(VirtualUserStatus.SELECTING_SEAT);
+    }
+
+    @Test
+    void queuePollMarksFrontParticipantActiveEvenWhenCallerIsBehind() {
+        SimulationStateGateway stateStore = new SimulationStateStore();
+        WaitingQueueService waitingQueue = mock(WaitingQueueService.class);
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000042");
+        UUID frontUserId = UUID.fromString("00000000-0000-0000-0000-000000000143");
+        UUID behindUserId = UUID.fromString("00000000-0000-0000-0000-000000000144");
+        stateStore.create(simulationId, 0);
+        stateStore.registerParticipant(simulationId, frontUserId, "앞사람", ParticipantType.HUMAN, "api-test");
+        stateStore.registerParticipant(simulationId, behindUserId, "뒷사람", ParticipantType.AI, "api-test");
+        stateStore.registerQueueEntry(simulationId, frontUserId, "api-test");
+        stateStore.registerQueueEntry(simulationId, behindUserId, "api-test");
+        when(waitingQueue.hasAdmissionToken(simulationId.toString(), behindUserId.toString())).thenReturn(false);
+        when(waitingQueue.pickAdmissionCandidates(simulationId.toString(), 1))
+                .thenReturn(List.of(frontUserId.toString()));
+        SimulationService service = service(stateStore, waitingQueue, null, null, 1, 1);
+
+        VirtualUserCommandResponse response = service.enterQueue(simulationId, behindUserId);
+
+        assertThat(response.status()).isEqualTo("QUEUED");
+        assertThat(stateStore.participant(simulationId, frontUserId).status()).isEqualTo(VirtualUserStatus.SELECTING_SEAT);
+        assertThat(stateStore.participant(simulationId, behindUserId).status()).isEqualTo(VirtualUserStatus.QUEUED);
     }
 
     @Test
@@ -70,8 +211,9 @@ class SimulationServiceTest {
         WaitingQueueService waitingQueue = mock(WaitingQueueService.class);
         UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000031");
         UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000131");
+        when(stateStore.snapshot(simulationId)).thenReturn(snapshot(simulationId, userId, new SeatView(1L, "A-1", SeatStatus.AVAILABLE)));
         when(waitingQueue.hasAdmissionToken(simulationId.toString(), userId.toString())).thenReturn(false);
-        when(waitingQueue.pickAdmissionCandidates(simulationId.toString(), 10)).thenReturn(List.of());
+        when(waitingQueue.pickAdmissionCandidates(simulationId.toString(), 1)).thenReturn(List.of());
         SimulationService service = service(stateStore, waitingQueue, null, null);
 
         VirtualUserCommandResponse response = service.attemptSeat(simulationId, userId);
@@ -129,6 +271,7 @@ class SimulationServiceTest {
                         30,
                         30,
                         0,
+                        null,
                         null
                 )),
                 new SimulationMetrics(0, 0, 0, 0, 0, 30),
@@ -209,6 +352,7 @@ class SimulationServiceTest {
         stateStore.create(simulationId, 0);
         stateStore.registerParticipant(simulationId, participantId, "Kwon", ParticipantType.HUMAN, "api-test");
         stateStore.registerQueueEntry(simulationId, participantId, "api-test");
+        stateStore.recordAdmitted(simulationId, participantId, "api-test");
         when(seatReservationService.holdSeat(eq(simulationId), eq(participantId), eq(1L), any()))
                 .thenReturn(new SeatReservationResult(SeatReservationOutcome.HELD, 100L, 1L, participantId, "hold-1"));
         SimulationService service = new SimulationService(
@@ -232,6 +376,121 @@ class SimulationServiceTest {
         verify(seatReservationService, times(1)).holdSeat(eq(simulationId), eq(participantId), anyLong(), any());
     }
 
+    @Test
+    void heldSeatExpiresWhenPaymentIsNotConfirmedInTime() {
+        SimulationStateStore stateStore = new SimulationStateStore();
+        SeatReservationService seatReservationService = mock(SeatReservationService.class);
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000039");
+        UUID participantId = UUID.fromString("00000000-0000-0000-0000-000000000139");
+        Instant openedAt = Instant.parse("2026-05-28T12:00:00Z");
+        stateStore.create(simulationId, 0);
+        stateStore.registerParticipant(simulationId, participantId, "Kwon", ParticipantType.HUMAN, "api-test");
+        stateStore.registerQueueEntry(simulationId, participantId, "api-test");
+        stateStore.recordAdmitted(simulationId, participantId, "api-test");
+        when(seatReservationService.holdSeat(eq(simulationId), eq(participantId), eq(1L), any()))
+                .thenReturn(new SeatReservationResult(SeatReservationOutcome.HELD, 103L, 1L, participantId, "hold"));
+        SimulationService service = service(
+                stateStore,
+                null,
+                seatReservationService,
+                null,
+                Clock.fixed(openedAt, ZoneOffset.UTC),
+                Duration.ofSeconds(60)
+        );
+
+        service.holdExplicitSeat(simulationId, participantId, 1L);
+
+        SimulationService afterExpiry = service(
+                stateStore,
+                null,
+                seatReservationService,
+                null,
+                Clock.fixed(openedAt.plusSeconds(61), ZoneOffset.UTC),
+                Duration.ofSeconds(60)
+        );
+        SimulationSnapshot expired = afterExpiry.getSimulation(simulationId);
+
+        assertThat(expired.users().get(0).status()).isEqualTo(VirtualUserStatus.EXPIRED);
+        assertThat(expired.users().get(0).selectedSeatLabel()).isNull();
+        assertThat(expired.seats().get(0).status()).isEqualTo(SeatStatus.AVAILABLE);
+        verify(seatReservationService).expireHold(simulationId, 103L, 1L);
+    }
+
+    @Test
+    void admittedParticipantExpiresWhenSeatIsNotSelectedInTime() {
+        SimulationStateStore stateStore = new SimulationStateStore();
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000043");
+        UUID participantId = UUID.fromString("00000000-0000-0000-0000-000000000145");
+        Instant openedAt = Instant.parse("2026-05-28T12:00:00Z");
+        stateStore.create(simulationId, 0);
+        stateStore.registerParticipant(simulationId, participantId, "Kwon", ParticipantType.HUMAN, "api-test");
+        SimulationService service = service(
+                stateStore,
+                null,
+                null,
+                null,
+                Clock.fixed(openedAt, ZoneOffset.UTC),
+                Duration.ofSeconds(60)
+        );
+        service.enterQueue(simulationId, participantId);
+        service.enterQueue(simulationId, participantId);
+
+        SimulationService afterExpiry = service(
+                stateStore,
+                null,
+                null,
+                null,
+                Clock.fixed(openedAt.plusSeconds(16), ZoneOffset.UTC),
+                Duration.ofSeconds(60)
+        );
+        SimulationSnapshot expired = afterExpiry.getSimulation(simulationId);
+
+        assertThat(expired.users().get(0).status()).isEqualTo(VirtualUserStatus.EXPIRED);
+        assertThat(expired.users().get(0).seatHoldExpiresAt()).isNull();
+    }
+
+    @Test
+    void heldSeatDoesNotBlockNextQueuedParticipantAdmission() {
+        SimulationStateStore stateStore = new SimulationStateStore();
+        WaitingQueueService waitingQueue = mock(WaitingQueueService.class);
+        SeatReservationService seatReservationService = mock(SeatReservationService.class);
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000044");
+        UUID holdingUserId = UUID.fromString("00000000-0000-0000-0000-000000000146");
+        UUID queuedUserId = UUID.fromString("00000000-0000-0000-0000-000000000147");
+        stateStore.create(simulationId, 0);
+        stateStore.registerParticipant(simulationId, holdingUserId, "선점자", ParticipantType.HUMAN, "api-test");
+        stateStore.registerParticipant(simulationId, queuedUserId, "다음 사람", ParticipantType.HUMAN, "api-test");
+        stateStore.registerQueueEntry(simulationId, holdingUserId, "api-test");
+        stateStore.recordAdmitted(simulationId, holdingUserId, "api-test");
+        when(seatReservationService.holdSeat(eq(simulationId), eq(holdingUserId), eq(1L), any()))
+                .thenReturn(new SeatReservationResult(SeatReservationOutcome.HELD, 104L, 1L, holdingUserId, "hold"));
+        stateStore.registerQueueEntry(simulationId, queuedUserId, "api-test");
+        when(waitingQueue.hasAdmissionToken(simulationId.toString(), queuedUserId.toString()))
+                .thenReturn(false, true);
+        when(waitingQueue.pickAdmissionCandidates(simulationId.toString(), 1))
+                .thenReturn(List.of(queuedUserId.toString()));
+        SimulationService service = service(stateStore, waitingQueue, seatReservationService, null, 1, 1);
+
+        VirtualUserCommandResponse hold = service.holdExplicitSeat(simulationId, holdingUserId, 1L);
+        VirtualUserCommandResponse admitted = service.enterQueue(simulationId, queuedUserId);
+
+        assertThat(hold.status()).isEqualTo("PAYMENT_PENDING");
+        assertThat(admitted.status()).isEqualTo("ADMITTED");
+        assertThat(stateStore.participant(simulationId, queuedUserId).status()).isEqualTo(VirtualUserStatus.SELECTING_SEAT);
+    }
+
+    @Test
+    void resetSimulationClearsRedisWaitingQueue() {
+        SimulationStateStore stateStore = new SimulationStateStore();
+        WaitingQueueService waitingQueue = mock(WaitingQueueService.class);
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000045");
+        SimulationService service = service(stateStore, waitingQueue, null, null);
+
+        service.resetSimulation(simulationId, 0);
+
+        verify(waitingQueue).clearQueue(simulationId.toString());
+    }
+
     private SimulationService service(
             SimulationStateGateway stateStore,
             WaitingQueueService waitingQueue,
@@ -252,6 +511,57 @@ class SimulationServiceTest {
         );
     }
 
+    private SimulationService service(
+            SimulationStateGateway stateStore,
+            WaitingQueueService waitingQueue,
+            SeatReservationService seatReservationService,
+            KafkaTemplate<String, PaymentRequestedEvent> kafkaTemplate,
+            int admissionBatchSize,
+            int maxActiveAdmissions
+    ) {
+        TrafficGeneratorClient trafficGeneratorClient = (simulationId, request) -> {
+        };
+        return new SimulationService(
+                stateStore,
+                new ServerIdentity("api-test"),
+                trafficGeneratorClient,
+                null,
+                waitingQueue,
+                seatReservationService,
+                kafkaTemplate,
+                new Random(1),
+                Clock.systemUTC(),
+                Duration.ofSeconds(60),
+                Duration.ofSeconds(15),
+                admissionBatchSize,
+                maxActiveAdmissions
+        );
+    }
+
+    private SimulationService service(
+            SimulationStateGateway stateStore,
+            WaitingQueueService waitingQueue,
+            SeatReservationService seatReservationService,
+            KafkaTemplate<String, PaymentRequestedEvent> kafkaTemplate,
+            Clock clock,
+            Duration seatHoldTtl
+    ) {
+        TrafficGeneratorClient trafficGeneratorClient = (simulationId, request) -> {
+        };
+        return new SimulationService(
+                stateStore,
+                new ServerIdentity("api-test"),
+                trafficGeneratorClient,
+                null,
+                waitingQueue,
+                seatReservationService,
+                kafkaTemplate,
+                new Random(1),
+                clock,
+                seatHoldTtl
+        );
+    }
+
     private SimulationSnapshot snapshot(UUID simulationId, UUID userId, SeatView seat) {
         return new SimulationSnapshot(
                 simulationId,
@@ -266,6 +576,7 @@ class SimulationServiceTest {
                         0,
                         0,
                         0,
+                        null,
                         null
                 )),
                 new SimulationMetrics(1, 0, 0, 0, 0, 0),

@@ -16,10 +16,12 @@ const emptySnapshot = {
   serverStats: [],
   running: false,
   myParticipantId: null,
+  myQueuePosition: null,
 } satisfies api.LiveEventSnapshot;
 
 describe('useLiveEventRoom', () => {
   afterEach(() => {
+    vi.useRealTimers();
     window.localStorage.clear();
     vi.restoreAllMocks();
   });
@@ -70,5 +72,48 @@ describe('useLiveEventRoom', () => {
     expect(result.current.participantId).toBe('participant-1');
     expect(result.current.myParticipant?.displayName).toBe('권');
     expect(window.localStorage.getItem('timedeal.participantId')).toBe('participant-1');
+  });
+
+  it('does not start another snapshot refresh while the previous refresh is pending', async () => {
+    vi.useFakeTimers();
+    let resolvePendingSnapshot: ((snapshot: api.LiveEventSnapshot) => void) | null = null;
+    const pendingSnapshot = new Promise<api.LiveEventSnapshot>((resolve) => {
+      resolvePendingSnapshot = resolve;
+    });
+    vi.spyOn(api, 'fetchActiveEvent').mockResolvedValue({
+      eventId: 'event-1',
+      title: '부산 콘서트 티켓팅',
+      status: 'OPEN',
+      generation: 1,
+      opensAt: '2026-05-28T12:00:00Z',
+      endsAt: '2026-05-28T12:05:00Z',
+      seatCount: 120,
+    });
+    const fetchSnapshot = vi.spyOn(api, 'fetchEventSnapshot')
+      .mockResolvedValueOnce(emptySnapshot)
+      .mockReturnValueOnce(pendingSnapshot);
+
+    renderHook(() => useLiveEventRoom(''));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fetchSnapshot).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    expect(fetchSnapshot).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(fetchSnapshot).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      resolvePendingSnapshot?.(emptySnapshot);
+      await pendingSnapshot;
+    });
   });
 });

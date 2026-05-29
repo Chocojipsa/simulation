@@ -9,13 +9,18 @@ traffic-generator:
   target-base-url: ${TRAFFIC_GENERATOR_TARGET_BASE_URL:http://localhost:8080}
   default-concurrency: ${TRAFFIC_GENERATOR_DEFAULT_CONCURRENCY:20}
 
+waiting-queue:
+  admission-batch-size: ${WAITING_QUEUE_ADMISSION_BATCH_SIZE:1}
+  max-active-admissions: ${WAITING_QUEUE_MAX_ACTIVE_ADMISSIONS:1}
+  selection-ttl-seconds: ${WAITING_QUEUE_SELECTION_TTL_SECONDS:15}
+
 live-event:
   id: ${LIVE_EVENT_ID:00000000-0000-0000-0000-000000000001}
-  title: ${LIVE_EVENT_TITLE:부산 콘서트 티켓팅}
+  title: ${LIVE_EVENT_TITLE:티켓팅 시뮬레이션}
   seat-count: ${LIVE_EVENT_SEAT_COUNT:120}
-  countdown-seconds: ${LIVE_EVENT_COUNTDOWN_SECONDS:60}
+  countdown-seconds: ${LIVE_EVENT_COUNTDOWN_SECONDS:30}
   open-window-seconds: ${LIVE_EVENT_OPEN_WINDOW_SECONDS:300}
-  ai-user-count: ${LIVE_EVENT_AI_USER_COUNT:150}
+  ai-user-count: ${LIVE_EVENT_AI_USER_COUNT:200}
   ai-batch-enabled: ${LIVE_EVENT_AI_BATCH_ENABLED:true}
   ai-start-delay-millis: ${LIVE_EVENT_AI_START_DELAY_MILLIS:0}
   ai:

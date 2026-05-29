@@ -17,6 +17,7 @@ describe('QueuePanel', () => {
       serverStats: [],
       running: false,
       myParticipantId: 'me',
+      myQueuePosition: 42,
       participants: [
         { id: 'me', displayName: '나', type: 'HUMAN', status: 'QUEUED', selectedSeatLabel: null, timeline: [], seatAttemptCount: 0, conflictCount: 0, paymentAttemptCount: 0, reservationId: null },
         { id: 'ai-1', displayName: 'AI-1', type: 'AI', status: 'QUEUED', selectedSeatLabel: null, timeline: [], seatAttemptCount: 0, conflictCount: 0, paymentAttemptCount: 0, reservationId: null },
@@ -27,6 +28,7 @@ describe('QueuePanel', () => {
 
     expect(screen.getByText('대기열')).toBeInTheDocument();
     expect(screen.getByText('2명')).toBeInTheDocument();
-    expect(screen.getByText('1번째')).toBeInTheDocument();
+    expect(screen.getByText('42번째')).toBeInTheDocument();
+    expect(screen.getByText('대기열 대기')).toBeInTheDocument();
   });
 });

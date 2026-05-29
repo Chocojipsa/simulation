@@ -52,6 +52,20 @@ public class SeatReservationService {
             where simulation_id = ?
               and seat_id = ?
             """;
+    static final String EXPIRE_HELD_RESERVATION_SQL = """
+            update reservations
+            set status = 'EXPIRED', updated_at = now()
+            where id = ?
+              and simulation_id = ?
+              and status = 'HELD'
+            """;
+    static final String RELEASE_HELD_SEAT_SQL = """
+            update simulation_seats
+            set status = 'AVAILABLE', held_by_user_id = null, updated_at = now()
+            where simulation_id = ?
+              and seat_id = ?
+              and status = 'HELD'
+            """;
 
     private final JdbcTemplate jdbc;
     private final TransactionOperations transactions;
@@ -89,6 +103,16 @@ public class SeatReservationService {
                     event.simulationId(),
                     event.seatId()
             );
+            return null;
+        });
+    }
+
+    public void expireHold(UUID simulationId, long reservationId, long seatId) {
+        transactions.execute(status -> {
+            int expired = jdbc.update(EXPIRE_HELD_RESERVATION_SQL, reservationId, simulationId);
+            if (expired > 0) {
+                jdbc.update(RELEASE_HELD_SEAT_SQL, simulationId, seatId);
+            }
             return null;
         });
     }

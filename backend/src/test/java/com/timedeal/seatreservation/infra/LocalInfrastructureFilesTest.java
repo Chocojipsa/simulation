@@ -49,7 +49,22 @@ class LocalInfrastructureFilesTest {
         assertThat(nginx).contains("server api-a:8080;");
         assertThat(nginx).contains("server api-b:8080;");
         assertThat(nginx).contains("location /api/");
+        assertThat(nginx).contains("Access-Control-Allow-Origin");
+        assertThat(nginx).contains("return 204;");
         assertThat(nginx).contains("proxy_buffering off;");
+        assertThat(nginx).contains("location = /health");
+        assertThat(nginx).contains("return 404");
+        assertThat(nginx).doesNotContain("""
+    location / {
+      proxy_pass http://api_servers;
+""");
+    }
+
+    @Test
+    void backendDoesNotShipLegacyStaticSite() {
+        assertThat(Files.exists(Path.of("src/main/resources/static/index.html"))).isFalse();
+        assertThat(Files.exists(Path.of("src/main/resources/static/app.js"))).isFalse();
+        assertThat(Files.exists(Path.of("src/main/resources/static/styles.css"))).isFalse();
     }
 
     @Test

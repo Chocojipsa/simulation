@@ -3,10 +3,77 @@
 .worktrees/
 worktrees/
 .idea/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local environment files
+.env
+.env.*
+!.env.example
+!.env.test
+!.env.sample
+/frontend/.env
+/frontend/.env.*
+!/frontend/.env.example
+/backend/.env
+/backend/.env.*
+!/backend/.env.example
+/infra/.env
+/infra/.env.*
+!/infra/.env.example
+
+# Secrets / certificates / keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.crt
+*.csr
+*.cer
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+aws-credentials*
+
+# Local databases / dumps
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.sql.gz
+*.backup
+
+# Docker local overrides
+docker-compose.override.yml
+compose.override.yml
+/infra/docker-compose.override.yml
+/infra/compose.override.yml
+
+# Backend build output
 /backend/.gradle/
 /backend/build/
+/backend/out/
+
+# Frontend dependencies and build output
 /frontend/node_modules/
 /frontend/dist/
+/frontend/coverage/
 /frontend/*.tsbuildinfo
 /frontend/vite.config.d.ts
 /frontend/vite.config.js

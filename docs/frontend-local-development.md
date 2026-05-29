@@ -12,10 +12,17 @@ docker compose up -d --build
 docker compose restart nginx
 ```
 
-The API is available through nginx:
+The API is available through nginx. The backend is API-only; the old Spring-served static page is intentionally removed.
 
 ```text
 http://localhost:8080
+```
+
+Useful endpoints:
+
+```text
+http://localhost:8080/health
+http://localhost:8080/api/events/active
 ```
 
 ## Start Frontend

@@ -41,12 +41,14 @@ class LiveEventContractTest {
                         0,
                         0,
                         0,
+                        null,
                         null
                 )),
                 new SimulationMetrics(0, 0, 0, 0, 0, 0),
                 List.of(new ServerStatsView("api-a", 1, 0, 0)),
                 false,
-                participantId
+                participantId,
+                42
         );
 
         String json = objectMapper.writeValueAsString(snapshot);
@@ -59,5 +61,6 @@ class LiveEventContractTest {
         assertThat(json).contains("\"endsAt\":\"2026-05-28T12:06:00Z\"");
         assertThat(json).contains("\"type\":\"HUMAN\"");
         assertThat(json).contains("\"myParticipantId\":\"" + participantId + "\"");
+        assertThat(json).contains("\"myQueuePosition\":42");
     }
 }

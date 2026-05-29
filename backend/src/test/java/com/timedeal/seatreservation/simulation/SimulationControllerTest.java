@@ -70,6 +70,7 @@ class SimulationControllerTest {
                         3,
                         2,
                         0,
+                        null,
                         null
                 )),
                 new SimulationMetrics(1, 0, 0, 0, 0, 0),

@@ -3,6 +3,7 @@ package com.timedeal.seatreservation.simulation;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
 import com.timedeal.seatreservation.event.ParticipantType;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -16,6 +17,7 @@ public record VirtualUserView(
         int seatAttemptCount,
         int conflictCount,
         int paymentAttemptCount,
-        Long reservationId
+        Long reservationId,
+        Instant seatHoldExpiresAt
 ) {
 }

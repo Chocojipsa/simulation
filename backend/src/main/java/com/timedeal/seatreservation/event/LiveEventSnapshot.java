@@ -24,6 +24,7 @@ public record LiveEventSnapshot(
         SimulationMetrics metrics,
         List<ServerStatsView> serverStats,
         boolean running,
-        UUID myParticipantId
+        UUID myParticipantId,
+        Integer myQueuePosition
 ) {
 }

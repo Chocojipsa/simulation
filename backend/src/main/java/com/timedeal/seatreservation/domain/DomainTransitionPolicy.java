@@ -18,13 +18,13 @@ public class DomainTransitionPolicy {
             entry(VirtualUserStatus.WAITING_ROOM, Set.of(VirtualUserStatus.QUEUED, VirtualUserStatus.EXPIRED)),
             entry(VirtualUserStatus.QUEUED, Set.of(VirtualUserStatus.ADMITTED, VirtualUserStatus.SELECTING_SEAT, VirtualUserStatus.EXPIRED)),
             entry(VirtualUserStatus.ADMITTED, Set.of(VirtualUserStatus.SELECTING_SEAT, VirtualUserStatus.EXPIRED)),
-            entry(VirtualUserStatus.SELECTING_SEAT, Set.of(VirtualUserStatus.SEAT_HELD, VirtualUserStatus.FAILED)),
+            entry(VirtualUserStatus.SELECTING_SEAT, Set.of(VirtualUserStatus.SEAT_HELD, VirtualUserStatus.FAILED, VirtualUserStatus.EXPIRED)),
             entry(VirtualUserStatus.SEAT_HELD, Set.of(VirtualUserStatus.PAYMENT_IN_PROGRESS, VirtualUserStatus.EXPIRED)),
             entry(VirtualUserStatus.PAYMENT_IN_PROGRESS, Set.of(VirtualUserStatus.RESERVED, VirtualUserStatus.PAYMENT_FAILED, VirtualUserStatus.FAILED)),
             entry(VirtualUserStatus.PAYMENT_FAILED, Set.of(VirtualUserStatus.QUEUED, VirtualUserStatus.SELECTING_SEAT, VirtualUserStatus.FAILED)),
             entry(VirtualUserStatus.RESERVED, Set.of()),
             entry(VirtualUserStatus.FAILED, Set.of()),
-            entry(VirtualUserStatus.EXPIRED, Set.of())
+            entry(VirtualUserStatus.EXPIRED, Set.of(VirtualUserStatus.QUEUED))
     );
 
     public boolean canChangeSeatStatus(SeatStatus from, SeatStatus to) {

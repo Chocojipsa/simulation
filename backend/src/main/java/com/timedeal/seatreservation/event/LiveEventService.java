@@ -1,6 +1,7 @@
 package com.timedeal.seatreservation.event;
 
 import com.timedeal.seatreservation.identity.ServerIdentity;
+import com.timedeal.seatreservation.queue.WaitingQueueService;
 import com.timedeal.seatreservation.simulation.RunSimulationRequest;
 import com.timedeal.seatreservation.simulation.RunSimulationResponse;
 import com.timedeal.seatreservation.simulation.SimulationInventoryService;
@@ -17,6 +18,10 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
@@ -36,6 +41,7 @@ public class LiveEventService {
     private final Duration openWindow;
     private final Clock clock;
     private final LiveEventAiStarter aiStarter;
+    private final WaitingQueueService waitingQueueService;
 
     @Autowired
     public LiveEventService(
@@ -45,6 +51,7 @@ public class LiveEventService {
             ServerIdentity serverIdentity,
             ObjectProvider<SimulationInventoryService> inventoryService,
             ObjectProvider<LiveEventAiStarter> aiStarter,
+            ObjectProvider<WaitingQueueService> waitingQueueService,
             @Value("${live-event.id:00000000-0000-0000-0000-000000000001}") UUID configuredEventId,
             @Value("${live-event.title:Live Ticketing Event}") String title,
             @Value("${live-event.seat-count:120}") int seatCount,
@@ -63,7 +70,8 @@ public class LiveEventService {
                 Duration.ofSeconds(countdownSeconds),
                 Duration.ofSeconds(openWindowSeconds),
                 Clock.systemUTC(),
-                aiStarter.getIfAvailable()
+                aiStarter.getIfAvailable(),
+                waitingQueueService.getIfAvailable()
         );
     }
 
@@ -182,6 +190,38 @@ public class LiveEventService {
             Clock clock,
             LiveEventAiStarter aiStarter
     ) {
+        this(
+                simulationService,
+                stateGateway,
+                eventStateStore,
+                serverIdentity,
+                inventoryService,
+                configuredEventId,
+                title,
+                seatCount,
+                countdownDuration,
+                openWindow,
+                clock,
+                aiStarter,
+                null
+        );
+    }
+
+    public LiveEventService(
+            SimulationService simulationService,
+            SimulationStateGateway stateGateway,
+            LiveEventStateStore eventStateStore,
+            ServerIdentity serverIdentity,
+            SimulationInventoryService inventoryService,
+            UUID configuredEventId,
+            String title,
+            int seatCount,
+            Duration countdownDuration,
+            Duration openWindow,
+            Clock clock,
+            LiveEventAiStarter aiStarter,
+            WaitingQueueService waitingQueueService
+    ) {
         this.simulationService = simulationService;
         this.stateGateway = stateGateway;
         this.eventStateStore = eventStateStore;
@@ -194,6 +234,7 @@ public class LiveEventService {
         this.openWindow = openWindow;
         this.clock = clock;
         this.aiStarter = aiStarter;
+        this.waitingQueueService = waitingQueueService;
     }
 
     public LiveEventResponse activeEvent() {
@@ -248,11 +289,12 @@ public class LiveEventService {
                 metadata.opensAt(),
                 metadata.endsAt(),
                 snapshot.seats(),
-                snapshot.users(),
+                participantsInQueueOrder(eventId, snapshot.users()),
                 snapshot.metrics(),
                 snapshot.serverStats(),
                 snapshot.running(),
-                myParticipantId
+                myParticipantId,
+                queuePosition(eventId, myParticipantId)
         );
     }
 
@@ -340,6 +382,37 @@ public class LiveEventService {
         if (eventStateStore.claimAiStart(metadata.eventId())) {
             aiStarter.start(metadata.eventId());
         }
+    }
+
+    private List<VirtualUserView> participantsInQueueOrder(UUID eventId, List<VirtualUserView> participants) {
+        if (waitingQueueService == null) {
+            return participants;
+        }
+        List<String> queuedUserIds = waitingQueueService.queuedUserIds(eventId.toString());
+        if (queuedUserIds.isEmpty()) {
+            return participants;
+        }
+        Map<UUID, Integer> queueOrder = new HashMap<>();
+        for (int index = 0; index < queuedUserIds.size(); index++) {
+            queueOrder.put(UUID.fromString(queuedUserIds.get(index)), index);
+        }
+        return participants.stream()
+                .sorted(Comparator.comparingInt(participant -> queueOrder.getOrDefault(participant.id(), Integer.MAX_VALUE)))
+                .toList();
+    }
+
+    private Integer queuePosition(UUID eventId, UUID participantId) {
+        if (waitingQueueService == null || participantId == null) {
+            return null;
+        }
+        List<String> queuedUserIds = waitingQueueService.queuedUserIds(eventId.toString());
+        String participantKey = participantId.toString();
+        for (int index = 0; index < queuedUserIds.size(); index++) {
+            if (participantKey.equals(queuedUserIds.get(index))) {
+                return index + 1;
+            }
+        }
+        return null;
     }
 
     private LiveEventResponse response(LiveEventMetadata metadata) {

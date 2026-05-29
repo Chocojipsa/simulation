@@ -8,7 +8,7 @@ vi.mock('./hooks/useLiveEventRoom', () => ({
     participantId: null,
     snapshot: {
       eventId: 'event-1',
-      title: '부산 콘서트 티켓팅',
+      title: '티켓팅 시뮬레이터',
       status: 'READY',
       generation: 1,
       opensAt: null,
@@ -19,6 +19,7 @@ vi.mock('./hooks/useLiveEventRoom', () => ({
       serverStats: [{ serverId: 'api-a', requestCount: 1, conflictCount: 0, successCount: 0 }],
       running: false,
       myParticipantId: null,
+      myQueuePosition: null,
     },
     myParticipant: null,
     loading: false,
@@ -38,7 +39,10 @@ describe('App', () => {
   it('shows the start action prominently and disables entry before the event starts', () => {
     render(<App />);
 
-    expect(screen.getByText('부산 콘서트 티켓팅')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /티켓팅/ })).toBeInTheDocument();
+    expect(screen.getByText('LIVE CONSOLE')).toBeInTheDocument();
+    expect(screen.getByText('SEATS')).toBeInTheDocument();
+    expect(screen.getAllByText('QUEUE').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('시작 전')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '이벤트 시작하기' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /이벤트 입장/ })).toBeDisabled();

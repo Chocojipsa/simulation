@@ -103,6 +103,7 @@ class RedisSimulationStateStoreTest {
                         29,
                         29,
                         0,
+                        null,
                         null
                 )),
                 new SimulationMetrics(0, 1, 0, 0, 0, 29),
@@ -140,6 +141,7 @@ class RedisSimulationStateStoreTest {
                         1,
                         0,
                         0,
+                        null,
                         null
                 )),
                 new SimulationMetrics(0, 1, 0, 1, 0, 0),
@@ -185,6 +187,7 @@ class RedisSimulationStateStoreTest {
                                 1,
                                 0,
                                 0,
+                                null,
                                 null
                         ),
                         new VirtualUserView(
@@ -197,6 +200,7 @@ class RedisSimulationStateStoreTest {
                                 0,
                                 0,
                                 0,
+                                null,
                                 null
                         )
                 ),

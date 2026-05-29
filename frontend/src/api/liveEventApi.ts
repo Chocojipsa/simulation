@@ -26,6 +26,7 @@ export interface EventParticipantView {
   conflictCount: number;
   paymentAttemptCount: number;
   reservationId: number | null;
+  seatHoldExpiresAt?: string | null;
 }
 
 export interface LiveEventResponse {
@@ -51,6 +52,7 @@ export interface LiveEventSnapshot {
   serverStats: ServerStatsView[];
   running: boolean;
   myParticipantId: string | null;
+  myQueuePosition: number | null;
 }
 
 export interface JoinEventResponse {

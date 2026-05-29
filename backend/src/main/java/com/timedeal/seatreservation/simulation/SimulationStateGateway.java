@@ -3,6 +3,7 @@ package com.timedeal.seatreservation.simulation;
 import com.timedeal.seatreservation.payment.PaymentResultEvent;
 import com.timedeal.seatreservation.event.ParticipantType;
 
+import java.time.Instant;
 import java.util.UUID;
 
 public interface SimulationStateGateway {
@@ -23,6 +24,12 @@ public interface SimulationStateGateway {
 
     SimulationSnapshot registerQueueEntry(UUID simulationId, UUID virtualUserId, String handledBy);
 
+    default SimulationSnapshot recordAdmitted(UUID simulationId, UUID virtualUserId, String handledBy) {
+        return recordAdmitted(simulationId, virtualUserId, null, handledBy);
+    }
+
+    SimulationSnapshot recordAdmitted(UUID simulationId, UUID virtualUserId, Instant selectionExpiresAt, String handledBy);
+
     SimulationSnapshot recordWaiting(UUID simulationId, UUID virtualUserId, String handledBy);
 
     SimulationSnapshot recordSeatSelectionWaiting(UUID simulationId, UUID virtualUserId, String handledBy);
@@ -31,7 +38,18 @@ public interface SimulationStateGateway {
 
     SimulationSnapshot recordNoSeatAvailable(UUID simulationId, UUID virtualUserId, String handledBy);
 
-    SimulationSnapshot recordSeatHeldForPayment(UUID simulationId, UUID virtualUserId, SeatView seat, Long reservationId, String handledBy);
+    SimulationSnapshot recordSeatHeldForPayment(
+            UUID simulationId,
+            UUID virtualUserId,
+            SeatView seat,
+            Long reservationId,
+            Instant expiresAt,
+            String handledBy
+    );
+
+    SimulationSnapshot expireSeatHold(UUID simulationId, UUID virtualUserId, String handledBy);
+
+    SimulationSnapshot expireSeatSelection(UUID simulationId, UUID virtualUserId, String handledBy);
 
     Long markPaymentRequestedByParticipant(UUID simulationId, UUID virtualUserId, String handledBy);
 

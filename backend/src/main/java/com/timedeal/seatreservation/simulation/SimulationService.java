@@ -12,8 +12,12 @@ import com.timedeal.seatreservation.seat.SeatReservationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
@@ -21,7 +25,6 @@ import java.util.UUID;
 @Service
 public class SimulationService {
     private static final String PAYMENT_EVENTS_TOPIC = "payment.events";
-    private static final int ADMISSION_BATCH_SIZE = 10;
 
     private final SimulationStateGateway stateStore;
     private final ServerIdentity serverIdentity;
@@ -31,6 +34,11 @@ public class SimulationService {
     private final SeatReservationService seatReservationService;
     private final KafkaTemplate<String, PaymentRequestedEvent> paymentKafkaTemplate;
     private final Random random;
+    private final Clock clock;
+    private final Duration seatHoldTtl;
+    private final Duration seatSelectionTtl;
+    private final int admissionBatchSize;
+    private final int maxActiveAdmissions;
 
     @Autowired
     public SimulationService(
@@ -40,7 +48,11 @@ public class SimulationService {
             ObjectProvider<SimulationInventoryService> inventoryService,
             ObjectProvider<WaitingQueueService> waitingQueueService,
             ObjectProvider<SeatReservationService> seatReservationService,
-            ObjectProvider<KafkaTemplate<String, PaymentRequestedEvent>> paymentKafkaTemplate
+            ObjectProvider<KafkaTemplate<String, PaymentRequestedEvent>> paymentKafkaTemplate,
+            @Value("${payment.hold-ttl-seconds:60}") long seatHoldTtlSeconds,
+            @Value("${waiting-queue.admission-batch-size:1}") int admissionBatchSize,
+            @Value("${waiting-queue.max-active-admissions:1}") int maxActiveAdmissions,
+            @Value("${waiting-queue.selection-ttl-seconds:15}") long seatSelectionTtlSeconds
     ) {
         this(
                 stateStore,
@@ -51,7 +63,12 @@ public class SimulationService {
                 waitingQueueService.getIfAvailable(),
                 seatReservationService.getIfAvailable(),
                 paymentKafkaTemplate.getIfAvailable(),
-                new Random()
+                new Random(),
+                Clock.systemUTC(),
+                Duration.ofSeconds(seatHoldTtlSeconds),
+                Duration.ofSeconds(seatSelectionTtlSeconds),
+                admissionBatchSize,
+                maxActiveAdmissions
         );
     }
 
@@ -65,7 +82,12 @@ public class SimulationService {
                 null,
                 null,
                 null,
-                new Random(1)
+                new Random(1),
+                Clock.systemUTC(),
+                Duration.ofSeconds(60),
+                Duration.ofSeconds(15),
+                1,
+                1
         );
     }
 
@@ -79,6 +101,67 @@ public class SimulationService {
             KafkaTemplate<String, PaymentRequestedEvent> paymentKafkaTemplate,
             Random random
     ) {
+        this(
+                stateStore,
+                serverIdentity,
+                trafficGeneratorClient,
+                inventoryService,
+                waitingQueueService,
+                seatReservationService,
+                paymentKafkaTemplate,
+                random,
+                Clock.systemUTC(),
+                Duration.ofSeconds(60),
+                Duration.ofSeconds(15),
+                1,
+                1
+        );
+    }
+
+    SimulationService(
+            SimulationStateGateway stateStore,
+            ServerIdentity serverIdentity,
+            TrafficGeneratorClient trafficGeneratorClient,
+            SimulationInventoryService inventoryService,
+            WaitingQueueService waitingQueueService,
+            SeatReservationService seatReservationService,
+            KafkaTemplate<String, PaymentRequestedEvent> paymentKafkaTemplate,
+            Random random,
+            Clock clock,
+            Duration seatHoldTtl
+    ) {
+        this(
+                stateStore,
+                serverIdentity,
+                trafficGeneratorClient,
+                inventoryService,
+                waitingQueueService,
+                seatReservationService,
+                paymentKafkaTemplate,
+                random,
+                clock,
+                seatHoldTtl,
+                Duration.ofSeconds(15),
+                1,
+                1
+        );
+    }
+
+    SimulationService(
+            SimulationStateGateway stateStore,
+            ServerIdentity serverIdentity,
+            TrafficGeneratorClient trafficGeneratorClient,
+            SimulationInventoryService inventoryService,
+            WaitingQueueService waitingQueueService,
+            SeatReservationService seatReservationService,
+            KafkaTemplate<String, PaymentRequestedEvent> paymentKafkaTemplate,
+            Random random,
+            Clock clock,
+            Duration seatHoldTtl,
+            Duration seatSelectionTtl,
+            int admissionBatchSize,
+            int maxActiveAdmissions
+    ) {
         this.stateStore = stateStore;
         this.serverIdentity = serverIdentity;
         this.trafficGeneratorClient = trafficGeneratorClient;
@@ -87,6 +170,11 @@ public class SimulationService {
         this.seatReservationService = seatReservationService;
         this.paymentKafkaTemplate = paymentKafkaTemplate;
         this.random = random;
+        this.clock = clock;
+        this.seatHoldTtl = seatHoldTtl;
+        this.seatSelectionTtl = seatSelectionTtl;
+        this.admissionBatchSize = Math.max(1, admissionBatchSize);
+        this.maxActiveAdmissions = Math.max(1, maxActiveAdmissions);
     }
 
     public SimulationResponse createSimulation(CreateSimulationRequest request) {
@@ -108,6 +196,9 @@ public class SimulationService {
     }
 
     public SimulationResponse resetSimulation(UUID simulationId, int virtualUserCount) {
+        if (waitingQueueService != null) {
+            waitingQueueService.clearQueue(simulationId.toString());
+        }
         if (inventoryService != null) {
             inventoryService.resetSimulation(simulationId);
         }
@@ -124,6 +215,7 @@ public class SimulationService {
     }
 
     public SimulationSnapshot getSimulation(UUID simulationId) {
+        expireTimedOutParticipants(simulationId);
         return stateStore.snapshot(simulationId);
     }
 
@@ -134,16 +226,45 @@ public class SimulationService {
     }
 
     public VirtualUserCommandResponse enterQueue(UUID simulationId, UUID userId) {
-        if (waitingQueueService != null) {
+        expireTimedOutParticipants(simulationId);
+        VirtualUserView participant = stateStore.participant(simulationId, userId);
+        boolean firstQueueEntry = participant.status() == VirtualUserStatus.WAITING_ROOM
+                || participant.status() == VirtualUserStatus.PAYMENT_FAILED
+                || participant.status() == VirtualUserStatus.FAILED
+                || participant.status() == VirtualUserStatus.EXPIRED;
+        if (firstQueueEntry && waitingQueueService != null) {
             waitingQueueService.enterQueue(simulationId.toString(), userId.toString());
         }
-        stateStore.registerQueueEntry(simulationId, userId, serverIdentity.id());
+        if (firstQueueEntry) {
+            stateStore.registerQueueEntry(simulationId, userId, serverIdentity.id());
+        }
+        if (!firstQueueEntry && participant.status() == VirtualUserStatus.QUEUED && admitIfPossible(simulationId, userId)) {
+            markAdmittedIfStillQueued(simulationId, userId);
+            return new VirtualUserCommandResponse(
+                    simulationId,
+                    userId,
+                    "ADMITTED",
+                    serverIdentity.id(),
+                    "대기열을 통과했습니다. 좌석을 선택해 주세요.",
+                    null
+            );
+        }
+        if (participant.status() == VirtualUserStatus.SELECTING_SEAT) {
+            return new VirtualUserCommandResponse(
+                    simulationId,
+                    userId,
+                    "ADMITTED",
+                    serverIdentity.id(),
+                    "대기열을 통과했습니다. 좌석을 선택해 주세요.",
+                    participant.selectedSeatLabel()
+            );
+        }
         return new VirtualUserCommandResponse(
                 simulationId,
                 userId,
                 "QUEUED",
                 serverIdentity.id(),
-                "대기열에 진입했습니다.",
+                "대기열에 진입했습니다. 아직 좌석을 선택할 수 없습니다.",
                 null
         );
     }
@@ -153,6 +274,7 @@ public class SimulationService {
     }
 
     public VirtualUserCommandResponse holdExplicitSeat(UUID simulationId, UUID participantId, long seatId) {
+        expireTimedOutParticipants(simulationId);
         VirtualUserView participant = stateStore.participant(simulationId, participantId);
         if (participant.status() == VirtualUserStatus.SEAT_HELD
                 || participant.status() == VirtualUserStatus.PAYMENT_IN_PROGRESS
@@ -167,18 +289,19 @@ public class SimulationService {
             );
         }
 
-        if (!admitIfPossible(simulationId, participantId)) {
-            stateStore.recordWaiting(simulationId, participantId, serverIdentity.id());
+        if (participant.status() != VirtualUserStatus.SELECTING_SEAT) {
+            if (participant.status() == VirtualUserStatus.QUEUED) {
+                stateStore.recordWaiting(simulationId, participantId, serverIdentity.id());
+            }
             return new VirtualUserCommandResponse(
                     simulationId,
                     participantId,
                     "WAITING",
                     serverIdentity.id(),
-                    "아직 대기 중입니다.",
+                    "대기열 대기 중입니다. 통과 후 좌석을 선택할 수 있습니다.",
                     null
             );
         }
-
         SimulationSnapshot snapshot = stateStore.snapshot(simulationId);
         SeatView seat = snapshot.seats().stream()
                 .filter(candidate -> candidate.id() == seatId)
@@ -195,7 +318,8 @@ public class SimulationService {
             return recordSeatConflict(simulationId, participantId, seat);
         }
 
-        stateStore.recordSeatHeldForPayment(simulationId, participantId, seat, result.reservationId(), serverIdentity.id());
+        Instant expiresAt = clock.instant().plus(seatHoldTtl);
+        stateStore.recordSeatHeldForPayment(simulationId, participantId, seat, result.reservationId(), expiresAt, serverIdentity.id());
         return new VirtualUserCommandResponse(
                 simulationId,
                 participantId,
@@ -207,6 +331,7 @@ public class SimulationService {
     }
 
     public VirtualUserCommandResponse confirmPayment(UUID simulationId, UUID participantId) {
+        expireTimedOutParticipants(simulationId);
         SimulationSnapshot snapshot = stateStore.snapshot(simulationId);
         VirtualUserView participant = snapshot.users().stream()
                 .filter(user -> user.id().equals(participantId))
@@ -248,6 +373,7 @@ public class SimulationService {
     }
 
     public VirtualUserCommandResponse attemptSeat(UUID simulationId, UUID userId) {
+        expireTimedOutParticipants(simulationId);
         if (!admitIfPossible(simulationId, userId)) {
             stateStore.recordWaiting(simulationId, userId, serverIdentity.id());
             return new VirtualUserCommandResponse(
@@ -259,6 +385,7 @@ public class SimulationService {
                     null
             );
         }
+        markAdmittedIfStillQueued(simulationId, userId);
 
         SimulationSnapshot snapshot = stateStore.snapshot(simulationId);
         List<SeatView> availableSeats = snapshot.seats().stream()
@@ -316,6 +443,38 @@ public class SimulationService {
         );
     }
 
+    private void expireTimedOutParticipants(UUID simulationId) {
+        SimulationSnapshot snapshot = stateStore.snapshot(simulationId);
+        Instant now = clock.instant();
+        for (VirtualUserView user : snapshot.users()) {
+            if (user.status() == VirtualUserStatus.SELECTING_SEAT
+                    && user.seatHoldExpiresAt() != null
+                    && !user.seatHoldExpiresAt().isAfter(now)) {
+                stateStore.expireSeatSelection(simulationId, user.id(), serverIdentity.id());
+                if (waitingQueueService != null) {
+                    waitingQueueService.revokeAdmissionToken(simulationId.toString(), user.id().toString());
+                }
+                continue;
+            }
+
+            if (user.status() != VirtualUserStatus.SEAT_HELD
+                    || user.seatHoldExpiresAt() == null
+                    || user.seatHoldExpiresAt().isAfter(now)) {
+                continue;
+            }
+            if (seatReservationService != null && user.reservationId() != null && user.selectedSeatLabel() != null) {
+                snapshot.seats().stream()
+                        .filter(seat -> seat.label().equals(user.selectedSeatLabel()))
+                        .findFirst()
+                        .ifPresent(seat -> seatReservationService.expireHold(simulationId, user.reservationId(), seat.id()));
+            }
+            stateStore.expireSeatHold(simulationId, user.id(), serverIdentity.id());
+            if (waitingQueueService != null) {
+                waitingQueueService.revokeAdmissionToken(simulationId.toString(), user.id().toString());
+            }
+        }
+    }
+
     private boolean admitIfPossible(UUID simulationId, UUID userId) {
         if (waitingQueueService == null) {
             return true;
@@ -326,12 +485,38 @@ public class SimulationService {
             return true;
         }
 
-        List<String> candidates = waitingQueueService.pickAdmissionCandidates(simulationKey, ADMISSION_BATCH_SIZE);
+        int availableAdmissionSlots = maxActiveAdmissions - activeAdmissionCount(simulationId);
+        if (availableAdmissionSlots <= 0) {
+            return false;
+        }
+
+        int admissionLimit = Math.min(admissionBatchSize, availableAdmissionSlots);
+        List<String> candidates = waitingQueueService.pickAdmissionCandidates(simulationKey, admissionLimit);
         for (String candidate : candidates) {
             waitingQueueService.issueAdmissionToken(simulationKey, candidate);
             waitingQueueService.removeAdmissionCandidate(simulationKey, candidate);
+            stateStore.recordAdmitted(simulationId, UUID.fromString(candidate), seatSelectionExpiresAt(), serverIdentity.id());
         }
         return waitingQueueService.hasAdmissionToken(simulationKey, userKey);
+    }
+
+    private int activeAdmissionCount(UUID simulationId) {
+        Instant now = clock.instant();
+        return (int) stateStore.snapshot(simulationId).users().stream()
+                .filter(user -> user.status() == VirtualUserStatus.SELECTING_SEAT
+                        && (user.seatHoldExpiresAt() == null || user.seatHoldExpiresAt().isAfter(now)))
+                .count();
+    }
+
+    private void markAdmittedIfStillQueued(UUID simulationId, UUID userId) {
+        VirtualUserView current = stateStore.participant(simulationId, userId);
+        if (current != null && current.status() == VirtualUserStatus.QUEUED) {
+            stateStore.recordAdmitted(simulationId, userId, seatSelectionExpiresAt(), serverIdentity.id());
+        }
+    }
+
+    private Instant seatSelectionExpiresAt() {
+        return clock.instant().plus(seatSelectionTtl);
     }
 
     private VirtualUserCommandResponse recordSeatConflict(UUID simulationId, UUID userId, SeatView seat) {

@@ -34,16 +34,18 @@ class LiveEventAiStarterTest {
         tasks.forEach(Runnable::run);
 
         assertThat(delays).containsExactly(
-                Duration.ZERO,
-                Duration.ofMillis(100),
-                Duration.ofMillis(300),
-                Duration.ofMillis(700),
-                Duration.ofMillis(1200)
+                Duration.ofMillis(500),
+                Duration.ofMillis(1000),
+                Duration.ofMillis(1500),
+                Duration.ofMillis(2000),
+                Duration.ofMillis(2500),
+                Duration.ofMillis(3000)
         );
         verify(simulationService).runSimulation(eventId, new RunSimulationRequest(10, 10));
+        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(15, 15));
         verify(simulationService).runSimulation(eventId, new RunSimulationRequest(20, 20));
+        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(25, 25));
         verify(simulationService).runSimulation(eventId, new RunSimulationRequest(30, 30));
-        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(40, 40));
         verify(simulationService).runSimulation(eventId, new RunSimulationRequest(50, 50));
     }
 }

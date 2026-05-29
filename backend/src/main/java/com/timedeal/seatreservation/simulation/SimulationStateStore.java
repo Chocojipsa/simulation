@@ -7,6 +7,7 @@ import com.timedeal.seatreservation.payment.PaymentResultEvent;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -47,7 +48,8 @@ public class SimulationStateStore implements SimulationStateGateway {
                             countTimelineEntries(user, "좌석 선택"),
                             countTimelineEntries(user, "좌석 선택 실패"),
                             user.paymentAttemptCount,
-                            user.reservationId
+                            user.reservationId,
+                            user.seatHoldExpiresAt
                     ))
                     .toList();
 
@@ -95,7 +97,24 @@ public class SimulationStateStore implements SimulationStateGateway {
         synchronized (state) {
             MutableVirtualUser user = user(state, virtualUserId);
             user.status = VirtualUserStatus.QUEUED;
+            user.selectedSeatLabel = null;
+            user.reservationId = null;
+            user.seatHoldExpiresAt = null;
             user.timeline.add(new TimelineEntry("대기열", "대기열에 진입했습니다."));
+        }
+        return snapshot(simulationId);
+    }
+
+    @Override
+    public SimulationSnapshot recordAdmitted(UUID simulationId, UUID virtualUserId, Instant selectionExpiresAt, String handledBy) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            MutableVirtualUser user = user(state, virtualUserId);
+            user.status = VirtualUserStatus.SELECTING_SEAT;
+            user.selectedSeatLabel = null;
+            user.reservationId = null;
+            user.seatHoldExpiresAt = selectionExpiresAt;
+            user.timeline.add(new TimelineEntry("대기열 통과", "대기열을 통과했습니다. 좌석을 선택해 주세요."));
         }
         return snapshot(simulationId);
     }
@@ -173,6 +192,7 @@ public class SimulationStateStore implements SimulationStateGateway {
             UUID virtualUserId,
             SeatView seat,
             Long reservationId,
+            Instant expiresAt,
             String handledBy
     ) {
         MutableSimulationState state = state(simulationId);
@@ -181,11 +201,45 @@ public class SimulationStateStore implements SimulationStateGateway {
             user.status = VirtualUserStatus.SEAT_HELD;
             user.selectedSeatLabel = seat.label();
             user.reservationId = reservationId;
+            user.seatHoldExpiresAt = expiresAt;
             user.timeline.add(new TimelineEntry("좌석 선점", seat.label() + " 좌석을 선점했습니다. 결제를 확인해 주세요."));
             state.seats.stream()
                     .filter(candidate -> candidate.id == seat.id())
                     .findFirst()
                     .ifPresent(candidate -> candidate.status = SeatStatus.HELD);
+        }
+        return snapshot(simulationId);
+    }
+
+    @Override
+    public SimulationSnapshot expireSeatHold(UUID simulationId, UUID virtualUserId, String handledBy) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            MutableVirtualUser user = user(state, virtualUserId);
+            String selectedSeatLabel = user.selectedSeatLabel;
+            user.status = VirtualUserStatus.EXPIRED;
+            user.selectedSeatLabel = null;
+            user.reservationId = null;
+            user.seatHoldExpiresAt = null;
+            user.timeline.add(new TimelineEntry("좌석 선점 만료", "결제 제한 시간이 지나 좌석 선점이 해제되었습니다."));
+            state.seats.stream()
+                    .filter(candidate -> candidate.label.equals(selectedSeatLabel))
+                    .findFirst()
+                    .ifPresent(candidate -> candidate.status = SeatStatus.AVAILABLE);
+        }
+        return snapshot(simulationId);
+    }
+
+    @Override
+    public SimulationSnapshot expireSeatSelection(UUID simulationId, UUID virtualUserId, String handledBy) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            MutableVirtualUser user = user(state, virtualUserId);
+            user.status = VirtualUserStatus.EXPIRED;
+            user.selectedSeatLabel = null;
+            user.reservationId = null;
+            user.seatHoldExpiresAt = null;
+            user.timeline.add(new TimelineEntry("좌석 선택 만료", "좌석 선택 제한 시간이 지나 다시 예약하기가 필요합니다."));
         }
         return snapshot(simulationId);
     }
@@ -197,6 +251,7 @@ public class SimulationStateStore implements SimulationStateGateway {
             MutableVirtualUser user = user(state, virtualUserId);
             user.status = VirtualUserStatus.PAYMENT_IN_PROGRESS;
             user.paymentAttemptCount++;
+            user.seatHoldExpiresAt = null;
             user.timeline.add(new TimelineEntry("결제 확인", "결제 확인 요청을 보냈습니다."));
             state.seats.stream()
                     .filter(candidate -> candidate.label.equals(user.selectedSeatLabel))
@@ -212,6 +267,7 @@ public class SimulationStateStore implements SimulationStateGateway {
         synchronized (state) {
             MutableVirtualUser user = user(state, event.virtualUserId());
             user.status = event.success() ? VirtualUserStatus.RESERVED : VirtualUserStatus.FAILED;
+            user.seatHoldExpiresAt = null;
             user.timeline.add(new TimelineEntry(event.success() ? "결제 성공" : "결제 실패", event.success() ? "결제 성공" : "결제 실패"));
             state.seats.stream()
                     .filter(candidate -> candidate.id == event.seatId())
@@ -341,6 +397,7 @@ public class SimulationStateStore implements SimulationStateGateway {
         String selectedSeatLabel;
         int paymentAttemptCount;
         Long reservationId;
+        Instant seatHoldExpiresAt;
 
         MutableVirtualUser(UUID id, String displayName, ParticipantType type) {
             this.id = id;

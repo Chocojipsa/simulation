@@ -53,12 +53,84 @@ class HttpVirtualUserHttpClientTest {
     void defaultRetryBudgetKeepsAiAliveLongEnoughForPaymentFailureResale() {
         RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
         commandClient.waitingHoldAttemptsBeforeSuccess = 60;
-        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient);
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 300, 0, () -> 0, ignored -> {
+        });
         UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000043");
 
         client.runUser("http://nginx:8080", eventId, 1);
 
         assertThat(commandClient.holdAttempts).isEqualTo(60);
+    }
+
+    @Test
+    void waitsBeforeTryingToSelectASeat() {
+        RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
+        List<Integer> seatClickDelays = new ArrayList<>();
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 3, 0, () -> 250, seatClickDelays::add);
+        UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000044");
+
+        client.runUser("http://nginx:8080", eventId, 1);
+
+        assertThat(seatClickDelays).containsExactly(250);
+    }
+
+    @Test
+    void checksQueueUntilAdmittedBeforeTryingToSelectASeat() {
+        RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
+        commandClient.queueResponsesBeforeAdmitted = 2;
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 5, 0, () -> 0, ignored -> {
+        });
+        UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000045");
+
+        client.runUser("http://nginx:8080", eventId, 1);
+
+        assertThat(commandClient.calls).containsExactly(
+                "join:http://nginx:8080:00000000-0000-0000-0000-000000000045:AI-1",
+                "queue:http://nginx:8080:00000000-0000-0000-0000-000000000041",
+                "queue:http://nginx:8080:00000000-0000-0000-0000-000000000041",
+                "hold:http://nginx:8080:00000000-0000-0000-0000-000000000041",
+                "confirm:http://nginx:8080:00000000-0000-0000-0000-000000000041"
+        );
+    }
+
+    @Test
+    void keepsWaitingWhenQueueCommandExhaustsOneRetryBudget() {
+        RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
+        commandClient.queueFailuresBeforeSuccess = 6;
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 5, 0, () -> 0, ignored -> {
+        });
+        UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000046");
+
+        client.runUser("http://nginx:8080", eventId, 1);
+
+        assertThat(commandClient.holdAttempts).isEqualTo(1);
+    }
+
+    @Test
+    void keepsTryingSeatsWhenHoldCommandExhaustsOneRetryBudget() {
+        RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
+        commandClient.holdFailuresBeforeSuccess = 6;
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 5, 0, () -> 0, ignored -> {
+        });
+        UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000047");
+
+        client.runUser("http://nginx:8080", eventId, 1);
+
+        assertThat(commandClient.holdAttempts).isEqualTo(7);
+        assertThat(commandClient.calls).contains("confirm:http://nginx:8080:00000000-0000-0000-0000-000000000041");
+    }
+
+    @Test
+    void keepsConfirmingPaymentWhenPaymentCommandExhaustsOneRetryBudget() {
+        RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
+        commandClient.confirmFailuresBeforeSuccess = 6;
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 5, 0, () -> 0, ignored -> {
+        });
+        UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000048");
+
+        client.runUser("http://nginx:8080", eventId, 1);
+
+        assertThat(commandClient.confirmAttempts).isEqualTo(7);
     }
 
     private static final class RecordingEventCommandClient implements VirtualUserCommandClient {
@@ -67,8 +139,14 @@ class HttpVirtualUserHttpClientTest {
         private boolean failFirstJoin;
         private boolean failFirstHold;
         private int joinAttempts;
+        private int queueAttempts;
         private int holdAttempts;
+        private int confirmAttempts;
+        private int queueResponsesBeforeAdmitted = 1;
         private int waitingHoldAttemptsBeforeSuccess = 1;
+        private int queueFailuresBeforeSuccess;
+        private int holdFailuresBeforeSuccess;
+        private int confirmFailuresBeforeSuccess;
 
         @Override
         public JoinEventResponse joinEvent(String baseUrl, UUID eventId, String displayName) {
@@ -82,8 +160,13 @@ class HttpVirtualUserHttpClientTest {
 
         @Override
         public VirtualUserCommandResponse postQueue(String baseUrl, UUID eventId, UUID participantId) {
+            queueAttempts++;
             calls.add("queue:" + baseUrl + ":" + participantId);
-            return new VirtualUserCommandResponse(eventId, participantId, "QUEUED", "api-test", "대기열에 진입했습니다.", null);
+            if (queueAttempts <= queueFailuresBeforeSuccess) {
+                throw new IllegalStateException("temporary queue failure");
+            }
+            String status = queueAttempts >= queueResponsesBeforeAdmitted ? "ADMITTED" : "QUEUED";
+            return new VirtualUserCommandResponse(eventId, participantId, status, "api-test", "대기열 상태 확인", null);
         }
 
         @Override
@@ -91,6 +174,9 @@ class HttpVirtualUserHttpClientTest {
             holdAttempts++;
             calls.add("hold:" + baseUrl + ":" + participantId);
             if (failFirstHold && holdAttempts == 1) {
+                throw new IllegalStateException("temporary hold failure");
+            }
+            if (holdAttempts <= holdFailuresBeforeSuccess) {
                 throw new IllegalStateException("temporary hold failure");
             }
             if (holdAttempts < waitingHoldAttemptsBeforeSuccess) {
@@ -101,7 +187,11 @@ class HttpVirtualUserHttpClientTest {
 
         @Override
         public PaymentConfirmResponse confirmPayment(String baseUrl, UUID eventId, UUID participantId) {
+            confirmAttempts++;
             calls.add("confirm:" + baseUrl + ":" + participantId);
+            if (confirmAttempts <= confirmFailuresBeforeSuccess) {
+                throw new IllegalStateException("temporary payment failure");
+            }
             return new PaymentConfirmResponse(eventId, participantId, "PAYMENT_REQUESTED", "결제 확인 요청을 보냈습니다.", "api-test");
         }
     }

@@ -20,6 +20,9 @@ export interface VirtualUserView {
   timeline: TimelineEntry[];
   seatAttemptCount: number;
   conflictCount: number;
+  paymentAttemptCount?: number;
+  reservationId?: number | null;
+  seatHoldExpiresAt?: string | null;
 }
 
 export interface SimulationMetrics {

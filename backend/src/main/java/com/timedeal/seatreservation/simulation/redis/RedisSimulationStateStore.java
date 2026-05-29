@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -105,6 +106,7 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
                     0,
                     0,
                     0,
+                    null,
                     null
             ));
             return new SimulationSnapshot(
@@ -123,14 +125,38 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
         return mutate(simulationId, current -> new SimulationSnapshot(
                 current.simulationId(),
                 current.seats(),
-                updateUser(current.users(), virtualUserId, user -> appendTimeline(
+                updateUser(current.users(), virtualUserId, user -> replaceUser(
                         user,
                         VirtualUserStatus.QUEUED,
-                        user.selectedSeatLabel(),
-                        "대기열",
-                        "대기열에 진입했습니다.",
-                        0,
-                        0
+                        null,
+                        appendEntry(user.timeline(), "대기열", "대기열에 진입했습니다."),
+                        user.seatAttemptCount(),
+                        user.conflictCount(),
+                        user.paymentAttemptCount(),
+                        null,
+                        null
+                )),
+                current.metrics(),
+                incrementServerStats(current.serverStats(), handledBy, false, false),
+                current.running()
+        ));
+    }
+
+    @Override
+    public SimulationSnapshot recordAdmitted(UUID simulationId, UUID virtualUserId, Instant selectionExpiresAt, String handledBy) {
+        return mutate(simulationId, current -> new SimulationSnapshot(
+                current.simulationId(),
+                current.seats(),
+                updateUser(current.users(), virtualUserId, user -> replaceUser(
+                        user,
+                        VirtualUserStatus.SELECTING_SEAT,
+                        null,
+                        appendEntry(user.timeline(), "대기열 통과", "대기열을 통과했습니다. 좌석을 선택해 주세요."),
+                        user.seatAttemptCount(),
+                        user.conflictCount(),
+                        user.paymentAttemptCount(),
+                        null,
+                        selectionExpiresAt
                 )),
                 current.metrics(),
                 incrementServerStats(current.serverStats(), handledBy, false, false),
@@ -251,6 +277,7 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
             UUID virtualUserId,
             SeatView seat,
             Long reservationId,
+            Instant expiresAt,
             String handledBy
     ) {
         return mutate(simulationId, current -> new SimulationSnapshot(
@@ -264,10 +291,55 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
                         user.seatAttemptCount() + 1,
                         user.conflictCount(),
                         user.paymentAttemptCount(),
-                        reservationId
+                        reservationId,
+                        expiresAt
                 )),
                 current.metrics(),
                 incrementServerStats(current.serverStats(), handledBy, false, true),
+                current.running()
+        ));
+    }
+
+    @Override
+    public SimulationSnapshot expireSeatHold(UUID simulationId, UUID virtualUserId, String handledBy) {
+        return mutate(simulationId, current -> new SimulationSnapshot(
+                current.simulationId(),
+                updateSelectedSeat(current.seats(), current.users(), virtualUserId, SeatStatus.AVAILABLE),
+                updateUser(current.users(), virtualUserId, user -> replaceUser(
+                        user,
+                        VirtualUserStatus.EXPIRED,
+                        null,
+                        appendEntry(user.timeline(), "좌석 선점 만료", "결제 제한 시간이 지나 좌석 선점이 해제되었습니다."),
+                        user.seatAttemptCount(),
+                        user.conflictCount(),
+                        user.paymentAttemptCount(),
+                        null,
+                        null
+                )),
+                current.metrics(),
+                incrementServerStats(current.serverStats(), handledBy, false, false),
+                current.running()
+        ));
+    }
+
+    @Override
+    public SimulationSnapshot expireSeatSelection(UUID simulationId, UUID virtualUserId, String handledBy) {
+        return mutate(simulationId, current -> new SimulationSnapshot(
+                current.simulationId(),
+                current.seats(),
+                updateUser(current.users(), virtualUserId, user -> replaceUser(
+                        user,
+                        VirtualUserStatus.EXPIRED,
+                        null,
+                        appendEntry(user.timeline(), "좌석 선택 만료", "좌석 선택 제한 시간이 지나 다시 예약하기가 필요합니다."),
+                        user.seatAttemptCount(),
+                        user.conflictCount(),
+                        user.paymentAttemptCount(),
+                        null,
+                        null
+                )),
+                current.metrics(),
+                incrementServerStats(current.serverStats(), handledBy, false, false),
                 current.running()
         ));
     }
@@ -288,7 +360,8 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
                             user.seatAttemptCount(),
                             user.conflictCount(),
                             user.paymentAttemptCount() + 1,
-                            user.reservationId()
+                            user.reservationId(),
+                            null
                     );
                 }),
                 current.metrics(),
@@ -446,7 +519,8 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
                 user.seatAttemptCount() + seatAttemptIncrement,
                 user.conflictCount() + conflictIncrement,
                 user.paymentAttemptCount(),
-                user.reservationId()
+                user.reservationId(),
+                user.seatHoldExpiresAt()
         );
     }
 
@@ -458,7 +532,8 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
             int seatAttemptCount,
             int conflictCount,
             int paymentAttemptCount,
-            Long reservationId
+            Long reservationId,
+            Instant seatHoldExpiresAt
     ) {
         return new VirtualUserView(
                 user.id(),
@@ -470,7 +545,8 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
                 seatAttemptCount,
                 conflictCount,
                 paymentAttemptCount,
-                reservationId
+                reservationId,
+                seatHoldExpiresAt
         );
     }
 
@@ -556,6 +632,7 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
                     0,
                     0,
                     0,
+                    null,
                     null
             ));
         }

@@ -20,7 +20,9 @@ public class WaitingQueueService {
     }
 
     public void enterQueue(String simulationId, String virtualUserId) {
-        redis.opsForZSet().add(queueKey(simulationId), virtualUserId, clock.millis());
+        Long sequence = redis.opsForValue().increment(sequenceKey(simulationId));
+        double score = sequence != null ? sequence.doubleValue() : clock.millis();
+        redis.opsForZSet().add(queueKey(simulationId), virtualUserId, score);
     }
 
     public List<String> pickAdmissionCandidates(String simulationId, int limit) {
@@ -36,6 +38,14 @@ public class WaitingQueueService {
         return new ArrayList<>(candidates);
     }
 
+    public List<String> queuedUserIds(String simulationId) {
+        Set<String> candidates = redis.opsForZSet().range(queueKey(simulationId), 0, -1);
+        if (candidates == null) {
+            return List.of();
+        }
+        return new ArrayList<>(candidates);
+    }
+
     public void issueAdmissionToken(String simulationId, String virtualUserId) {
         redis.opsForValue().set(tokenKey(simulationId, virtualUserId), "granted", Duration.ofSeconds(60));
     }
@@ -48,8 +58,21 @@ public class WaitingQueueService {
         return Boolean.TRUE.equals(redis.hasKey(tokenKey(simulationId, virtualUserId)));
     }
 
+    public void revokeAdmissionToken(String simulationId, String virtualUserId) {
+        redis.delete(tokenKey(simulationId, virtualUserId));
+    }
+
+    public void clearQueue(String simulationId) {
+        redis.delete(queueKey(simulationId));
+        redis.delete(sequenceKey(simulationId));
+    }
+
     private String queueKey(String simulationId) {
         return "simulation:%s:queue".formatted(simulationId);
+    }
+
+    private String sequenceKey(String simulationId) {
+        return "simulation:%s:queue-sequence".formatted(simulationId);
     }
 
     private String tokenKey(String simulationId, String virtualUserId) {

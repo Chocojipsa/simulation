@@ -14,6 +14,7 @@ export default function App() {
     return (
       <main className="dashboard">
         <section className="panel empty-state">
+          <span className="eyebrow">LIVE CONSOLE</span>
           <h1>예매 이벤트를 불러오는 중입니다</h1>
           {room.error ? <p>{room.error}</p> : null}
         </section>
@@ -26,6 +27,12 @@ export default function App() {
       <EventHeader snapshot={room.snapshot} onStart={() => void room.start()} onReset={() => void room.reset()} />
       {room.error ? <div className="error-banner">{room.error}</div> : null}
       {room.message ? <div className="info-banner">{room.message}</div> : null}
+      <div className="metric-strip" aria-label="실시간 이벤트 지표">
+        <Metric label="SEATS" value={`${room.snapshot.metrics.reservedCount}/${room.snapshot.seats.length}`} detail="reserved" />
+        <Metric label="QUEUE" value={`${room.snapshot.metrics.queueSize}`} detail="waiting" />
+        <Metric label="HELD" value={`${room.snapshot.metrics.heldCount + room.snapshot.metrics.paymentInProgressCount}`} detail="checkout" />
+        <Metric label="NODES" value={`${room.snapshot.serverStats.length}`} detail="active" />
+      </div>
       <div className="dashboard-grid">
         <MyTicketPanel
           status={room.snapshot.status}
@@ -48,6 +55,16 @@ export default function App() {
         </div>
       </div>
     </main>
+  );
+}
+
+function Metric({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="metric-tile">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <em>{detail}</em>
+    </div>
   );
 }
 

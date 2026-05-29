@@ -4,6 +4,8 @@ import {
   canConfirmPayment,
   canReserve,
   canSelectSeat,
+  formatParticipantStatus,
+  getSeatHoldRemainingLabel,
   formatEventStatus,
   getMyParticipant,
   getQueuePosition,
@@ -44,6 +46,7 @@ describe('liveEventSelectors', () => {
       serverStats: [],
       running: false,
       myParticipantId: 'me',
+      myQueuePosition: null,
     };
 
     expect(getMyParticipant(snapshot, 'me')?.displayName).toBe('나');
@@ -88,11 +91,26 @@ describe('liveEventSelectors', () => {
       serverStats: [],
       running: false,
       myParticipantId: 'me',
+      myQueuePosition: null,
     };
 
     expect(getTimeLabel('COUNTDOWN', snapshot.opensAt, snapshot.endsAt, new Date('2026-05-28T12:00:30Z'))).toBe('오픈까지 30초');
     expect(getTimeLabel('OPEN', snapshot.opensAt, snapshot.endsAt, new Date('2026-05-28T12:05:00Z'))).toBe('종료까지 60초');
     expect(getQueuePosition(snapshot, 'me')).toBe(1);
     expect(canSelectSeat('COUNTDOWN', me)).toEqual({ allowed: false, message: '예매가 아직 시작되지 않았습니다.' });
+    expect(canSelectSeat('OPEN', me)).toEqual({ allowed: false, message: '대기열 대기 중입니다. 통과 후 좌석을 선택할 수 있습니다.' });
+    expect(canSelectSeat('OPEN', { ...me, status: 'SELECTING_SEAT' })).toEqual({ allowed: true, message: null });
+  });
+
+  it('formats participant status and seat hold countdown for ticket panels', () => {
+    expect(formatParticipantStatus('WAITING_ROOM')).toBe('입장 완료');
+    expect(formatParticipantStatus('QUEUED')).toBe('대기열 대기');
+    expect(formatParticipantStatus('SELECTING_SEAT')).toBe('좌석 선택 가능');
+    expect(formatParticipantStatus('SEAT_HELD')).toBe('좌석 선점');
+    expect(formatParticipantStatus('PAYMENT_IN_PROGRESS')).toBe('결제 확인 중');
+    expect(formatParticipantStatus('RESERVED')).toBe('예매 완료');
+    expect(getSeatHoldRemainingLabel('2026-05-28T12:01:00Z', new Date('2026-05-28T12:00:15Z'))).toBe('45초 남음');
+    expect(getSeatHoldRemainingLabel('2026-05-28T12:00:00Z', new Date('2026-05-28T12:00:15Z'))).toBe('만료됨');
+    expect(getSeatHoldRemainingLabel(null, new Date('2026-05-28T12:00:15Z'))).toBe('-');
   });
 });

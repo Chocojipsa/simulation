@@ -11,6 +11,7 @@ import com.timedeal.seatreservation.event.ParticipantType;
 import com.timedeal.seatreservation.event.SeatHoldResponse;
 import com.timedeal.seatreservation.identity.ServerIdentity;
 import com.timedeal.seatreservation.payment.PaymentRequestedEvent;
+import com.timedeal.seatreservation.queue.WaitingQueueService;
 import com.timedeal.seatreservation.seat.SeatReservationOutcome;
 import com.timedeal.seatreservation.seat.SeatReservationResult;
 import com.timedeal.seatreservation.seat.SeatReservationService;
@@ -21,6 +22,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
@@ -295,13 +297,55 @@ class LiveEventServiceTest {
                 ));
 
         VirtualUserCommandResponse queue = service.enterQueue(active.eventId(), joined.participantId());
+        VirtualUserCommandResponse admitted = service.enterQueue(active.eventId(), joined.participantId());
         var hold = service.holdSeat(active.eventId(), joined.participantId(), 1L);
         var confirm = service.confirmPayment(active.eventId(), joined.participantId());
 
         assertThat(queue.status()).isEqualTo("QUEUED");
+        assertThat(admitted.status()).isEqualTo("ADMITTED");
         assertThat(hold.status()).isEqualTo("PAYMENT_PENDING");
         assertThat(hold.selectedSeatLabel()).isEqualTo("A-1");
         assertThat(confirm.status()).isEqualTo("PAYMENT_REQUESTED");
         verify(kafkaTemplate).send(eq("payment.events"), eq("101"), any(PaymentRequestedEvent.class));
+    }
+
+    @Test
+    void snapshotOrdersQueuedParticipantsByRedisQueueOrder() {
+        UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000777");
+        SimulationStateStore stateStore = new SimulationStateStore();
+        SimulationService simulationService = new SimulationService(stateStore);
+        WaitingQueueService waitingQueueService = mock(WaitingQueueService.class);
+        LiveEventService service = new LiveEventService(
+                simulationService,
+                stateStore,
+                new InMemoryLiveEventStateStore(),
+                new ServerIdentity("api-test"),
+                null,
+                eventId,
+                "Busan Ticketing",
+                120,
+                Duration.ZERO,
+                Duration.ofMinutes(5),
+                Clock.fixed(Instant.parse("2026-05-28T12:00:00Z"), ZoneOffset.UTC),
+                null,
+                waitingQueueService
+        );
+
+        service.activeEvent();
+        JoinEventResponse firstJoined = service.join(eventId, new JoinEventRequest("첫 화면 사용자"));
+        JoinEventResponse secondJoined = service.join(eventId, new JoinEventRequest("실제 앞사람"));
+        stateStore.registerQueueEntry(eventId, firstJoined.participantId(), "api-test");
+        stateStore.registerQueueEntry(eventId, secondJoined.participantId(), "api-test");
+        when(waitingQueueService.queuedUserIds(eventId.toString()))
+                .thenReturn(List.of(secondJoined.participantId().toString(), firstJoined.participantId().toString()));
+
+        LiveEventSnapshot snapshot = service.snapshot(eventId, firstJoined.participantId());
+
+        assertThat(snapshot.participants().stream()
+                .filter(participant -> participant.status().name().equals("QUEUED"))
+                .map(VirtualUserView::id)
+                .toList())
+                .containsExactly(secondJoined.participantId(), firstJoined.participantId());
+        assertThat(snapshot.myQueuePosition()).isEqualTo(2);
     }
 }

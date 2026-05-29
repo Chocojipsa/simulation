@@ -21,9 +21,10 @@ export function SeatMap({ status, seats, participant, selectedSeatLabel, onSelec
   return (
     <section className="panel seat-map-panel">
       <div className="panel-heading">
+        <span className="eyebrow">SEAT MAP</span>
         <h2>좌석 현황</h2>
-        <span>STAGE</span>
       </div>
+      <div className="stage-bar">STAGE</div>
       <div className="seat-legend">
         <span><i className="legend-available" /> 선택 가능</span>
         <span><i className="legend-held" /> 선점</span>

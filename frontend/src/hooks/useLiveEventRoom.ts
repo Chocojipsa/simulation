@@ -58,9 +58,43 @@ export function useLiveEventRoom(apiBaseUrl: string) {
 
   useEffect(() => {
     if (!eventId) return undefined;
-    const timer = window.setInterval(() => void refresh().catch(() => setError('이벤트 상태 갱신에 실패했습니다.')), 500);
+    let busy = false;
+    const timer = window.setInterval(() => {
+      if (busy) return;
+      busy = true;
+      void refresh()
+        .catch(() => setError('이벤트 상태 갱신에 실패했습니다.'))
+        .finally(() => {
+          busy = false;
+        });
+    }, 500);
     return () => window.clearInterval(timer);
   }, [eventId, refresh]);
+
+  const myParticipant = useMemo(() => getMyParticipant(snapshot, participantId), [snapshot, participantId]);
+
+  useEffect(() => {
+    if (!eventId || !participantId || snapshot?.status !== 'OPEN' || myParticipant?.status !== 'QUEUED') {
+      return undefined;
+    }
+    let busy = false;
+    const timer = window.setInterval(() => {
+      if (busy) return;
+      busy = true;
+      void queueParticipant(apiBaseUrl, eventId, participantId)
+        .then((response) => {
+          if (response.status === 'ADMITTED') {
+            applyCommandMessage(response);
+          }
+          return refresh();
+        })
+        .catch(() => setError('대기열 상태 확인에 실패했습니다.'))
+        .finally(() => {
+          busy = false;
+        });
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [apiBaseUrl, applyCommandMessage, eventId, myParticipant?.status, participantId, refresh, snapshot?.status]);
 
   const join = useCallback(async (displayName: string) => {
     if (!eventId) return;
@@ -117,8 +151,6 @@ export function useLiveEventRoom(apiBaseUrl: string) {
     await startAiParticipants(apiBaseUrl, eventId, count, concurrency);
     await refresh();
   }, [apiBaseUrl, eventId, refresh]);
-
-  const myParticipant = useMemo(() => getMyParticipant(snapshot, participantId), [snapshot, participantId]);
 
   return { eventId, participantId, snapshot, myParticipant, loading, error, message, join, reserve, selectSeat, pay, start, reset, startAi, refresh };
 }
