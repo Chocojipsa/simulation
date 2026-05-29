@@ -1,9 +1,15 @@
 package com.timedeal.seatreservation.payment;
 
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.DirectFieldAccessor;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.support.serializer.JsonSerializer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,5 +54,24 @@ class PaymentKafkaConfigTest {
 
         assertThat(processed).isSameAs(factory);
         assertThat(new DirectFieldAccessor(factory).getPropertyValue("concurrency")).isEqualTo(5);
+    }
+
+    @Test
+    void producerFactoryUsesJsonSerializationForPaymentEvents() {
+        ProducerFactory<String, Object> producerFactory = config.createPaymentProducerFactory("kafka:9092");
+
+        assertThat(producerFactory.getConfigurationProperties())
+                .containsEntry("key.serializer", StringSerializer.class)
+                .containsEntry("value.serializer", JsonSerializer.class);
+    }
+
+    @Test
+    void consumerFactoryUsesJsonDeserializationForPaymentEvents() {
+        ConsumerFactory<String, Object> consumerFactory = config.createPaymentConsumerFactory("kafka:9092");
+
+        assertThat(consumerFactory.getConfigurationProperties())
+                .containsEntry("key.deserializer", StringDeserializer.class)
+                .containsEntry("value.deserializer", JsonDeserializer.class)
+                .containsEntry(JsonDeserializer.TRUSTED_PACKAGES, "com.timedeal.seatreservation.payment");
     }
 }
