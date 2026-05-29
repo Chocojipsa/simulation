@@ -133,11 +133,30 @@ class HttpVirtualUserHttpClientTest {
         assertThat(commandClient.confirmAttempts).isEqualTo(7);
     }
 
+    @Test
+    void confirmsPaymentWhenParticipantAlreadyHasHeldSeat() {
+        RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
+        commandClient.alreadyHoldingSeat = true;
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 3, 0, () -> 0, ignored -> {
+        });
+        UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000049");
+
+        client.runUser("http://nginx:8080", eventId, 1);
+
+        assertThat(commandClient.calls).containsExactly(
+                "join:http://nginx:8080:00000000-0000-0000-0000-000000000049:AI-1",
+                "queue:http://nginx:8080:00000000-0000-0000-0000-000000000041",
+                "hold:http://nginx:8080:00000000-0000-0000-0000-000000000041",
+                "confirm:http://nginx:8080:00000000-0000-0000-0000-000000000041"
+        );
+    }
+
     private static final class RecordingEventCommandClient implements VirtualUserCommandClient {
         private final UUID participantId = UUID.fromString("00000000-0000-0000-0000-000000000041");
         private final List<String> calls = new ArrayList<>();
         private boolean failFirstJoin;
         private boolean failFirstHold;
+        private boolean alreadyHoldingSeat;
         private int joinAttempts;
         private int queueAttempts;
         private int holdAttempts;
@@ -181,6 +200,9 @@ class HttpVirtualUserHttpClientTest {
             }
             if (holdAttempts < waitingHoldAttemptsBeforeSuccess) {
                 return new SeatHoldResponse(eventId, participantId, 0L, "WAITING", "아직 대기 중입니다.", null, "api-test");
+            }
+            if (alreadyHoldingSeat) {
+                return new SeatHoldResponse(eventId, participantId, 1L, "ALREADY_HOLDING", "Already holding a seat.", "A-1", "api-test");
             }
             return new SeatHoldResponse(eventId, participantId, 1L, "PAYMENT_PENDING", "A-1 좌석을 선점했습니다.", "A-1", "api-test");
         }

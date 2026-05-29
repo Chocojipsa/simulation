@@ -70,7 +70,7 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
                 sleepBriefly();
                 continue;
             }
-            if ("PAYMENT_PENDING".equals(hold.status()) || "PAYMENT_REQUESTED".equals(hold.status())) {
+            if (requiresPaymentConfirmation(hold)) {
                 confirmPaymentUntilAccepted(baseUrl, simulationId, participantId);
                 return;
             }
@@ -111,6 +111,13 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
 
     private boolean isTerminalStatus(String status) {
         return "FAILED".equals(status) || "EVENT_ENDED".equals(status);
+    }
+
+    private boolean requiresPaymentConfirmation(SeatHoldResponse hold) {
+        if ("PAYMENT_PENDING".equals(hold.status()) || "PAYMENT_REQUESTED".equals(hold.status())) {
+            return true;
+        }
+        return "ALREADY_HOLDING".equals(hold.status()) && hold.selectedSeatLabel() != null;
     }
 
     private <T> T runWithTransientRetryOrNull(Supplier<T> command) {
