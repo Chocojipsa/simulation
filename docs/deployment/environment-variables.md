@@ -27,7 +27,7 @@
 
 ## Frontend
 
-- `VITE_API_BASE_URL`: public API base URL, for example `https://api.example.com`
+- `VITE_API_BASE_URL`: public API base URL, for example `https://ticket-api.chocojipsa.blog`. Leave unset when using the Vercel `/api/**` rewrite in `frontend/vercel.json`.
 
 ## Suggested Production Values
 

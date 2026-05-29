@@ -13,7 +13,7 @@ Production v1 is a low-cost portfolio deployment. The frontend and backend are i
 Public traffic flows through:
 
 ```text
-browser -> Vercel frontend -> https://api.example.com/api/** -> nginx -> api-a/api-b
+browser -> ticket.chocojipsa.blog -> https://ticket-api.chocojipsa.blog/api/** -> nginx -> api-a/api-b
 ```
 
 AI traffic flows through the same public backend entry point:
@@ -27,8 +27,9 @@ traffic-generator -> nginx -> api-a/api-b -> Redis/PostgreSQL/Kafka
 The backend must not serve the portfolio UI. The legacy Spring static files under `backend/src/main/resources/static` were removed. In production, `/` should not show a backend page. Use:
 
 - `https://frontend.example.com`: Vercel frontend
-- `https://api.example.com/api/events/active`: backend API
-- `https://api.example.com/health`: backend health check
+- `https://ticket.chocojipsa.blog`: Vercel frontend
+- `https://ticket-api.chocojipsa.blog/api/events/active`: backend API
+- `https://ticket-api.chocojipsa.blog/health`: backend health check
 
 ## Deployment Order
 
@@ -40,7 +41,7 @@ The backend must not serve the portfolio UI. The legacy Spring static files unde
 6. Deploy `worker` on Lightsail B with `SPRING_PROFILES_ACTIVE=prod,worker`.
 7. Deploy `traffic-generator` on Lightsail B with `SPRING_PROFILES_ACTIVE=prod,generator`.
 8. Configure nginx on Lightsail A to proxy `/api/**` to both API servers and `/health` to the API upstream.
-9. Deploy the frontend to Vercel with `VITE_API_BASE_URL=https://api.example.com`.
+9. Deploy the frontend to Vercel with `ticket.chocojipsa.blog` as the frontend domain.
 
 ## nginx Requirements
 
@@ -71,6 +72,13 @@ curl https://api.example.com/health
 curl https://api.example.com/api/events/active
 ```
 
+For this project:
+
+```powershell
+curl https://ticket-api.chocojipsa.blog/health
+curl https://ticket-api.chocojipsa.blog/api/events/active
+```
+
 Then open the Vercel URL and confirm:
 
 - event start begins a countdown
@@ -78,6 +86,8 @@ Then open the Vercel URL and confirm:
 - both `api-a` and `api-b` show request counts
 - seats move through held/payment/reserved states
 - Kafka worker completes payment confirmation
+
+For exact commands using the current Lightsail IPs, see `docs/deployment/lightsail-step-by-step.md`.
 
 ## Known Limitations
 

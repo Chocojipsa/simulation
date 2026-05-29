@@ -1,0 +1,22 @@
+services:
+  api-a:
+    build:
+      context: ../../backend
+    env_file:
+      - .env
+    environment:
+      APP_INSTANCE_ID: api-a
+      SPRING_PROFILES_ACTIVE: prod
+    expose:
+      - "8080"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./nginx-api.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:8080"
+    depends_on:
+      - api-a
+    restart: unless-stopped

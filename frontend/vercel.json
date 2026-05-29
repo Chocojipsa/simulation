@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://ticket-api.chocojipsa.blog/api/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://ticket-api.chocojipsa.blog/health"
+    }
+  ]
+}
