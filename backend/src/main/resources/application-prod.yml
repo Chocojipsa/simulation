@@ -32,6 +32,16 @@ spring:
       port: ${SPRING_DATA_REDIS_PORT:6379}
   kafka:
     bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS}
+    consumer:
+      group-id: seat-reservation-prod
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.timedeal.seatreservation.payment
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 traffic-generator:
   control-base-url: ${TRAFFIC_GENERATOR_CONTROL_BASE_URL}
