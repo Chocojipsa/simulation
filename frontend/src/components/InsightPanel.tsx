@@ -1,8 +1,9 @@
+import type { LiveEventSnapshot } from '../api/liveEventApi';
 import type { SimulationSnapshot } from '../api/simulationApi';
 import { countSeatsByStatus } from '../domain/simulationSelectors';
 
 interface InsightPanelProps {
-  snapshot: SimulationSnapshot;
+  snapshot: SimulationSnapshot | LiveEventSnapshot;
 }
 
 export function InsightPanel({ snapshot }: InsightPanelProps) {
