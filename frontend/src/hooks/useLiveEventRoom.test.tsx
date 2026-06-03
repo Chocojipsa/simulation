@@ -36,23 +36,27 @@ describe('useLiveEventRoom', () => {
       endsAt: '2026-05-28T12:05:00Z',
       seatCount: 120,
     });
+    let callCount = 0;
     vi.spyOn(api, 'fetchEventSnapshot')
-      .mockResolvedValueOnce(emptySnapshot)
-      .mockResolvedValueOnce({
-        ...emptySnapshot,
-        myParticipantId: 'participant-1',
-        participants: [{
-          id: 'participant-1',
-          displayName: '권',
-          type: 'HUMAN',
-          status: 'WAITING_ROOM',
-          selectedSeatLabel: null,
-          timeline: [],
-          seatAttemptCount: 0,
-          conflictCount: 0,
-          paymentAttemptCount: 0,
-          reservationId: null,
-        }],
+      .mockImplementation(async () => {
+        callCount++;
+        if (callCount === 1) return emptySnapshot;
+        return {
+          ...emptySnapshot,
+          myParticipantId: 'participant-1',
+          participants: [{
+            id: 'participant-1',
+            displayName: '권',
+            type: 'HUMAN',
+            status: 'WAITING_ROOM',
+            selectedSeatLabel: null,
+            timeline: [],
+            seatAttemptCount: 0,
+            conflictCount: 0,
+            paymentAttemptCount: 0,
+            reservationId: null,
+          }],
+        };
       });
     vi.spyOn(api, 'joinEvent').mockResolvedValue({
       eventId: 'event-1',
@@ -62,7 +66,7 @@ describe('useLiveEventRoom', () => {
       handledBy: 'api-a',
     });
 
-    const { result } = renderHook(() => useLiveEventRoom(''));
+    const { result } = renderHook(() => useLiveEventRoom('http://localhost'));
 
     await waitFor(() => expect(result.current.eventId).toBe('event-1'));
     await act(async () => {
@@ -89,11 +93,16 @@ describe('useLiveEventRoom', () => {
       endsAt: '2026-05-28T12:05:00Z',
       seatCount: 120,
     });
+    let callCount = 0;
     const fetchSnapshot = vi.spyOn(api, 'fetchEventSnapshot')
-      .mockResolvedValueOnce(emptySnapshot)
-      .mockReturnValueOnce(pendingSnapshot);
+      .mockImplementation(async () => {
+        callCount++;
+        if (callCount === 1) return emptySnapshot;
+        if (callCount === 2) return pendingSnapshot;
+        return emptySnapshot;
+      });
 
-    renderHook(() => useLiveEventRoom(''));
+    renderHook(() => useLiveEventRoom('http://localhost'));
 
     await act(async () => {
       await Promise.resolve();

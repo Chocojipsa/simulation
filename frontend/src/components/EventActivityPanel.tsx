@@ -1,82 +1,129 @@
 import type { LiveEventSnapshot } from '../api/liveEventApi';
+import { useUserActivityStream } from '../hooks/useUserActivityStream';
 
 interface EventActivityPanelProps {
   snapshot: LiveEventSnapshot;
   participantId: string | null;
+  selectedParticipantId: string | null;
+  onSelectParticipant?: (id: string) => void;
+  apiBaseUrl?: string;
 }
 
-export function EventActivityPanel({ snapshot, participantId }: EventActivityPanelProps) {
-  const myParticipants = participantId
-    ? snapshot.participants.filter((participant) => participant.id === participantId)
+export function EventActivityPanel({
+  snapshot,
+  participantId,
+  selectedParticipantId,
+  apiBaseUrl,
+}: EventActivityPanelProps) {
+  // Determine which participant to inspect (defaults to self if nothing selected or self is selected)
+  const targetId = selectedParticipantId ?? participantId;
+  const isMe = targetId === participantId;
+
+  const targetParticipant = snapshot.participants.find((p) => p.id === targetId) ?? null;
+
+  // Stream activity logs if it's an AI participant (or if explicitly selected)
+  const { activities: liveActivities, sseActive } = useUserActivityStream(
+    apiBaseUrl ?? '',
+    snapshot.eventId,
+    targetId
+  );
+
+  // If we have live activities from SSE, use them; otherwise fallback to the snapshot's timeline
+  const activitiesToRender = targetParticipant
+    ? liveActivities.length > 0
+      ? liveActivities.map((act, index) => ({
+          id: `live-${targetId}-${index}`,
+          label: act.label,
+          message: act.message,
+        }))
+      : targetParticipant.timeline.map((entry, index) => ({
+          id: `fallback-${targetId}-${index}`,
+          label: entry.label,
+          message: entry.message,
+        })).reverse()
     : [];
-  const myRecent = recentEntries(myParticipants, 6);
-  const allRecent = recentEntries(snapshot.participants, 10);
+
+  // Full merge log of all participants
+  const allLogs = snapshot.participants.flatMap((p) =>
+    p.timeline.map((entry, index) => ({
+      id: `all-${p.id}-${index}`,
+      displayName: p.displayName,
+      label: entry.label,
+      message: entry.message,
+    }))
+  ).reverse();
+
+  const getLabelClass = (label: string) => {
+    const l = label.toUpperCase();
+    if (l.includes('INTENT') || l.includes('의도')) return 'activity-intent';
+    if (l.includes('THINKING') || l.includes('탐색') || l.includes('판단') || l.includes('생각')) return 'activity-thinking';
+    if (l.includes('ACTION') || l.includes('시도') || l.includes('행동')) return 'activity-action';
+    if (l.includes('RETRY') || l.includes('다시') || l.includes('재시도')) return 'activity-retry';
+    if (l.includes('SUCCESS') || l.includes('성공') || l.includes('완료')) return 'activity-success';
+    if (l.includes('WAITING') || l.includes('대기')) return 'activity-waiting';
+    if (l.includes('FAILED') || l.includes('실패') || l.includes('오류')) return 'activity-retry';
+    return '';
+  };
 
   return (
-    <section className="panel activity-panel">
+    <section className="panel activity-panel-wide">
       <div className="panel-title-row">
-        <span className="eyebrow">STREAM</span>
-        <h2>진행 로그</h2>
+        <span className="eyebrow">LIVE MONITORING</span>
+        <h2>활동 모니터링</h2>
       </div>
-      <div className="infra-grid">
-        {snapshot.serverStats.map((stat) => (
-          <div key={stat.serverId}>
-            <strong>{stat.serverId}</strong>
-            <span>{stat.requestCount}건 처리</span>
+
+      <div className="activity-horizontal-layout" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        {/* 왼쪽 컬럼: 내 진행 또는 선택된 참가자 진행 */}
+        <div className="activity-column live-stream">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {targetParticipant ? (isMe ? '내 진행' : `${targetParticipant.displayName}의 진행`) : '진행 정보'}
+            {targetParticipant && sseActive && !isMe && (
+              <span className="live-indicator-badge" style={{ fontSize: '10px', color: 'var(--mint)', fontWeight: 'bold' }}>
+                <span className="pulsing-dot" style={{ display: 'inline-block', width: '6px', height: '6px', backgroundColor: 'var(--mint)', borderRadius: '50%', marginRight: '4px' }}></span>
+                LIVE
+              </span>
+            )}
+          </h3>
+          <div className="log-scroll-container">
+            {activitiesToRender.length === 0 ? (
+              <p className="empty-log">기록이 없습니다.</p>
+            ) : (
+              <ol className="activity-list" style={{ paddingLeft: 0 }}>
+                {activitiesToRender.map((entry) => (
+                  <li key={entry.id} className={`activity-item ${getLabelClass(entry.label)}`}>
+                    <span className="activity-label">{entry.label}</span>
+                    <p>{entry.message}</p>
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
-        ))}
-      </div>
-      <div className="activity-sections">
-        {participantId ? <ActivityList title="내 진행" entries={myRecent} emptyMessage="내 진행 내역이 아직 없습니다." /> : null}
-        <ActivityList title="전체 로그" entries={allRecent} emptyMessage="아직 표시할 진행 내역이 없습니다." />
+        </div>
+
+        {/* 오른쪽 컬럼: 전체 로그 */}
+        <div className="activity-column history-log">
+          <h3>전체 로그</h3>
+          <div className="log-scroll-container">
+            {allLogs.length === 0 ? (
+              <p className="empty-log">기록이 없습니다.</p>
+            ) : (
+              <ol className="activity-list" style={{ paddingLeft: 0 }}>
+                {allLogs.map((entry) => (
+                  <li key={entry.id} className={`activity-item ${getLabelClass(entry.label)}`}>
+                    <strong className="activity-user" style={{ marginRight: '8px', color: 'var(--text-muted, #888)', fontSize: '12px' }}>
+                      {entry.displayName}
+                    </strong>
+                    <span className="activity-label">{entry.label}</span>
+                    <p>{entry.message}</p>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
       </div>
     </section>
   );
 }
 
-function ActivityList({
-  title,
-  entries,
-  emptyMessage,
-}: {
-  title: string;
-  entries: ActivityEntry[];
-  emptyMessage: string;
-}) {
-  return (
-    <div className="activity-section">
-      <h3>{title}</h3>
-      {entries.length === 0 ? (
-        <p className="empty-log">{emptyMessage}</p>
-      ) : (
-        <ol className="activity-list">
-          {entries.map((entry) => (
-            <li key={entry.id}>
-              <strong>{entry.participant}</strong>
-              <span>{entry.label}</span>
-              <p>{entry.message}</p>
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
-  );
-}
 
-interface ActivityEntry {
-  id: string;
-  participant: string;
-  label: string;
-  message: string;
-}
-
-function recentEntries(participants: LiveEventSnapshot['participants'], limit: number): ActivityEntry[] {
-  return participants.flatMap((participant) =>
-    participant.timeline.slice(-6).map((entry, index) => ({
-      id: `${participant.id}-${index}-${entry.label}-${entry.message}`,
-      participant: participant.displayName,
-      label: entry.label,
-      message: entry.message,
-    })),
-  ).slice(-limit);
-}

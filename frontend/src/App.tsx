@@ -43,7 +43,6 @@ export default function App() {
         <Metric label="NODES" value={`${room.snapshot.serverStats.length}`} detail="active" />
       </div>
       <div className="dashboard-grid">
-        <InsightPanel snapshot={room.snapshot} />
         <MyTicketPanel
           status={room.snapshot.status}
           participant={room.myParticipant}
@@ -75,6 +74,7 @@ export default function App() {
           />
         </div>
       </div>
+      <InsightPanel snapshot={room.snapshot} />
     </main>
   );
 }

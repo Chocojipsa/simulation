@@ -539,6 +539,13 @@ button {
   gap: 12px;
 }
 
+.insight-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .metric-row {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -607,6 +614,10 @@ button {
   .metric-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .insight-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 640px) {
@@ -639,7 +650,30 @@ button {
   }
 
   .infra-grid,
-  .user-layout {
+  .user-layout,
+  .insight-row {
     grid-template-columns: 1fr;
   }
 }
+
+/* Pulsing dot for active participants */
+.pulsing-dot {
+  animation: pulse 1.2s infinite cubic-bezier(0.66, 0, 0, 1);
+  box-shadow: 0 0 0 0 rgba(0, 192, 160, 0.7);
+}
+
+@keyframes pulse {
+  to {
+    box-shadow: 0 0 0 8px rgba(0, 192, 160, 0);
+  }
+}
+
+.live-indicator-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  padding: 1px 6px;
+  background: #e6fffa;
+  border-radius: 4px;
+}
+

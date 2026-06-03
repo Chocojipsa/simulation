@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   confirmPayment,
   fetchActiveEvent,
@@ -23,53 +23,92 @@ export function useLiveEventRoom(apiBaseUrl: string) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [sseActive, setSseActive] = useState(true);
+
+  const refreshingRef = useRef(false);
 
   const refresh = useCallback(async () => {
-    if (!eventId) return;
-    const next = await fetchEventSnapshot(apiBaseUrl, eventId, participantId);
-    setSnapshot(next);
+    if (!eventId || refreshingRef.current) return;
+    refreshingRef.current = true;
+    try {
+      const next = await fetchEventSnapshot(apiBaseUrl, eventId, participantId);
+      setSnapshot(next);
+    } finally {
+      refreshingRef.current = false;
+    }
   }, [apiBaseUrl, eventId, participantId]);
 
-  const applyCommandMessage = useCallback((response: CommandResponse) => {
-    setMessage(response.message);
-  }, []);
+  useEffect(() => {
+    void fetchActiveEvent(apiBaseUrl).then((event) => {
+      setEventId(event.eventId);
+    });
+  }, [apiBaseUrl]);
 
   useEffect(() => {
-    let cancelled = false;
-    async function boot() {
-      try {
-        const active = await fetchActiveEvent(apiBaseUrl);
-        if (cancelled) return;
-        setEventId(active.eventId);
-        const next = await fetchEventSnapshot(apiBaseUrl, active.eventId, participantId);
-        if (!cancelled) {
-          setSnapshot(next);
-          setError(null);
-        }
-      } catch {
-        if (!cancelled) setError('이벤트 정보를 불러오지 못했습니다.');
-      }
-    }
-    void boot();
-    return () => {
-      cancelled = true;
-    };
-  }, [apiBaseUrl, participantId]);
+    void refresh();
+  }, [refresh]);
 
   useEffect(() => {
     if (!eventId) return undefined;
-    let busy = false;
+    let intervalMs = sseActive ? 10000 : 500;
+    if (snapshot?.status === 'ENDED') {
+      intervalMs = 30000;
+    }
     const timer = window.setInterval(() => {
-      if (busy) return;
-      busy = true;
-      void refresh()
-        .catch(() => setError('이벤트 상태 갱신에 실패했습니다.'))
-        .finally(() => {
-          busy = false;
-        });
-    }, 500);
+      void refresh();
+    }, intervalMs);
     return () => window.clearInterval(timer);
-  }, [eventId, refresh]);
+  }, [eventId, refresh, sseActive, snapshot?.status]);
+
+  useEffect(() => {
+    if (error) {
+      const timer = window.setTimeout(() => setError(null), 4000);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [error]);
+
+  useEffect(() => {
+    if (message) {
+      const timer = window.setTimeout(() => setMessage(null), 4000);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [message]);
+
+  useEffect(() => {
+    if (!eventId) return undefined;
+    if (typeof EventSource === 'undefined') {
+      setSseActive(false);
+      return undefined;
+    }
+    
+    const streamUrl = `${apiBaseUrl}/api/events/${eventId}/stream`;
+    const eventSource = new EventSource(streamUrl);
+
+    eventSource.onopen = () => {
+      setSseActive(true);
+    };
+
+    eventSource.onerror = () => {
+      setSseActive(false);
+    };
+
+    eventSource.addEventListener('snapshot', (event) => {
+      try {
+        const nextSnapshot = JSON.parse(event.data) as LiveEventSnapshot;
+        setSnapshot(nextSnapshot);
+        setError(null);
+        setSseActive(true);
+      } catch (err) {
+        console.error('Failed to parse snapshot event', err);
+      }
+    });
+
+    return () => {
+      eventSource.close();
+    };
+  }, [apiBaseUrl, eventId]);
 
   const myParticipant = useMemo(() => getMyParticipant(snapshot, participantId), [snapshot, participantId]);
 
@@ -77,74 +116,74 @@ export function useLiveEventRoom(apiBaseUrl: string) {
     if (!eventId || !participantId || snapshot?.status !== 'OPEN' || myParticipant?.status !== 'QUEUED') {
       return undefined;
     }
-    let busy = false;
     const timer = window.setInterval(() => {
-      if (busy) return;
-      busy = true;
-      void queueParticipant(apiBaseUrl, eventId, participantId)
-        .then((response) => {
-          if (response.status === 'ADMITTED') {
-            applyCommandMessage(response);
-          }
-          return refresh();
-        })
-        .catch(() => setError('대기열 상태 확인에 실패했습니다.'))
-        .finally(() => {
-          busy = false;
-        });
-    }, 500);
+      void queueParticipant(apiBaseUrl, eventId, participantId).then((res) => {
+        if (res.status === 'ADMITTED') {
+          void refresh();
+        }
+      });
+    }, 1500);
     return () => window.clearInterval(timer);
-  }, [apiBaseUrl, applyCommandMessage, eventId, myParticipant?.status, participantId, refresh, snapshot?.status]);
+  }, [apiBaseUrl, eventId, participantId, snapshot?.status, myParticipant?.status, refresh]);
 
   const join = useCallback(async (displayName: string) => {
     if (!eventId) return;
     setLoading(true);
     try {
-      const joined = await joinEvent(apiBaseUrl, eventId, displayName);
-      window.localStorage.setItem(participantStorageKey, joined.participantId);
-      setParticipantId(joined.participantId);
-      setSnapshot(await fetchEventSnapshot(apiBaseUrl, eventId, joined.participantId));
-      setError(null);
-    } catch {
-      setError('이벤트 입장에 실패했습니다.');
+      const res = await joinEvent(apiBaseUrl, eventId, displayName);
+      window.localStorage.setItem(participantStorageKey, res.participantId);
+      setParticipantId(res.participantId);
+      await refresh();
+    } catch (err) {
+      setError('입장에 실패했습니다.');
     } finally {
       setLoading(false);
     }
-  }, [apiBaseUrl, eventId]);
+  }, [apiBaseUrl, eventId, refresh]);
 
-  const reserve = useCallback(async () => {
-    if (!eventId || !participantId) return;
-    applyCommandMessage(await queueParticipant(apiBaseUrl, eventId, participantId));
-    await refresh();
-  }, [apiBaseUrl, eventId, participantId, refresh]);
+  const wrapCommand = useCallback(async (command: () => Promise<CommandResponse>) => {
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await command();
+      setMessage(res.message);
+      await refresh();
+    } catch (err) {
+      setError('요청 처리에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }, [refresh]);
 
-  const selectSeat = useCallback(async (seatId: number) => {
+  const reserve = useCallback(() => {
     if (!eventId || !participantId) return;
-    applyCommandMessage(await holdSeat(apiBaseUrl, eventId, participantId, seatId));
-    await refresh();
-  }, [apiBaseUrl, eventId, participantId, refresh]);
+    void wrapCommand(() => queueParticipant(apiBaseUrl, eventId, participantId));
+  }, [apiBaseUrl, eventId, participantId, wrapCommand]);
 
-  const pay = useCallback(async () => {
+  const selectSeat = useCallback((seatId: number) => {
     if (!eventId || !participantId) return;
-    applyCommandMessage(await confirmPayment(apiBaseUrl, eventId, participantId));
-    await refresh();
-  }, [apiBaseUrl, eventId, participantId, refresh]);
+    void wrapCommand(() => holdSeat(apiBaseUrl, eventId, participantId, seatId));
+  }, [apiBaseUrl, eventId, participantId, wrapCommand]);
+
+  const pay = useCallback(() => {
+    if (!eventId || !participantId) return;
+    void wrapCommand(() => confirmPayment(apiBaseUrl, eventId, participantId));
+  }, [apiBaseUrl, eventId, participantId, wrapCommand]);
 
   const start = useCallback(async () => {
     if (!eventId) return;
     await startEvent(apiBaseUrl, eventId);
-    setMessage('이벤트 카운트다운이 시작되었습니다.');
     await refresh();
   }, [apiBaseUrl, eventId, refresh]);
 
   const reset = useCallback(async () => {
     if (!eventId) return;
-    const resetResponse = await resetEvent(apiBaseUrl, eventId);
+    await resetEvent(apiBaseUrl, eventId);
     window.localStorage.removeItem(participantStorageKey);
     setParticipantId(null);
-    setMessage('새 이벤트가 준비되었습니다.');
-    setSnapshot(await fetchEventSnapshot(apiBaseUrl, resetResponse.eventId, null));
-  }, [apiBaseUrl, eventId]);
+    await refresh();
+  }, [apiBaseUrl, eventId, refresh]);
 
   const startAi = useCallback(async (count: number, concurrency: number) => {
     if (!eventId) return;

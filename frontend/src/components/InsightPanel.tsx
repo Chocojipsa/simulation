@@ -10,7 +10,7 @@ export function InsightPanel({ snapshot }: InsightPanelProps) {
   const seatCounts = countSeatsByStatus(snapshot.seats);
 
   return (
-    <aside className="insight-column">
+    <aside className="insight-row">
       <section className="panel">
         <h2>서버 분산</h2>
         {snapshot.serverStats.map((stats) => (

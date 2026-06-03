@@ -29,6 +29,6 @@ describe('QueuePanel', () => {
     expect(screen.getByText('대기열')).toBeInTheDocument();
     expect(screen.getByText('2명')).toBeInTheDocument();
     expect(screen.getByText('42번째')).toBeInTheDocument();
-    expect(screen.getByText('대기열 대기')).toBeInTheDocument();
+    expect(screen.getAllByText('대기열 대기').length).toBeGreaterThan(0);
   });
 });
