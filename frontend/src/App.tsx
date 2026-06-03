@@ -1,14 +1,23 @@
+import { useState, useEffect } from 'react';
 import { EventActivityPanel } from './components/EventActivityPanel';
 import { EventHeader } from './components/EventHeader';
 import { MyTicketPanel } from './components/MyTicketPanel';
 import { QueuePanel } from './components/QueuePanel';
 import { SeatMap } from './components/SeatMap';
 import { useLiveEventRoom } from './hooks/useLiveEventRoom';
+import { InsightPanel } from './components/InsightPanel';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export default function App() {
   const room = useLiveEventRoom(apiBaseUrl);
+  const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (room.participantId && !selectedParticipantId) {
+      setSelectedParticipantId(room.participantId);
+    }
+  }, [room.participantId, selectedParticipantId]);
 
   if (!room.snapshot) {
     return (
@@ -34,6 +43,7 @@ export default function App() {
         <Metric label="NODES" value={`${room.snapshot.serverStats.length}`} detail="active" />
       </div>
       <div className="dashboard-grid">
+        <InsightPanel snapshot={room.snapshot} />
         <MyTicketPanel
           status={room.snapshot.status}
           participant={room.myParticipant}
@@ -50,8 +60,19 @@ export default function App() {
           onSelectSeat={(seatId) => void room.selectSeat(seatId)}
         />
         <div className="side-column">
-          <QueuePanel snapshot={room.snapshot} participantId={room.participantId} />
-          <EventActivityPanel snapshot={room.snapshot} participantId={room.participantId} />
+          <QueuePanel
+            snapshot={room.snapshot}
+            participantId={room.participantId}
+            selectedParticipantId={selectedParticipantId}
+            onSelectParticipant={setSelectedParticipantId}
+          />
+          <EventActivityPanel
+            snapshot={room.snapshot}
+            participantId={room.participantId}
+            selectedParticipantId={selectedParticipantId}
+            onSelectParticipant={setSelectedParticipantId}
+            apiBaseUrl={apiBaseUrl}
+          />
         </div>
       </div>
     </main>
