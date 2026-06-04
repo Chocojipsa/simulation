@@ -4,7 +4,7 @@ import { useUserActivityStream } from '../hooks/useUserActivityStream';
 interface EventActivityPanelProps {
   snapshot: LiveEventSnapshot;
   participantId: string | null;
-  selectedParticipantId: string | null;
+  selectedParticipantId?: string | null;
   onSelectParticipant?: (id: string) => void;
   apiBaseUrl?: string;
 }

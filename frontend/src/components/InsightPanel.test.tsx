@@ -13,8 +13,8 @@ describe('InsightPanel', () => {
       opensAt: null,
       endsAt: null,
       seats: [
-        { id: 1, label: 'A-1', status: 'AVAILABLE', version: 1 },
-        { id: 2, label: 'A-2', status: 'RESERVED', version: 1 },
+        { id: 1, label: 'A-1', status: 'AVAILABLE' },
+        { id: 2, label: 'A-2', status: 'RESERVED' },
       ],
       participants: [],
       metrics: { queueSize: 10, admittedCount: 5, heldCount: 0, paymentInProgressCount: 2, reservedCount: 1, failedCount: 0 },

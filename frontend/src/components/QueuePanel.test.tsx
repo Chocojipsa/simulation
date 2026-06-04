@@ -24,7 +24,14 @@ describe('QueuePanel', () => {
       ],
     } satisfies LiveEventSnapshot;
 
-    render(<QueuePanel snapshot={snapshot} participantId="me" />);
+    render(
+      <QueuePanel
+        snapshot={snapshot}
+        participantId="me"
+        selectedParticipantId={null}
+        onSelectParticipant={() => {}}
+      />
+    );
 
     expect(screen.getByText('대기열')).toBeInTheDocument();
     expect(screen.getByText('2명')).toBeInTheDocument();
