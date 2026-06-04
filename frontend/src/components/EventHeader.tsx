@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { LiveEventSnapshot } from '../api/liveEventApi';
 import { formatEventStatus, getTimeLabel } from '../domain/liveEventSelectors';
 
@@ -8,6 +9,18 @@ interface EventHeaderProps {
 }
 
 export function EventHeader({ snapshot, onStart, onReset }: EventHeaderProps) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    if (snapshot.status !== 'COUNTDOWN' && snapshot.status !== 'OPEN') {
+      return undefined;
+    }
+    const timer = window.setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [snapshot.status]);
+
   return (
     <header className="top-bar">
       <div className="event-title-block">
@@ -23,7 +36,7 @@ export function EventHeader({ snapshot, onStart, onReset }: EventHeaderProps) {
       </div>
       <div className="event-status">
         <strong>{formatEventStatus(snapshot.status)}</strong>
-        <span>{getTimeLabel(snapshot.status, snapshot.opensAt, snapshot.endsAt)}</span>
+        <span>{getTimeLabel(snapshot.status, snapshot.opensAt, snapshot.endsAt, now)}</span>
         <span>{snapshot.metrics.reservedCount} reserved</span>
       </div>
       <div className="event-actions">
