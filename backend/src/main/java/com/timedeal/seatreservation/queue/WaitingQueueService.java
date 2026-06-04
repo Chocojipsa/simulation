@@ -67,6 +67,11 @@ public class WaitingQueueService {
         redis.delete(sequenceKey(simulationId));
     }
 
+    public long position(String simulationId, String virtualUserId) {
+        Long rank = redis.opsForZSet().rank(queueKey(simulationId), virtualUserId);
+        return rank != null ? rank + 1 : 0L;
+    }
+
     private String queueKey(String simulationId) {
         return "simulation:%s:queue".formatted(simulationId);
     }

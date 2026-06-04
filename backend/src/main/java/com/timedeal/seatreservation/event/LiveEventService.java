@@ -310,7 +310,13 @@ public class LiveEventService {
         if (status == LiveEventStatus.ENDED) {
             return new VirtualUserCommandResponse(eventId, participantId, "EVENT_ENDED", serverIdentity.id(), "이벤트가 종료되었습니다.", null);
         }
-        return simulationService.enterParticipantQueue(eventId, participantId);
+        
+        VirtualUserView participant = stateGateway.participant(eventId, participantId);
+        if (participant.status() == com.timedeal.seatreservation.domain.VirtualUserStatus.WAITING_ROOM) {
+            return simulationService.enterQueue(eventId, participantId);
+        } else {
+            return simulationService.postQueue(eventId, participantId);
+        }
     }
 
     public SeatHoldResponse holdSeat(UUID eventId, UUID participantId, long seatId) {
@@ -342,14 +348,7 @@ public class LiveEventService {
             String message = eventStatus == LiveEventStatus.ENDED ? "이벤트가 종료되었습니다." : "예매가 아직 시작되지 않았습니다.";
             return new PaymentConfirmResponse(eventId, participantId, status, message, serverIdentity.id());
         }
-        VirtualUserCommandResponse response = simulationService.confirmPayment(eventId, participantId);
-        return new PaymentConfirmResponse(
-                eventId,
-                participantId,
-                response.status(),
-                response.message(),
-                response.handledBy()
-        );
+        return simulationService.confirmPayment(eventId, participantId);
     }
 
     public RunSimulationResponse startAiParticipants(UUID eventId, StartAiParticipantsRequest request) {

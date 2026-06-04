@@ -398,6 +398,26 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
         });
     }
 
+    @Override
+    public SimulationSnapshot recordUserActivity(UUID simulationId, UUID userId, String label, String message) {
+        return mutate(simulationId, current -> new SimulationSnapshot(
+                current.simulationId(),
+                current.seats(),
+                updateUser(current.users(), userId, user -> appendTimeline(
+                        user,
+                        user.status(),
+                        user.selectedSeatLabel(),
+                        label,
+                        message,
+                        0,
+                        0
+                )),
+                current.metrics(),
+                current.serverStats(),
+                current.running()
+        ));
+    }
+
     private SimulationSnapshot mutate(UUID simulationId, UnaryOperator<SimulationSnapshot> mutator) {
         String lockKey = "simulation:%s:lock".formatted(simulationId);
         acquireLock(simulationId, lockKey);
@@ -511,6 +531,9 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
     ) {
         List<TimelineEntry> timeline = new ArrayList<>(user.timeline());
         timeline.add(new TimelineEntry(label, message));
+        if (timeline.size() > 20) {
+            timeline.remove(0);
+        }
         return replaceUser(
                 user,
                 status,

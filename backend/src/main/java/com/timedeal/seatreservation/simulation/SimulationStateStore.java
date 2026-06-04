@@ -277,6 +277,19 @@ public class SimulationStateStore implements SimulationStateGateway {
         return snapshot(event.simulationId());
     }
 
+    @Override
+    public SimulationSnapshot recordUserActivity(UUID simulationId, UUID userId, String label, String message) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            MutableVirtualUser user = user(state, userId);
+            user.timeline.add(new TimelineEntry(label, message));
+            if (user.timeline.size() > 20) {
+                user.timeline.remove(0);
+            }
+        }
+        return snapshot(simulationId);
+    }
+
     MutableSimulationState state(UUID simulationId) {
         MutableSimulationState state = simulations.get(simulationId);
         if (state == null) {

@@ -3,10 +3,13 @@ package com.timedeal.seatreservation.generator;
 import com.timedeal.seatreservation.event.JoinEventResponse;
 import com.timedeal.seatreservation.event.PaymentConfirmResponse;
 import com.timedeal.seatreservation.event.SeatHoldResponse;
+import com.timedeal.seatreservation.simulation.UserActivityEvent;
 import com.timedeal.seatreservation.simulation.VirtualUserCommandResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
 
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -22,32 +25,41 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
     private static final int COMMAND_RETRY_ATTEMPTS = 5;
 
     private final VirtualUserCommandClient commandClient;
+    private final RestClient restClient;
+    private final String controlBaseUrl;
     private final int maxSeatAttempts;
     private final long retryDelayMillis;
     private final IntSupplier seatClickDelayMillis;
     private final IntConsumer sleeper;
 
     @Autowired
-    public HttpVirtualUserHttpClient(VirtualUserCommandClient commandClient) {
-        this(commandClient, DEFAULT_MAX_SEAT_ATTEMPTS, DEFAULT_RETRY_DELAY_MILLIS);
+    public HttpVirtualUserHttpClient(
+            VirtualUserCommandClient commandClient,
+            @Value("${traffic-generator.control-base-url:http://localhost:8080}") String controlBaseUrl
+    ) {
+        this(commandClient, controlBaseUrl, DEFAULT_MAX_SEAT_ATTEMPTS, DEFAULT_RETRY_DELAY_MILLIS);
     }
 
     HttpVirtualUserHttpClient(
             VirtualUserCommandClient commandClient,
+            String controlBaseUrl,
             int maxSeatAttempts,
             long retryDelayMillis
     ) {
-        this(commandClient, maxSeatAttempts, retryDelayMillis, randomDelaySupplier(200, 700), HttpVirtualUserHttpClient::sleep);
+        this(commandClient, controlBaseUrl, maxSeatAttempts, retryDelayMillis, randomDelaySupplier(200, 700), HttpVirtualUserHttpClient::sleep);
     }
 
     HttpVirtualUserHttpClient(
             VirtualUserCommandClient commandClient,
+            String controlBaseUrl,
             int maxSeatAttempts,
             long retryDelayMillis,
             IntSupplier seatClickDelayMillis,
             IntConsumer sleeper
     ) {
         this.commandClient = commandClient;
+        this.controlBaseUrl = controlBaseUrl;
+        this.restClient = RestClient.create();
         this.maxSeatAttempts = maxSeatAttempts;
         this.retryDelayMillis = retryDelayMillis;
         this.seatClickDelayMillis = seatClickDelayMillis;
@@ -59,24 +71,31 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
         String displayName = "AI-" + virtualUserNumber;
         JoinEventResponse joined = runWithTransientRetry(() -> commandClient.joinEvent(baseUrl, simulationId, displayName));
         UUID participantId = joined.participantId();
+        logActivity(simulationId, participantId, "INTENT", "이벤트 입장을 시도합니다.");
 
         if (!waitUntilAdmitted(baseUrl, simulationId, participantId)) {
+            logActivity(simulationId, participantId, "FAILED", "입장에 실패했습니다.");
             return;
         }
         for (int attempt = 0; attempt < maxSeatAttempts; attempt++) {
             sleeper.accept(seatClickDelayMillis.getAsInt());
+            logActivity(simulationId, participantId, "THINKING", "비어있는 좌석을 탐색 중입니다...");
             SeatHoldResponse hold = runWithTransientRetryOrNull(() -> commandClient.holdRandomSeat(baseUrl, simulationId, participantId));
             if (hold == null) {
+                logActivity(simulationId, participantId, "RETRY", "좌석 탐색 중 오류가 발생했습니다. 다시 시도합니다.");
                 sleepBriefly();
                 continue;
             }
             if (requiresPaymentConfirmation(hold)) {
+                logActivity(simulationId, participantId, "ACTION", hold.selectedSeatLabel() + " 좌석을 발견했습니다! 결제를 진행합니다.");
                 confirmPaymentUntilAccepted(baseUrl, simulationId, participantId);
                 return;
             }
             if (isTerminalStatus(hold.status())) {
+                logActivity(simulationId, participantId, "FAILED", "예약 가능 좌석이 없어 중단합니다.");
                 return;
             }
+            logActivity(simulationId, participantId, "RETRY", "좌석 선점에 실패했습니다. 다른 좌석을 찾아볼게요.");
             sleepBriefly();
         }
     }
@@ -89,11 +108,13 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
                 continue;
             }
             if ("ADMITTED".equals(response.status())) {
+                logActivity(simulationId, participantId, "SUCCESS", "대기열을 통과했습니다! 좌석을 선택합니다.");
                 return true;
             }
             if (isTerminalStatus(response.status())) {
                 return false;
             }
+            logActivity(simulationId, participantId, "WAITING", "대기열에서 차례를 기다리는 중입니다...");
             sleepBriefly();
         }
         return false;
@@ -103,9 +124,23 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
         for (int attempt = 0; attempt < maxSeatAttempts; attempt++) {
             PaymentConfirmResponse response = runWithTransientRetryOrNull(() -> commandClient.confirmPayment(baseUrl, simulationId, participantId));
             if (response != null || Thread.currentThread().isInterrupted()) {
+                logActivity(simulationId, participantId, "SUCCESS", "결제가 완료되었습니다! 예약을 마칩니다.");
                 return;
             }
+            logActivity(simulationId, participantId, "WAITING", "결제 승인을 기다리고 있습니다...");
             sleepBriefly();
+        }
+    }
+
+    private void logActivity(UUID simulationId, UUID userId, String label, String message) {
+        try {
+            restClient.post()
+                    .uri(controlBaseUrl + "/internal/traffic-generator/simulations/{simulationId}/users/{userId}/activity", simulationId, userId)
+                    .body(new UserActivityEvent(simulationId, userId, label, message))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception ignored) {
+            // Logging failure should not break the simulation
         }
     }
 
@@ -114,7 +149,7 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
     }
 
     private boolean requiresPaymentConfirmation(SeatHoldResponse hold) {
-        if ("PAYMENT_PENDING".equals(hold.status()) || "PAYMENT_REQUESTED".equals(hold.status())) {
+        if ("PAYMENT_PENDING".equals(hold.status()) || "PAYMENT_REQUESTED".equals(hold.status()) || "SEAT_HELD".equals(hold.status())) {
             return true;
         }
         return "ALREADY_HOLDING".equals(hold.status()) && hold.selectedSeatLabel() != null;

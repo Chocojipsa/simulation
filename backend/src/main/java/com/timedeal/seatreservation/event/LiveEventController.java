@@ -1,8 +1,10 @@
 package com.timedeal.seatreservation.event;
 
+import com.timedeal.seatreservation.events.SimulationEventHub;
 import com.timedeal.seatreservation.simulation.RunSimulationResponse;
 import com.timedeal.seatreservation.simulation.VirtualUserCommandResponse;
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.UUID;
 
@@ -17,9 +20,11 @@ import java.util.UUID;
 @RequestMapping("/api/events")
 public class LiveEventController {
     private final LiveEventService liveEventService;
+    private final SimulationEventHub simulationEventHub;
 
-    public LiveEventController(LiveEventService liveEventService) {
+    public LiveEventController(LiveEventService liveEventService, SimulationEventHub simulationEventHub) {
         this.liveEventService = liveEventService;
+        this.simulationEventHub = simulationEventHub;
     }
 
     @GetMapping("/active")
@@ -84,5 +89,18 @@ public class LiveEventController {
             @Valid @RequestBody StartAiParticipantsRequest request
     ) {
         return liveEventService.startAiParticipants(eventId, request);
+    }
+ 
+    @GetMapping(path = "/{eventId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter eventStream(@PathVariable UUID eventId) {
+        return simulationEventHub.open(eventId);
+    }
+ 
+    @GetMapping(path = "/{eventId}/participants/{participantId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter participantStream(
+            @PathVariable UUID eventId,
+            @PathVariable UUID participantId
+    ) {
+        return simulationEventHub.openUserStream(participantId);
     }
 }

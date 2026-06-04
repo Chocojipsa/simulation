@@ -677,3 +677,53 @@ button {
   border-radius: 4px;
 }
 
+/* Participant flow styling */
+.participant-flow-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.flow-section h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flow-section h3 span {
+  font-family: "Courier New", monospace;
+  font-weight: 800;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  padding: 1px 5px;
+  font-size: 11px;
+}
+
+.flow-list {
+  max-height: 130px;
+  overflow-y: auto;
+  border: 2px solid var(--line);
+  background: var(--paper-2);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.flow-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.flow-list::-webkit-scrollbar-track {
+  background: var(--paper-2);
+}
+
+.flow-list::-webkit-scrollbar-thumb {
+  background: var(--gray);
+  border: 1px solid var(--line);
+}
+
+

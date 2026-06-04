@@ -3,6 +3,7 @@ package com.timedeal.seatreservation.simulation;
 import com.timedeal.seatreservation.domain.SeatStatus;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
 import com.timedeal.seatreservation.events.SimulationEventHub;
+import com.timedeal.seatreservation.events.UserActivityPublisher;
 import com.timedeal.seatreservation.queue.AdmissionQueue;
 import jakarta.annotation.PreDestroy;
 import org.springframework.context.annotation.Profile;
@@ -27,13 +28,20 @@ public class SimulationRunner {
 
     private final SimulationStateStore stateStore;
     private final SimulationEventHub eventHub;
+    private final UserActivityPublisher activityPublisher;
     private final AdmissionQueue admissionQueue;
     private final ScheduledExecutorService executor;
     private final ConcurrentHashMap<UUID, ScheduledFuture<?>> jobs = new ConcurrentHashMap<>();
 
-    public SimulationRunner(SimulationStateStore stateStore, SimulationEventHub eventHub, AdmissionQueue admissionQueue) {
+    public SimulationRunner(
+            SimulationStateStore stateStore,
+            SimulationEventHub eventHub,
+            UserActivityPublisher activityPublisher,
+            AdmissionQueue admissionQueue
+    ) {
         this.stateStore = stateStore;
         this.eventHub = eventHub;
+        this.activityPublisher = activityPublisher;
         this.admissionQueue = admissionQueue;
         this.executor = Executors.newScheduledThreadPool(2);
     }
@@ -103,9 +111,11 @@ public class SimulationRunner {
                     .filter(user -> user.status == VirtualUserStatus.QUEUED)
                     .findFirst()
                     .ifPresent(user -> {
-                admissionQueue.grant(state.simulationId.toString(), candidateId);
-                user.status = VirtualUserStatus.SELECTING_SEAT;
-                user.timeline.add(new TimelineEntry("입장", "입장이 허용되었습니다."));
+                        admissionQueue.grant(state.simulationId.toString(), candidateId);
+                        user.status = VirtualUserStatus.SELECTING_SEAT;
+                        user.timeline.add(new TimelineEntry("입장", "입장이 허용되었습니다."));
+                        user.timeline.add(new TimelineEntry("SUCCESS", "대기열을 통과했습니다! 좌석을 선택합니다."));
+                        publishActivity(state.simulationId, user.id, "SUCCESS", "대기열을 통과했습니다! 좌석을 선택합니다.");
                     });
         }
     }
@@ -150,9 +160,13 @@ public class SimulationRunner {
 
         LinkedHashMap<SimulationStateStore.MutableSeat, List<SimulationStateStore.MutableVirtualUser>> attempts = new LinkedHashMap<>();
         for (SimulationStateStore.MutableVirtualUser user : selectingUsers) {
+            user.timeline.add(new TimelineEntry("THINKING", "비어있는 좌석을 탐색 중입니다..."));
+            publishActivity(state.simulationId, user.id, "THINKING", "비어있는 좌석을 탐색 중입니다...");
             SimulationStateStore.MutableSeat seat = chooseRandomSeat(state, user, availableSeats);
             user.selectedSeatLabel = seat.label;
             user.timeline.add(new TimelineEntry("좌석 선택", seat.label + " 좌석을 선택했습니다."));
+            user.timeline.add(new TimelineEntry("ACTION", seat.label + " 좌석 선점을 시도합니다."));
+            publishActivity(state.simulationId, user.id, "ACTION", seat.label + " 좌석 선점을 시도합니다.");
             attempts.computeIfAbsent(seat, ignored -> new ArrayList<>()).add(user);
         }
 
@@ -160,9 +174,9 @@ public class SimulationRunner {
             SimulationStateStore.MutableSeat seat = entry.getKey();
             List<SimulationStateStore.MutableVirtualUser> contenders = entry.getValue();
             SimulationStateStore.MutableVirtualUser winner = contenders.get(0);
-            holdSeat(winner, seat);
+            holdSeat(state, winner, seat);
             for (int index = 1; index < contenders.size(); index++) {
-                retrySeatSelection(contenders.get(index));
+                retrySeatSelection(state, contenders.get(index));
             }
         }
     }
@@ -187,16 +201,26 @@ public class SimulationRunner {
         return availableSeats.get(random.nextInt(availableSeats.size()));
     }
 
-    private void holdSeat(SimulationStateStore.MutableVirtualUser user, SimulationStateStore.MutableSeat seat) {
+    private void holdSeat(SimulationStateStore.MutableSimulationState state, SimulationStateStore.MutableVirtualUser user, SimulationStateStore.MutableSeat seat) {
         seat.status = SeatStatus.HELD;
         user.status = VirtualUserStatus.SEAT_HELD;
         user.selectedSeatLabel = seat.label;
         user.timeline.add(new TimelineEntry("좌석 선점", seat.label + " 좌석을 임시 선점했습니다."));
+        user.timeline.add(new TimelineEntry("SUCCESS", seat.label + " 좌석을 발견했습니다! 결제를 진행합니다."));
+        publishActivity(state.simulationId, user.id, "SUCCESS", seat.label + " 좌석을 발견했습니다! 결제를 진행합니다.");
     }
 
-    private void retrySeatSelection(SimulationStateStore.MutableVirtualUser user) {
+    private void retrySeatSelection(SimulationStateStore.MutableSimulationState state, SimulationStateStore.MutableVirtualUser user) {
         user.status = VirtualUserStatus.SELECTING_SEAT;
         user.timeline.add(new TimelineEntry("좌석 선택 실패", "이미 선택된 좌석입니다."));
+        user.timeline.add(new TimelineEntry("RETRY", "좌석 선점에 실패했습니다. 다른 좌석을 찾아볼게요."));
+        publishActivity(state.simulationId, user.id, "RETRY", "좌석 선점에 실패했습니다. 다른 좌석을 찾아볼게요.");
+    }
+
+    private void publishActivity(UUID simulationId, UUID userId, String label, String message) {
+        if (activityPublisher != null) {
+            activityPublisher.publish(new UserActivityEvent(simulationId, userId, label, message));
+        }
     }
 
     private void moveHeldSeatsToPayment(SimulationStateStore.MutableSimulationState state) {

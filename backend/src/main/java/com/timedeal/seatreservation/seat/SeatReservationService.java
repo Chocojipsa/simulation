@@ -81,7 +81,17 @@ public class SeatReservationService {
             long seatId,
             String idempotencyKey
     ) {
-        return transactions.execute(status -> holdSeatInTransaction(simulationId, virtualUserId, seatId, idempotencyKey));
+        try {
+            return transactions.execute(status -> holdSeatInTransaction(simulationId, virtualUserId, seatId, idempotencyKey));
+        } catch (org.springframework.dao.DataIntegrityViolationException exception) {
+            return new SeatReservationResult(
+                    SeatReservationOutcome.ALREADY_HELD,
+                    null,
+                    seatId,
+                    virtualUserId,
+                    idempotencyKey
+            );
+        }
     }
 
     public void applyPaymentResult(PaymentResultEvent event) {

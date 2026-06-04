@@ -2,6 +2,10 @@ package com.timedeal.seatreservation.simulation;
 
 import com.timedeal.seatreservation.domain.SeatStatus;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
+import com.timedeal.seatreservation.event.PaymentConfirmResponse;
+import com.timedeal.seatreservation.event.SeatHoldResponse;
+import com.timedeal.seatreservation.events.SimulationEventHub;
+import com.timedeal.seatreservation.events.UserActivityPublisher;
 import com.timedeal.seatreservation.generator.TrafficGeneratorClient;
 import com.timedeal.seatreservation.identity.ServerIdentity;
 import com.timedeal.seatreservation.payment.PaymentRequestedEvent;
@@ -19,14 +23,18 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class SimulationService {
     private static final String PAYMENT_EVENTS_TOPIC = "payment.events";
 
     private final SimulationStateGateway stateStore;
+    private final SimulationEventHub eventHub;
+    private final UserActivityPublisher activityPublisher;
     private final ServerIdentity serverIdentity;
     private final TrafficGeneratorClient trafficGeneratorClient;
     private final SimulationInventoryService inventoryService;
@@ -39,10 +47,13 @@ public class SimulationService {
     private final Duration seatSelectionTtl;
     private final int admissionBatchSize;
     private final int maxActiveAdmissions;
+    private final Map<UUID, Instant> lastExpirationCheck = new ConcurrentHashMap<>();
 
     @Autowired
     public SimulationService(
             SimulationStateGateway stateStore,
+            SimulationEventHub eventHub,
+            UserActivityPublisher activityPublisher,
             ServerIdentity serverIdentity,
             ObjectProvider<TrafficGeneratorClient> trafficGeneratorClient,
             ObjectProvider<SimulationInventoryService> inventoryService,
@@ -56,6 +67,8 @@ public class SimulationService {
     ) {
         this(
                 stateStore,
+                eventHub,
+                activityPublisher,
                 serverIdentity,
                 trafficGeneratorClient.getIfAvailable(() -> (simulationId, request) -> {
                 }),
@@ -75,6 +88,8 @@ public class SimulationService {
     SimulationService(SimulationStateGateway stateStore) {
         this(
                 stateStore,
+                new SimulationEventHub(null),
+                null,
                 new ServerIdentity("api-test"),
                 (simulationId, request) -> {
                 },
@@ -93,6 +108,8 @@ public class SimulationService {
 
     SimulationService(
             SimulationStateGateway stateStore,
+            SimulationEventHub eventHub,
+            UserActivityPublisher activityPublisher,
             ServerIdentity serverIdentity,
             TrafficGeneratorClient trafficGeneratorClient,
             SimulationInventoryService inventoryService,
@@ -103,6 +120,8 @@ public class SimulationService {
     ) {
         this(
                 stateStore,
+                eventHub,
+                activityPublisher,
                 serverIdentity,
                 trafficGeneratorClient,
                 inventoryService,
@@ -120,6 +139,8 @@ public class SimulationService {
 
     SimulationService(
             SimulationStateGateway stateStore,
+            SimulationEventHub eventHub,
+            UserActivityPublisher activityPublisher,
             ServerIdentity serverIdentity,
             TrafficGeneratorClient trafficGeneratorClient,
             SimulationInventoryService inventoryService,
@@ -132,6 +153,8 @@ public class SimulationService {
     ) {
         this(
                 stateStore,
+                eventHub,
+                activityPublisher,
                 serverIdentity,
                 trafficGeneratorClient,
                 inventoryService,
@@ -149,6 +172,8 @@ public class SimulationService {
 
     SimulationService(
             SimulationStateGateway stateStore,
+            SimulationEventHub eventHub,
+            UserActivityPublisher activityPublisher,
             ServerIdentity serverIdentity,
             TrafficGeneratorClient trafficGeneratorClient,
             SimulationInventoryService inventoryService,
@@ -163,6 +188,8 @@ public class SimulationService {
             int maxActiveAdmissions
     ) {
         this.stateStore = stateStore;
+        this.eventHub = eventHub;
+        this.activityPublisher = activityPublisher;
         this.serverIdentity = serverIdentity;
         this.trafficGeneratorClient = trafficGeneratorClient;
         this.inventoryService = inventoryService;
@@ -175,6 +202,13 @@ public class SimulationService {
         this.seatSelectionTtl = seatSelectionTtl;
         this.admissionBatchSize = Math.max(1, admissionBatchSize);
         this.maxActiveAdmissions = Math.max(1, maxActiveAdmissions);
+    }
+
+    public void recordUserActivity(UUID simulationId, UUID userId, String label, String message) {
+        stateStore.recordUserActivity(simulationId, userId, label, message);
+        if (activityPublisher != null) {
+            activityPublisher.publish(new UserActivityEvent(simulationId, userId, label, message));
+        }
     }
 
     public SimulationResponse createSimulation(CreateSimulationRequest request) {
@@ -208,7 +242,7 @@ public class SimulationService {
         }
         return new SimulationResponse(
                 simulationId,
-                "?쒕??덉씠?섏씠 珥덇린?붾릺?덉뒿?덈떎.",
+                "시뮬레이션이 초기화되었습니다.",
                 virtualUserCount,
                 serverIdentity.id()
         );
@@ -228,331 +262,169 @@ public class SimulationService {
     public VirtualUserCommandResponse enterQueue(UUID simulationId, UUID userId) {
         expireTimedOutParticipants(simulationId);
         VirtualUserView participant = stateStore.participant(simulationId, userId);
-        boolean firstQueueEntry = participant.status() == VirtualUserStatus.WAITING_ROOM
-                || participant.status() == VirtualUserStatus.PAYMENT_FAILED
-                || participant.status() == VirtualUserStatus.FAILED
-                || participant.status() == VirtualUserStatus.EXPIRED;
-        if (firstQueueEntry && waitingQueueService != null) {
-            waitingQueueService.enterQueue(simulationId.toString(), userId.toString());
+        if (participant.status() != VirtualUserStatus.WAITING_ROOM) {
+            return new VirtualUserCommandResponse(simulationId, userId, participant.status().name(), serverIdentity.id(), "이미 대기열에 진입했거나 다른 상태입니다.", null);
         }
-        if (firstQueueEntry) {
-            stateStore.registerQueueEntry(simulationId, userId, serverIdentity.id());
-        }
-        if (!firstQueueEntry && participant.status() == VirtualUserStatus.QUEUED && admitIfPossible(simulationId, userId)) {
-            markAdmittedIfStillQueued(simulationId, userId);
-            return new VirtualUserCommandResponse(
-                    simulationId,
-                    userId,
-                    "ADMITTED",
-                    serverIdentity.id(),
-                    "대기열을 통과했습니다. 좌석을 선택해 주세요.",
-                    null
-            );
-        }
-        if (participant.status() == VirtualUserStatus.SELECTING_SEAT) {
-            return new VirtualUserCommandResponse(
-                    simulationId,
-                    userId,
-                    "ADMITTED",
-                    serverIdentity.id(),
-                    "대기열을 통과했습니다. 좌석을 선택해 주세요.",
-                    participant.selectedSeatLabel()
-            );
-        }
-        return new VirtualUserCommandResponse(
-                simulationId,
-                userId,
-                "QUEUED",
-                serverIdentity.id(),
-                "대기열에 진입했습니다. 아직 좌석을 선택할 수 없습니다.",
-                null
-        );
+
+        waitingQueueService.enterQueue(simulationId.toString(), userId.toString());
+        stateStore.registerQueueEntry(simulationId, userId, serverIdentity.id());
+        return new VirtualUserCommandResponse(simulationId, userId, VirtualUserStatus.QUEUED.name(), serverIdentity.id(), "대기열에 진입했습니다.", null);
     }
 
-    public VirtualUserCommandResponse enterParticipantQueue(UUID simulationId, UUID participantId) {
-        return enterQueue(simulationId, participantId);
-    }
-
-    public VirtualUserCommandResponse holdExplicitSeat(UUID simulationId, UUID participantId, long seatId) {
+    public VirtualUserCommandResponse postQueue(UUID simulationId, UUID userId) {
         expireTimedOutParticipants(simulationId);
-        VirtualUserView participant = stateStore.participant(simulationId, participantId);
-        if (participant.status() == VirtualUserStatus.SEAT_HELD
-                || participant.status() == VirtualUserStatus.PAYMENT_IN_PROGRESS
-                || participant.status() == VirtualUserStatus.RESERVED) {
-            return new VirtualUserCommandResponse(
-                    simulationId,
-                    participantId,
-                    "ALREADY_HOLDING",
-                    serverIdentity.id(),
-                    "이미 선점한 좌석이 있습니다.",
-                    participant.selectedSeatLabel()
-            );
+        VirtualUserView participant = stateStore.participant(simulationId, userId);
+
+        if (participant.status() == VirtualUserStatus.SELECTING_SEAT || participant.status() == VirtualUserStatus.SEAT_HELD || participant.status() == VirtualUserStatus.PAYMENT_IN_PROGRESS) {
+            return new VirtualUserCommandResponse(simulationId, userId, "ADMITTED", serverIdentity.id(), "이미 입장 허가되었습니다.", null);
         }
+
+        if (participant.status() != VirtualUserStatus.QUEUED) {
+            return new VirtualUserCommandResponse(simulationId, userId, participant.status().name(), serverIdentity.id(), "대기열에 있지 않습니다.", null);
+        }
+
+        if (admitIfPossible(simulationId, userId)) {
+            return new VirtualUserCommandResponse(simulationId, userId, "ADMITTED", serverIdentity.id(), "입장 허가되었습니다.", null);
+        }
+
+        long position = waitingQueueService.position(simulationId.toString(), userId.toString());
+        return new VirtualUserCommandResponse(simulationId, userId, VirtualUserStatus.QUEUED.name(), serverIdentity.id(), "대기 중입니다. 현재 순번: " + position, null);
+    }
+
+    public SeatHoldResponse holdRandomSeat(UUID simulationId, UUID userId) {
+        expireTimedOutParticipants(simulationId);
+        VirtualUserView participant = stateStore.participant(simulationId, userId);
 
         if (participant.status() != VirtualUserStatus.SELECTING_SEAT) {
-            if (participant.status() == VirtualUserStatus.QUEUED) {
-                stateStore.recordWaiting(simulationId, participantId, serverIdentity.id());
-            }
-            return new VirtualUserCommandResponse(
-                    simulationId,
-                    participantId,
-                    "WAITING",
-                    serverIdentity.id(),
-                    "대기열 대기 중입니다. 통과 후 좌석을 선택할 수 있습니다.",
-                    null
-            );
-        }
-        SimulationSnapshot snapshot = stateStore.snapshot(simulationId);
-        SeatView seat = snapshot.seats().stream()
-                .filter(candidate -> candidate.id() == seatId)
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Seat not found: " + seatId));
-
-        if (seatReservationService == null) {
-            return recordSeatConflict(simulationId, participantId, seat);
+            return new SeatHoldResponse(simulationId, userId, 0L, participant.status().name(), "좌석을 선택할 수 있는 상태가 아닙니다.", null, serverIdentity.id());
         }
 
-        String idempotencyKey = simulationId + ":" + participantId + ":" + seat.id();
-        SeatReservationResult result = seatReservationService.holdSeat(simulationId, participantId, seat.id(), idempotencyKey);
-        if (result.outcome() == SeatReservationOutcome.ALREADY_HELD) {
-            return recordSeatConflict(simulationId, participantId, seat);
+        List<SeatView> availableSeats = stateStore.snapshot(simulationId).seats().stream()
+                .filter(seat -> seat.status() == SeatStatus.AVAILABLE)
+                .toList();
+
+        if (availableSeats.isEmpty()) {
+            stateStore.recordNoSeatAvailable(simulationId, userId, serverIdentity.id());
+            return new SeatHoldResponse(simulationId, userId, 0L, VirtualUserStatus.FAILED.name(), "선택 가능한 좌석이 없습니다.", null, serverIdentity.id());
         }
 
-        Instant expiresAt = clock.instant().plus(seatHoldTtl);
-        stateStore.recordSeatHeldForPayment(simulationId, participantId, seat, result.reservationId(), expiresAt, serverIdentity.id());
-        return new VirtualUserCommandResponse(
-                simulationId,
-                participantId,
-                "PAYMENT_PENDING",
-                serverIdentity.id(),
-                seat.label() + " 좌석을 선점했습니다. 결제를 확인해 주세요.",
-                seat.label()
-        );
+        SeatView target = availableSeats.get(random.nextInt(availableSeats.size()));
+        SeatReservationResult result = seatReservationService.holdSeat(simulationId, userId, target.id(), "idempotency-" + userId + "-" + target.id());
+
+        if (result.outcome() == SeatReservationOutcome.HELD) {
+            Instant expiresAt = now().plus(seatHoldTtl);
+            stateStore.recordSeatHeldForPayment(simulationId, userId, target, result.reservationId(), expiresAt, serverIdentity.id());
+            return new SeatHoldResponse(simulationId, userId, target.id(), VirtualUserStatus.SEAT_HELD.name(), "좌석을 선점했습니다.", target.label(), serverIdentity.id());
+        } else if (result.outcome() == SeatReservationOutcome.ALREADY_HELD || result.outcome() == SeatReservationOutcome.IDEMPOTENT_REPLAY) {
+            stateStore.recordSeatConflict(simulationId, userId, target, serverIdentity.id());
+            return new SeatHoldResponse(simulationId, userId, target.id(), VirtualUserStatus.SELECTING_SEAT.name(), "이미 선택된 좌석입니다.", target.label(), serverIdentity.id());
+        }
+
+        return new SeatHoldResponse(simulationId, userId, target.id(), VirtualUserStatus.SELECTING_SEAT.name(), "좌석 선점에 실패했습니다.", null, serverIdentity.id());
     }
 
-    public VirtualUserCommandResponse confirmPayment(UUID simulationId, UUID participantId) {
+    public PaymentConfirmResponse confirmPayment(UUID simulationId, UUID userId) {
         expireTimedOutParticipants(simulationId);
-        SimulationSnapshot snapshot = stateStore.snapshot(simulationId);
-        VirtualUserView participant = snapshot.users().stream()
-                .filter(user -> user.id().equals(participantId))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Participant not found: " + participantId));
-        if (participant.selectedSeatLabel() == null) {
-            return new VirtualUserCommandResponse(
-                    simulationId,
-                    participantId,
-                    "NO_HELD_SEAT",
-                    serverIdentity.id(),
-                    "결제할 선점 좌석이 없습니다.",
-                    null
-            );
-        }
-        SeatView seat = snapshot.seats().stream()
-                .filter(candidate -> candidate.label().equals(participant.selectedSeatLabel()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Selected seat not found for participant: " + participantId));
+        VirtualUserView participant = stateStore.participant(simulationId, userId);
 
-        Long reservationId = stateStore.markPaymentRequestedByParticipant(simulationId, participantId, serverIdentity.id());
-        if (paymentKafkaTemplate != null && reservationId != null) {
-            publishPaymentRequest(simulationId, participantId, seat, new SeatReservationResult(
-                    SeatReservationOutcome.HELD,
-                    reservationId,
-                    seat.id(),
-                    participantId,
-                    simulationId + ":" + participantId + ":" + seat.id()
-            ));
+        if (participant.status() != VirtualUserStatus.SEAT_HELD) {
+            return null; // Should not happen in normal flow
         }
-        return new VirtualUserCommandResponse(
+
+        SeatView seat = stateStore.snapshot(simulationId).seats().stream()
+                .filter(s -> s.label().equals(participant.selectedSeatLabel()))
+                .findFirst()
+                .orElse(null);
+
+        stateStore.recordPaymentRequested(simulationId, userId, seat, serverIdentity.id());
+
+        paymentKafkaTemplate.send(PAYMENT_EVENTS_TOPIC, userId.toString(), new PaymentRequestedEvent(
                 simulationId,
-                participantId,
-                "PAYMENT_REQUESTED",
-                serverIdentity.id(),
-                "결제 확인 요청을 보냈습니다.",
-                seat.label()
-        );
+                userId,
+                participant.reservationId(),
+                seat.id(),
+                "payment-" + participant.reservationId(),
+                serverIdentity.id()
+        ));
+
+        return new PaymentConfirmResponse(simulationId, userId, VirtualUserStatus.PAYMENT_IN_PROGRESS.name(), "결제 요청이 접수되었습니다.", serverIdentity.id());
+    }
+
+    // Compatibility methods for LiveEventService and SimulationController
+    public VirtualUserCommandResponse enterParticipantQueue(UUID simulationId, UUID userId) {
+        return enterQueue(simulationId, userId);
     }
 
     public VirtualUserCommandResponse attemptSeat(UUID simulationId, UUID userId) {
+        SeatHoldResponse hold = holdRandomSeat(simulationId, userId);
+        return new VirtualUserCommandResponse(simulationId, userId, hold.status(), serverIdentity.id(), hold.message(), hold.selectedSeatLabel());
+    }
+
+    public VirtualUserCommandResponse holdExplicitSeat(UUID simulationId, UUID userId, long seatId) {
         expireTimedOutParticipants(simulationId);
-        if (!admitIfPossible(simulationId, userId)) {
-            stateStore.recordWaiting(simulationId, userId, serverIdentity.id());
-            return new VirtualUserCommandResponse(
-                    simulationId,
-                    userId,
-                    "WAITING",
-                    serverIdentity.id(),
-                    "아직 대기 중입니다.",
-                    null
-            );
-        }
-        markAdmittedIfStillQueued(simulationId, userId);
+        VirtualUserView participant = stateStore.participant(simulationId, userId);
 
-        SimulationSnapshot snapshot = stateStore.snapshot(simulationId);
-        List<SeatView> availableSeats = snapshot.seats().stream()
-                .filter(seat -> seat.status() == SeatStatus.AVAILABLE)
-                .toList();
-        if (availableSeats.isEmpty()) {
-            if (hasPendingPaymentSeats(snapshot)) {
-                stateStore.recordSeatSelectionWaiting(simulationId, userId, serverIdentity.id());
-                return new VirtualUserCommandResponse(
-                        simulationId,
-                        userId,
-                        "WAITING",
-                        serverIdentity.id(),
-                        "결제 결과를 기다린 뒤 다시 좌석을 선택합니다.",
-                        null
-                );
-            }
-            stateStore.recordNoSeatAvailable(simulationId, userId, serverIdentity.id());
-            return new VirtualUserCommandResponse(
-                    simulationId,
-                    userId,
-                    "FAILED",
-                    serverIdentity.id(),
-                    "선택 가능한 좌석이 없습니다.",
-                    null
-            );
+        if (participant.status() != VirtualUserStatus.SELECTING_SEAT) {
+            return new VirtualUserCommandResponse(simulationId, userId, participant.status().name(), serverIdentity.id(), "좌석을 선택할 수 있는 상태가 아닙니다.", null);
         }
 
-        SeatView seat = availableSeats.get(random.nextInt(availableSeats.size()));
-        if (seatReservationService == null) {
-            return recordSeatConflict(simulationId, userId, seat);
+        SeatView target = stateStore.snapshot(simulationId).seats().stream()
+                .filter(s -> s.id() == seatId)
+                .findFirst()
+                .orElse(null);
+
+        if (target == null || target.status() != SeatStatus.AVAILABLE) {
+            stateStore.recordSeatConflict(simulationId, userId, target, serverIdentity.id());
+            return new VirtualUserCommandResponse(simulationId, userId, VirtualUserStatus.SELECTING_SEAT.name(), serverIdentity.id(), "이미 선택된 좌석입니다.", null);
         }
 
-        String idempotencyKey = simulationId + ":" + userId + ":" + seat.id();
-        SeatReservationResult result = seatReservationService.holdSeat(simulationId, userId, seat.id(), idempotencyKey);
-        if (result.outcome() == SeatReservationOutcome.ALREADY_HELD) {
-            return recordSeatConflict(simulationId, userId, seat);
+        SeatReservationResult result = seatReservationService.holdSeat(simulationId, userId, target.id(), "idempotency-" + userId + "-" + target.id());
+
+        if (result.outcome() == SeatReservationOutcome.HELD) {
+            Instant expiresAt = now().plus(seatHoldTtl);
+            stateStore.recordSeatHeldForPayment(simulationId, userId, target, result.reservationId(), expiresAt, serverIdentity.id());
+            return new VirtualUserCommandResponse(simulationId, userId, VirtualUserStatus.SEAT_HELD.name(), serverIdentity.id(), "좌석을 선점했습니다.", target.label());
         }
 
-        stateStore.recordPaymentRequested(simulationId, userId, seat, serverIdentity.id());
-        publishPaymentRequest(simulationId, userId, seat, result);
-        return new VirtualUserCommandResponse(
-                simulationId,
-                userId,
-                "PAYMENT_REQUESTED",
-                serverIdentity.id(),
-                seat.label() + " 좌석을 선택했습니다. 결제를 요청했습니다.",
-                seat.label()
-        );
-    }
-
-    private boolean hasPendingPaymentSeats(SimulationSnapshot snapshot) {
-        return snapshot.seats().stream().anyMatch(seat ->
-                seat.status() == SeatStatus.HELD || seat.status() == SeatStatus.PAYMENT_IN_PROGRESS
-        );
-    }
-
-    private void expireTimedOutParticipants(UUID simulationId) {
-        SimulationSnapshot snapshot = stateStore.snapshot(simulationId);
-        Instant now = clock.instant();
-        for (VirtualUserView user : snapshot.users()) {
-            if (user.status() == VirtualUserStatus.SELECTING_SEAT
-                    && user.seatHoldExpiresAt() != null
-                    && !user.seatHoldExpiresAt().isAfter(now)) {
-                stateStore.expireSeatSelection(simulationId, user.id(), serverIdentity.id());
-                if (waitingQueueService != null) {
-                    waitingQueueService.revokeAdmissionToken(simulationId.toString(), user.id().toString());
-                }
-                continue;
-            }
-
-            if (user.status() != VirtualUserStatus.SEAT_HELD
-                    || user.seatHoldExpiresAt() == null
-                    || user.seatHoldExpiresAt().isAfter(now)) {
-                continue;
-            }
-            if (seatReservationService != null && user.reservationId() != null && user.selectedSeatLabel() != null) {
-                snapshot.seats().stream()
-                        .filter(seat -> seat.label().equals(user.selectedSeatLabel()))
-                        .findFirst()
-                        .ifPresent(seat -> seatReservationService.expireHold(simulationId, user.reservationId(), seat.id()));
-            }
-            stateStore.expireSeatHold(simulationId, user.id(), serverIdentity.id());
-            if (waitingQueueService != null) {
-                waitingQueueService.revokeAdmissionToken(simulationId.toString(), user.id().toString());
-            }
-        }
+        return new VirtualUserCommandResponse(simulationId, userId, VirtualUserStatus.SELECTING_SEAT.name(), serverIdentity.id(), "좌석 선점에 실패했습니다.", null);
     }
 
     private boolean admitIfPossible(UUID simulationId, UUID userId) {
-        if (waitingQueueService == null) {
-            return true;
-        }
-        String simulationKey = simulationId.toString();
-        String userKey = userId.toString();
-        if (waitingQueueService.hasAdmissionToken(simulationKey, userKey)) {
-            return true;
-        }
-
-        int availableAdmissionSlots = maxActiveAdmissions - activeAdmissionCount(simulationId);
-        if (availableAdmissionSlots <= 0) {
-            return false;
-        }
-
-        int admissionLimit = Math.min(admissionBatchSize, availableAdmissionSlots);
-        List<String> candidates = waitingQueueService.pickAdmissionCandidates(simulationKey, admissionLimit);
-        for (String candidate : candidates) {
-            waitingQueueService.issueAdmissionToken(simulationKey, candidate);
-            waitingQueueService.removeAdmissionCandidate(simulationKey, candidate);
-            stateStore.recordAdmitted(simulationId, UUID.fromString(candidate), seatSelectionExpiresAt(), serverIdentity.id());
-        }
-        return waitingQueueService.hasAdmissionToken(simulationKey, userKey);
-    }
-
-    private int activeAdmissionCount(UUID simulationId) {
-        Instant now = clock.instant();
-        return (int) stateStore.snapshot(simulationId).users().stream()
+        long activeCount = stateStore.snapshot(simulationId).users().stream()
                 .filter(user -> user.status() == VirtualUserStatus.SELECTING_SEAT
-                        && (user.seatHoldExpiresAt() == null || user.seatHoldExpiresAt().isAfter(now)))
+                        || user.status() == VirtualUserStatus.SEAT_HELD
+                        || user.status() == VirtualUserStatus.PAYMENT_IN_PROGRESS)
                 .count();
-    }
 
-    private void markAdmittedIfStillQueued(UUID simulationId, UUID userId) {
-        VirtualUserView current = stateStore.participant(simulationId, userId);
-        if (current != null && current.status() == VirtualUserStatus.QUEUED) {
-            stateStore.recordAdmitted(simulationId, userId, seatSelectionExpiresAt(), serverIdentity.id());
+        if (activeCount < maxActiveAdmissions) {
+            waitingQueueService.issueAdmissionToken(simulationId.toString(), userId.toString());
+            Instant expiresAt = now().plus(seatSelectionTtl);
+            stateStore.recordAdmitted(simulationId, userId, expiresAt, serverIdentity.id());
+            return true;
         }
+        return false;
     }
 
-    private Instant seatSelectionExpiresAt() {
-        return clock.instant().plus(seatSelectionTtl);
-    }
-
-    private VirtualUserCommandResponse recordSeatConflict(UUID simulationId, UUID userId, SeatView seat) {
-        SimulationSnapshot updated = stateStore.recordSeatConflict(simulationId, userId, seat, serverIdentity.id());
-        String status = updated.users().stream()
-                .filter(user -> user.id().equals(userId))
-                .findFirst()
-                .filter(user -> user.status() == VirtualUserStatus.FAILED)
-                .map(user -> "FAILED")
-                .orElse("RETRY");
-        return new VirtualUserCommandResponse(
-                simulationId,
-                userId,
-                status,
-                serverIdentity.id(),
-                "이미 선택된 좌석입니다: " + seat.label(),
-                seat.label()
-        );
-    }
-
-    private void publishPaymentRequest(
-            UUID simulationId,
-            UUID userId,
-            SeatView seat,
-            SeatReservationResult result
-    ) {
-        if (paymentKafkaTemplate == null || result.reservationId() == null) {
+    private void expireTimedOutParticipants(UUID simulationId) {
+        Instant now = now();
+        Instant lastCheck = lastExpirationCheck.get(simulationId);
+        if (lastCheck != null && Duration.between(lastCheck, now).toMillis() < 1500) {
             return;
         }
-        paymentKafkaTemplate.send(PAYMENT_EVENTS_TOPIC, String.valueOf(result.reservationId()), new PaymentRequestedEvent(
-                simulationId,
-                userId,
-                result.reservationId(),
-                seat.id(),
-                "payment-" + result.reservationId(),
-                serverIdentity.id()
-        ));
+        lastExpirationCheck.put(simulationId, now);
+
+        stateStore.snapshot(simulationId).users().stream()
+                .filter(user -> user.seatHoldExpiresAt() != null && user.seatHoldExpiresAt().isBefore(now))
+                .forEach(user -> {
+                    if (user.status() == VirtualUserStatus.SEAT_HELD || user.status() == VirtualUserStatus.PAYMENT_IN_PROGRESS) {
+                        stateStore.expireSeatHold(simulationId, user.id(), serverIdentity.id());
+                    } else if (user.status() == VirtualUserStatus.SELECTING_SEAT) {
+                        stateStore.expireSeatSelection(simulationId, user.id(), serverIdentity.id());
+                    }
+                });
+    }
+
+    private Instant now() {
+        return clock.instant();
     }
 }

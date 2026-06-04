@@ -10,8 +10,8 @@ traffic-generator:
   default-concurrency: ${TRAFFIC_GENERATOR_DEFAULT_CONCURRENCY:20}
 
 waiting-queue:
-  admission-batch-size: ${WAITING_QUEUE_ADMISSION_BATCH_SIZE:1}
-  max-active-admissions: ${WAITING_QUEUE_MAX_ACTIVE_ADMISSIONS:1}
+  admission-batch-size: ${WAITING_QUEUE_ADMISSION_BATCH_SIZE:5}
+  max-active-admissions: ${WAITING_QUEUE_MAX_ACTIVE_ADMISSIONS:5}
   selection-ttl-seconds: ${WAITING_QUEUE_SELECTION_TTL_SECONDS:15}
 
 live-event:
