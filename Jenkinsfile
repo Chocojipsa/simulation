@@ -51,7 +51,7 @@ pipeline {
                     echo "Deploying to Lightsail A (Local)..."
                     dir('infra/prod') {
                         // Replace Nginx upstream IP preserving host Inode so Nginx container sees file changes
-                        sh "sed 's/LIGHTSAIL_B_PRIVATE_IP/${LIGHTSAIL_B_IP}/g' nginx-api.conf > nginx-api.conf.tmp && cat nginx-api.conf.tmp > nginx-api.conf && rm nginx-api.conf.tmp"
+                        sh "git show HEAD:infra/prod/nginx-api.conf | sed 's/LIGHTSAIL_B_PRIVATE_IP/${LIGHTSAIL_B_IP}/g' > nginx-api.conf"
 
                         sh "BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml pull api-a"
                         sh "BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml up -d --no-deps api-a"
@@ -118,8 +118,8 @@ pipeline {
     post {
         always {
             sh 'rm -f backend/app.jar'
-            // Revert local nginx configuration file modifications in workspace
-            sh 'git checkout infra/prod/nginx-api.conf || true'
+            // Revert local nginx configuration file modifications in workspace (preserving Inode)
+            sh 'git show HEAD:infra/prod/nginx-api.conf > infra/prod/nginx-api.conf || true'
             sh 'docker logout'
         }
     }
