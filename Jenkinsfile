@@ -49,6 +49,42 @@ pipeline {
             }
         }
 
+        stage('Deploy to Dev (Remote)') {
+            steps {
+                script {
+                    echo "Deploying to Developer Staging (Remote B Port 8082)..."
+                    sshagent(credentials: [SSH_CREDENTIALS_ID]) {
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ubuntu@${LIGHTSAIL_B_IP} '
+                                cd ~/simulation && \
+                                git fetch --all && \
+                                git reset --hard origin/\$(git rev-parse --abbrev-ref HEAD) && \
+                                cd infra/prod && \
+                                BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-b.compose.yml pull dev-api && \
+                                BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-b.compose.yml up -d --no-deps dev-api
+                            '
+                        """
+                    }
+
+                    echo "Checking health on Dev api..."
+                    timeout(time: 5, unit: 'MINUTES') {
+                        waitUntil {
+                            script {
+                                try {
+                                    def response = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://${LIGHTSAIL_B_IP}:8082/health", returnStdout: true).trim()
+                                    echo "Health check response: ${response}"
+                                    return (response == "200")
+                                } catch (Exception e) {
+                                    return false
+                                }
+                            }
+                        }
+                    }
+                    echo "Developer Staging deployment verified."
+                }
+            }
+        }
+
         stage('Deploy to Lightsail A (Local)') {
             steps {
                 script {
