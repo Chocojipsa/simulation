@@ -16,15 +16,6 @@ export function QueuePanel({ snapshot, participantId, selectedParticipantId, onS
   const [lastActiveMap, setLastActiveMap] = useState<Record<string, number>>({});
   const prevParticipantsRef = useRef<typeof snapshot.participants>([]);
 
-  // Periodic tick to force re-render every second so active indicators disappear after 5 seconds
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setTick((t) => t + 1);
-    }, 1000);
-    return () => window.clearInterval(interval);
-  }, []);
-
   useEffect(() => {
     const nextMap = { ...lastActiveMap };
     let changed = false;
@@ -68,7 +59,8 @@ export function QueuePanel({ snapshot, participantId, selectedParticipantId, onS
   const renderUserRow = (p: typeof snapshot.participants[0]) => {
     const isMe = p.id === participantId;
     const isSelected = p.id === selectedParticipantId;
-    const isUserActive = lastActiveMap[p.id] && (Date.now() - lastActiveMap[p.id] < 5000);
+    const lastActive = lastActiveMap[p.id];
+    const isUserActive = lastActive !== undefined && (Date.now() - lastActive < 5000);
 
     return (
       <button

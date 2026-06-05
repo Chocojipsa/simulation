@@ -49,11 +49,8 @@ export function useLiveEventRoom(apiBaseUrl: string) {
   }, [refresh]);
 
   useEffect(() => {
-    if (!eventId) return undefined;
-    let intervalMs = sseActive ? 10000 : 500;
-    if (snapshot?.status === 'ENDED') {
-      intervalMs = 30000;
-    }
+    if (!eventId || sseActive) return undefined;
+    const intervalMs = snapshot?.status === 'ENDED' ? 30000 : 2000;
     const timer = window.setInterval(() => {
       void refresh();
     }, intervalMs);
@@ -94,12 +91,23 @@ export function useLiveEventRoom(apiBaseUrl: string) {
       setSseActive(false);
     };
 
+    let pendingSnapshot: LiveEventSnapshot | null = null;
+    let rafId: number | null = null;
+
     eventSource.addEventListener('snapshot', (event) => {
       try {
-        const nextSnapshot = JSON.parse(event.data) as LiveEventSnapshot;
-        setSnapshot(nextSnapshot);
-        setError(null);
+        pendingSnapshot = JSON.parse(event.data) as LiveEventSnapshot;
         setSseActive(true);
+        if (rafId === null) {
+          rafId = requestAnimationFrame(() => {
+            if (pendingSnapshot) {
+              setSnapshot(pendingSnapshot);
+              setError(null);
+              pendingSnapshot = null;
+            }
+            rafId = null;
+          });
+        }
       } catch (err) {
         console.error('Failed to parse snapshot event', err);
       }
@@ -107,6 +115,7 @@ export function useLiveEventRoom(apiBaseUrl: string) {
 
     return () => {
       eventSource.close();
+      if (rafId !== null) cancelAnimationFrame(rafId);
     };
   }, [apiBaseUrl, eventId]);
 

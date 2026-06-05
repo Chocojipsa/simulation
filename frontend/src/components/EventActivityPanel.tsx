@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { LiveEventSnapshot } from '../api/liveEventApi';
 import { useUserActivityStream } from '../hooks/useUserActivityStream';
 
@@ -29,29 +30,33 @@ export function EventActivityPanel({
   );
 
   // If we have live activities from SSE, use them; otherwise fallback to the snapshot's timeline
-  const activitiesToRender = targetParticipant
-    ? liveActivities.length > 0
-      ? liveActivities.map((act, index) => ({
-          id: `live-${targetId}-${index}`,
-          label: act.label,
-          message: act.message,
-        }))
-      : targetParticipant.timeline.map((entry, index) => ({
-          id: `fallback-${targetId}-${index}`,
-          label: entry.label,
-          message: entry.message,
-        })).reverse()
-    : [];
-
-  // Full merge log of all participants
-  const allLogs = snapshot.participants.flatMap((p) =>
-    p.timeline.map((entry, index) => ({
-      id: `all-${p.id}-${index}`,
-      displayName: p.displayName,
+  const activitiesToRender = useMemo(() => {
+    if (!targetParticipant) return [];
+    if (liveActivities.length > 0) {
+      return liveActivities.map((act, index) => ({
+        id: `live-${targetId}-${index}`,
+        label: act.label,
+        message: act.message,
+      }));
+    }
+    return targetParticipant.timeline.map((entry, index) => ({
+      id: `fallback-${targetId}-${index}`,
       label: entry.label,
       message: entry.message,
-    }))
-  ).reverse();
+    })).reverse();
+  }, [targetParticipant, liveActivities, targetId]);
+
+  // Full merge log of all participants
+  const allLogs = useMemo(() =>
+    snapshot.participants.flatMap((p) =>
+      p.timeline.map((entry, index) => ({
+        id: `all-${p.id}-${index}`,
+        displayName: p.displayName,
+        label: entry.label,
+        message: entry.message,
+      }))
+    ).reverse().slice(0, 100),
+  [snapshot.participants]);
 
   const getLabelClass = (label: string) => {
     const l = label.toUpperCase();
