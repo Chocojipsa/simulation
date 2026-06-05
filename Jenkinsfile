@@ -50,13 +50,13 @@ pipeline {
                 script {
                     echo "Deploying to Lightsail A (Local)..."
                     dir('infra/prod') {
-                        // Replace Nginx upstream private IP placeholder dynamically
-                        sh "sed -i 's/LIGHTSAIL_B_PRIVATE_IP/\${LIGHTSAIL_B_IP}/g' nginx-api.conf"
+                        // Replace Nginx upstream private IP placeholder dynamically (using Groovy interpolation)
+                        sh "sed -i 's/LIGHTSAIL_B_PRIVATE_IP/${LIGHTSAIL_B_IP}/g' nginx-api.conf"
 
-                        sh "BACKEND_VERSION=\${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml pull api-a"
-                        sh "BACKEND_VERSION=\${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml up -d --no-deps api-a"
-                        // Safe update of nginx service (reloads container if config changed, without recreating jenkins)
-                        sh "BACKEND_VERSION=\${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml up -d --no-deps nginx"
+                        sh "BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml pull api-a"
+                        sh "BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml up -d --no-deps api-a"
+                        // Dynamic Nginx configuration reload to apply active failover settings without downtime
+                        sh "docker compose -f lightsail-a.compose.yml exec -T nginx nginx -s reload || docker compose -f lightsail-a.compose.yml restart nginx"
                     }
                     
                     echo "Checking health on Local api-a..."
@@ -65,7 +65,7 @@ pipeline {
                             script {
                                 try {
                                     def response = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://api-a:8080/health", returnStdout: true).trim()
-                                    echo "Health check response: \${response}"
+                                    echo "Health check response: ${response}"
                                     return (response == "200")
                                 } catch (Exception e) {
                                     return false
@@ -84,13 +84,13 @@ pipeline {
                     echo "Deploying to Lightsail B (Remote)..."
                     sshagent(credentials: [SSH_CREDENTIALS_ID]) {
                         sh """
-                            ssh -o StrictHostKeyChecking=no ubuntu@\${LIGHTSAIL_B_IP} '
+                            ssh -o StrictHostKeyChecking=no ubuntu@${LIGHTSAIL_B_IP} '
                                 cd ~/simulation && \
                                 git fetch --all && \
                                 git reset --hard origin/\$(git rev-parse --abbrev-ref HEAD) && \
                                 cd infra/prod && \
-                                BACKEND_VERSION=\${BUILD_NUMBER} docker compose -f lightsail-b.compose.yml pull api-b worker traffic-generator && \
-                                BACKEND_VERSION=\${BUILD_NUMBER} docker compose -f lightsail-b.compose.yml up -d --no-deps api-b worker traffic-generator
+                                BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-b.compose.yml pull api-b worker traffic-generator && \
+                                BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-b.compose.yml up -d --no-deps api-b worker traffic-generator
                             '
                         """
                     }
