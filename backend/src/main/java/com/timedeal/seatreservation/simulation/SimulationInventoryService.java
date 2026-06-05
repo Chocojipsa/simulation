@@ -2,6 +2,7 @@ package com.timedeal.seatreservation.simulation;
 
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -64,6 +65,7 @@ public class SimulationInventoryService {
         );
     }
 
+    @Transactional
     public void resetSimulation(UUID simulationId) {
         jdbc.update("delete from payments where simulation_id = ?", simulationId);
         jdbc.update("delete from reservations where simulation_id = ?", simulationId);
