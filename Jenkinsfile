@@ -53,16 +53,21 @@ pipeline {
             steps {
                 script {
                     echo "Deploying to Lightsail A (Local)..."
-                    dir('infra/prod') {
-                        // Securely stage the template config to avoid truncating nginx-api.conf on failure
-                        sh "git show HEAD:infra/prod/nginx-api.conf > nginx-api.conf.tmp"
-                        sh "sed 's/LIGHTSAIL_B_PRIVATE_IP/${LIGHTSAIL_B_IP}/g' nginx-api.conf.tmp > nginx-api.conf"
-                        sh "rm -f nginx-api.conf.tmp"
+                    withCredentials([file(credentialsId: 'prod-env-file', variable: 'PROD_ENV')]) {
+                        dir('infra/prod') {
+                            // Securely stage the template config to avoid truncating nginx-api.conf on failure
+                            sh "git show HEAD:infra/prod/nginx-api.conf > nginx-api.conf.tmp"
+                            sh "sed 's/LIGHTSAIL_B_PRIVATE_IP/${LIGHTSAIL_B_IP}/g' nginx-api.conf.tmp > nginx-api.conf"
+                            sh "rm -f nginx-api.conf.tmp"
 
-                        sh "BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml pull api-a"
-                        sh "BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml up -d --no-deps api-a"
-                        // Dynamic Nginx configuration reload to apply active failover settings without downtime
-                        sh "docker compose -f lightsail-a.compose.yml exec -T nginx nginx -s reload || docker compose -f lightsail-a.compose.yml restart nginx"
+                            // Copy the secret env file to the local directory
+                            sh "cat \$PROD_ENV > .env"
+
+                            sh "BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml pull api-a"
+                            sh "BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml up -d --no-deps api-a"
+                            // Dynamic Nginx configuration reload to apply active failover settings without downtime
+                            sh "docker compose -f lightsail-a.compose.yml exec -T nginx nginx -s reload || docker compose -f lightsail-a.compose.yml restart nginx"
+                        }
                     }
                     
                     echo "Checking health on Local api-a..."
@@ -125,6 +130,7 @@ pipeline {
     post {
         always {
             sh 'rm -f backend/app.jar'
+            sh 'rm -f infra/prod/.env'
             // Revert local nginx configuration file modifications in workspace safely preserving Inode
             sh """
                 git show HEAD:infra/prod/nginx-api.conf > infra/prod/nginx-api.conf.tmp && \\
