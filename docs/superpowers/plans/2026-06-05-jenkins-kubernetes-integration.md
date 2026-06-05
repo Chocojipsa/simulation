@@ -1,4 +1,10 @@
-# Jenkins CI/CD & Kubernetes Integration Implementation Plan
+# Jenkins CI/CD & Docker Compose Rolling Deployment Implementation Plan
+
+> [!NOTE]
+> **Architecture Decision Record (ADR) - 2026-06-05**
+> * **Status:** Deferred (Kubernetes Migration Phase)
+> * **Decision:** Retain the optimized Docker Compose + Nginx Active Failover architecture and defer the Kubernetes (K3s) migration.
+> * **Rationale:** The AWS Lightsail instances A and B are limited to 2GB of physical RAM. Running the K3s control plane (master process, kubelet, flannel, etc.) alongside the Jenkins automation server, Spring Boot API, and Nginx proxy would lead to extreme memory resource contention, causing heavy disk swap usage and potential Out-Of-Memory (OOM) daemon terminations. Retaining Docker Compose ensures stable, low-overhead resource utilization while achieving identical zero-downtime rolling deployment guarantees.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

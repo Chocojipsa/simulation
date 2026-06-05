@@ -1,6 +1,12 @@
-# Jenkins CI/CD & Kubernetes Integration Design Spec
+# Jenkins CI/CD & Docker Compose Rolling Deployment Design Spec
 
-This document specifies the design for setting up a Jenkins CI/CD pipeline on AWS Lightsail instance A to build, push to Docker Hub, and perform zero-downtime rolling deployments to Lightsail instances A and B. It also establishes the migration blueprint for transitioning the infrastructure to a Kubernetes cluster.
+> [!NOTE]
+> **Architecture Decision Record (ADR) - 2026-06-05**
+> * **Status:** Deferred (Kubernetes Migration Phase)
+> * **Decision:** Retain the optimized Docker Compose + Nginx Active Failover architecture and defer the Kubernetes (K3s) migration.
+> * **Rationale:** The AWS Lightsail instances A and B are limited to 2GB of physical RAM. Running the K3s control plane (master process, kubelet, flannel, etc.) alongside the Jenkins automation server, Spring Boot API, and Nginx proxy would lead to extreme memory resource contention, causing heavy disk swap usage and potential Out-Of-Memory (OOM) daemon terminations. Retaining Docker Compose ensures stable, low-overhead resource utilization while achieving identical zero-downtime rolling deployment guarantees.
+
+This document specifies the design for setting up a Jenkins CI/CD pipeline on AWS Lightsail instance A to build, push to Docker Hub, and perform zero-downtime rolling deployments to Lightsail instances A and B. It also establishes the migration blueprint for transitioning the infrastructure to a Kubernetes cluster (retained as a deferred Phase 2 goal).
 
 ## 1. Goal and Constraints
 
@@ -142,7 +148,10 @@ To prevent 502/503/504 errors on Nginx while containers are restarting or experi
 
 ---
 
-## 6. Future Kubernetes Migration Blueprint (Phase 2)
+## 6. Future Kubernetes Migration Blueprint (Phase 2 - Deferred)
+
+> [!IMPORTANT]
+> This phase is currently **deferred** due to the 2GB RAM resource limitations on Lightsail instances A, B, and C, in favor of the lightweight Docker Compose + Nginx Active Failover setup. The blueprint is retained below for future scalability planning once the hardware resources are scaled up (e.g., minimum 4GB RAM on Node A).
 
 Once Jenkins CI/CD with Docker Hub is stable, migrating to Kubernetes (K3s) will follow this roadmap:
 
