@@ -19,7 +19,7 @@ pipeline {
             steps {
                 dir('backend') {
                     sh 'chmod +x ./gradlew'
-                    sh './gradlew bootJar -Dorg.gradle.jvmargs="-Xmx512m -XX:MaxMetaspaceSize=256m" --no-daemon'
+                    sh './gradlew clean bootJar -Dorg.gradle.jvmargs="-Xmx512m -XX:MaxMetaspaceSize=256m" --no-daemon'
                 }
             }
         }
@@ -50,10 +50,13 @@ pipeline {
                 script {
                     echo "Deploying to Lightsail A (Local)..."
                     dir('infra/prod') {
-                        sh 'docker compose -f lightsail-a.compose.yml pull api-a'
-                        sh 'docker compose -f lightsail-a.compose.yml up -d --no-deps api-a'
+                        // Replace Nginx upstream private IP placeholder dynamically
+                        sh "sed -i 's/LIGHTSAIL_B_PRIVATE_IP/\${LIGHTSAIL_B_IP}/g' nginx-api.conf"
+
+                        sh "BACKEND_VERSION=\${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml pull api-a"
+                        sh "BACKEND_VERSION=\${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml up -d --no-deps api-a"
                         // Safe update of nginx service (reloads container if config changed, without recreating jenkins)
-                        sh 'docker compose -f lightsail-a.compose.yml up -d --no-deps nginx'
+                        sh "BACKEND_VERSION=\${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml up -d --no-deps nginx"
                     }
                     
                     echo "Checking health on Local api-a..."
@@ -82,10 +85,12 @@ pipeline {
                     sshagent(credentials: [SSH_CREDENTIALS_ID]) {
                         sh """
                             ssh -o StrictHostKeyChecking=no ubuntu@\${LIGHTSAIL_B_IP} '
-                                cd ~/simulation && git pull && \
+                                cd ~/simulation && \
+                                git fetch --all && \
+                                git reset --hard origin/\$(git rev-parse --abbrev-ref HEAD) && \
                                 cd infra/prod && \
-                                docker compose -f lightsail-b.compose.yml pull api-b worker traffic-generator && \
-                                docker compose -f lightsail-b.compose.yml up -d --no-deps api-b worker traffic-generator
+                                BACKEND_VERSION=\${BUILD_NUMBER} docker compose -f lightsail-b.compose.yml pull api-b worker traffic-generator && \
+                                BACKEND_VERSION=\${BUILD_NUMBER} docker compose -f lightsail-b.compose.yml up -d --no-deps api-b worker traffic-generator
                             '
                         """
                     }
@@ -113,7 +118,10 @@ pipeline {
     post {
         always {
             sh 'rm -f backend/app.jar'
+            // Revert local nginx configuration file modifications in workspace
+            sh 'git checkout infra/prod/nginx-api.conf || true'
             sh 'docker logout'
         }
     }
 }
+

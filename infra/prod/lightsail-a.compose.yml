@@ -1,6 +1,6 @@
 services:
   api-a:
-    image: chocojipsa/timedeal-backend:latest
+    image: chocojipsa/timedeal-backend:${BACKEND_VERSION:-latest}
     env_file:
       - .env
     environment:
