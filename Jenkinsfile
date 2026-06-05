@@ -50,8 +50,10 @@ pipeline {
                 script {
                     echo "Deploying to Lightsail A (Local)..."
                     dir('infra/prod') {
-                        // Replace Nginx upstream IP preserving host Inode so Nginx container sees file changes
-                        sh "git show HEAD:infra/prod/nginx-api.conf | sed 's/LIGHTSAIL_B_PRIVATE_IP/${LIGHTSAIL_B_IP}/g' > nginx-api.conf"
+                        // Securely stage the template config to avoid truncating nginx-api.conf on failure
+                        sh "git show HEAD:infra/prod/nginx-api.conf > nginx-api.conf.tmp"
+                        sh "sed 's/LIGHTSAIL_B_PRIVATE_IP/${LIGHTSAIL_B_IP}/g' nginx-api.conf.tmp > nginx-api.conf"
+                        sh "rm -f nginx-api.conf.tmp"
 
                         sh "BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml pull api-a"
                         sh "BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml up -d --no-deps api-a"
@@ -59,12 +61,13 @@ pipeline {
                         sh "docker compose -f lightsail-a.compose.yml exec -T nginx nginx -s reload || docker compose -f lightsail-a.compose.yml restart nginx"
                     }
                     
-                    echo "Checking health on Local api-a..."
+                    echo "Checking health on Local api-a via Nginx Proxy..."
                     timeout(time: 5, unit: 'MINUTES') {
                         waitUntil {
                             script {
                                 try {
-                                    def response = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://api-a:8080/health", returnStdout: true).trim()
+                                    // Query through the reverse proxy to verify actual routing is functional
+                                    def response = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://nginx:8080/health", returnStdout: true).trim()
                                     echo "Health check response: ${response}"
                                     return (response == "200")
                                 } catch (Exception e) {
@@ -118,8 +121,12 @@ pipeline {
     post {
         always {
             sh 'rm -f backend/app.jar'
-            // Revert local nginx configuration file modifications in workspace (preserving Inode)
-            sh 'git show HEAD:infra/prod/nginx-api.conf > infra/prod/nginx-api.conf || true'
+            // Revert local nginx configuration file modifications in workspace safely preserving Inode
+            sh """
+                git show HEAD:infra/prod/nginx-api.conf > infra/prod/nginx-api.conf.tmp && \\
+                cat infra/prod/nginx-api.conf.tmp > infra/prod/nginx-api.conf || true
+                rm -f infra/prod/nginx-api.conf.tmp
+            """
             sh 'docker logout'
         }
     }
