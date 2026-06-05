@@ -58,7 +58,7 @@ pipeline {
                             ssh -o StrictHostKeyChecking=no ubuntu@${LIGHTSAIL_B_IP} '
                                 cd ~/simulation && \
                                 git fetch --all && \
-                                git reset --hard ${env.GIT_COMMIT} && \
+                                git reset --hard ${env.GIT_COMMIT ?: 'UNDEFINED_COMMIT'} && \
                                 cd infra/prod && \
                                 BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-b.compose.yml pull dev-api && \
                                 BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-b.compose.yml up -d --no-deps dev-api
@@ -135,7 +135,7 @@ pipeline {
                             ssh -o StrictHostKeyChecking=no ubuntu@${LIGHTSAIL_B_IP} '
                                 cd ~/simulation && \
                                 git fetch --all && \
-                                git reset --hard ${env.GIT_COMMIT} && \
+                                git reset --hard ${env.GIT_COMMIT ?: 'UNDEFINED_COMMIT'} && \
                                 cd infra/prod && \
                                 BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-b.compose.yml pull api-b worker traffic-generator && \
                                 BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-b.compose.yml up -d --no-deps api-b worker traffic-generator
