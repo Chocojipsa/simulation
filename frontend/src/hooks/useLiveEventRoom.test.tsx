@@ -111,12 +111,12 @@ describe('useLiveEventRoom', () => {
     });
     expect(fetchSnapshot).toHaveBeenCalledTimes(1);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(500);
+      await vi.advanceTimersByTimeAsync(2000);
     });
     expect(fetchSnapshot).toHaveBeenCalledTimes(2);
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1500);
+      await vi.advanceTimersByTimeAsync(2000);
     });
     expect(fetchSnapshot).toHaveBeenCalledTimes(2);
 
