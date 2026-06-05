@@ -50,8 +50,8 @@ pipeline {
                 script {
                     echo "Deploying to Lightsail A (Local)..."
                     dir('infra/prod') {
-                        // Replace Nginx upstream private IP placeholder dynamically (using Groovy interpolation)
-                        sh "sed -i 's/LIGHTSAIL_B_PRIVATE_IP/${LIGHTSAIL_B_IP}/g' nginx-api.conf"
+                        // Replace Nginx upstream IP preserving host Inode so Nginx container sees file changes
+                        sh "sed 's/LIGHTSAIL_B_PRIVATE_IP/${LIGHTSAIL_B_IP}/g' nginx-api.conf > nginx-api.conf.tmp && cat nginx-api.conf.tmp > nginx-api.conf && rm nginx-api.conf.tmp"
 
                         sh "BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml pull api-a"
                         sh "BACKEND_VERSION=${BUILD_NUMBER} docker compose -f lightsail-a.compose.yml up -d --no-deps api-a"
@@ -100,8 +100,8 @@ pipeline {
                         waitUntil {
                             script {
                                 try {
-                                    def response = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://\${LIGHTSAIL_B_IP}:8080/health", returnStdout: true).trim()
-                                    echo "Health check response: \${response}"
+                                    def response = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://${LIGHTSAIL_B_IP}:8080/health", returnStdout: true).trim()
+                                    echo "Health check response: ${response}"
                                     return (response == "200")
                                 } catch (Exception e) {
                                     return false
