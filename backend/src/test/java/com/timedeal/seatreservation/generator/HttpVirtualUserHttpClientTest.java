@@ -16,7 +16,7 @@ class HttpVirtualUserHttpClientTest {
     @Test
     void aiParticipantUsesEventEndpoints() {
         RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
-        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 3, 0);
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, "http://localhost:8080", 3, 0);
         UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000040");
 
         client.runUser("http://nginx:8080", eventId, 1);
@@ -34,7 +34,7 @@ class HttpVirtualUserHttpClientTest {
         RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
         commandClient.failFirstJoin = true;
         commandClient.failFirstHold = true;
-        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 5, 0);
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, "http://localhost:8080", 5, 0);
         UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000042");
 
         client.runUser("http://nginx:8080", eventId, 1);
@@ -53,7 +53,7 @@ class HttpVirtualUserHttpClientTest {
     void defaultRetryBudgetKeepsAiAliveLongEnoughForPaymentFailureResale() {
         RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
         commandClient.waitingHoldAttemptsBeforeSuccess = 60;
-        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 300, 0, () -> 0, ignored -> {
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, "http://localhost:8080", 300, 0, () -> 0, ignored -> {
         });
         UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000043");
 
@@ -66,7 +66,7 @@ class HttpVirtualUserHttpClientTest {
     void waitsBeforeTryingToSelectASeat() {
         RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
         List<Integer> seatClickDelays = new ArrayList<>();
-        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 3, 0, () -> 250, seatClickDelays::add);
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, "http://localhost:8080", 3, 0, () -> 250, seatClickDelays::add);
         UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000044");
 
         client.runUser("http://nginx:8080", eventId, 1);
@@ -78,7 +78,7 @@ class HttpVirtualUserHttpClientTest {
     void checksQueueUntilAdmittedBeforeTryingToSelectASeat() {
         RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
         commandClient.queueResponsesBeforeAdmitted = 2;
-        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 5, 0, () -> 0, ignored -> {
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, "http://localhost:8080", 5, 0, () -> 0, ignored -> {
         });
         UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000045");
 
@@ -97,7 +97,7 @@ class HttpVirtualUserHttpClientTest {
     void keepsWaitingWhenQueueCommandExhaustsOneRetryBudget() {
         RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
         commandClient.queueFailuresBeforeSuccess = 6;
-        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 5, 0, () -> 0, ignored -> {
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, "http://localhost:8080", 5, 0, () -> 0, ignored -> {
         });
         UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000046");
 
@@ -110,7 +110,7 @@ class HttpVirtualUserHttpClientTest {
     void keepsTryingSeatsWhenHoldCommandExhaustsOneRetryBudget() {
         RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
         commandClient.holdFailuresBeforeSuccess = 6;
-        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 5, 0, () -> 0, ignored -> {
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, "http://localhost:8080", 5, 0, () -> 0, ignored -> {
         });
         UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000047");
 
@@ -124,7 +124,7 @@ class HttpVirtualUserHttpClientTest {
     void keepsConfirmingPaymentWhenPaymentCommandExhaustsOneRetryBudget() {
         RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
         commandClient.confirmFailuresBeforeSuccess = 6;
-        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 5, 0, () -> 0, ignored -> {
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, "http://localhost:8080", 5, 0, () -> 0, ignored -> {
         });
         UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000048");
 
@@ -137,7 +137,7 @@ class HttpVirtualUserHttpClientTest {
     void confirmsPaymentWhenParticipantAlreadyHasHeldSeat() {
         RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
         commandClient.alreadyHoldingSeat = true;
-        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, 3, 0, () -> 0, ignored -> {
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, "http://localhost:8080", 3, 0, () -> 0, ignored -> {
         });
         UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000049");
 

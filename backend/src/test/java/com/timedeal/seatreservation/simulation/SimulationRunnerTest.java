@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SimulationRunnerTest {
     private final SimulationStateStore stateStore = new SimulationStateStore();
     private final InMemoryAdmissionQueue admissionQueue = new InMemoryAdmissionQueue();
-    private final SimulationRunner runner = new SimulationRunner(stateStore, new SimulationEventHub(), admissionQueue);
+    private final SimulationRunner runner = new SimulationRunner(stateStore, new SimulationEventHub(null, null), null, admissionQueue);
 
     @Test
     void oneTickAdmitsQueuedUsersIntoSeatSelection() {

@@ -88,7 +88,7 @@ public class SimulationService {
     SimulationService(SimulationStateGateway stateStore) {
         this(
                 stateStore,
-                new SimulationEventHub(null),
+                new SimulationEventHub(null, null),
                 null,
                 new ServerIdentity("api-test"),
                 (simulationId, request) -> {

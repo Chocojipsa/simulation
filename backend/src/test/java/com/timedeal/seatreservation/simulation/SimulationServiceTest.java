@@ -5,6 +5,7 @@ import com.timedeal.seatreservation.domain.VirtualUserStatus;
 import com.timedeal.seatreservation.event.ParticipantType;
 import com.timedeal.seatreservation.generator.TrafficGeneratorClient;
 import com.timedeal.seatreservation.identity.ServerIdentity;
+import com.timedeal.seatreservation.events.SimulationEventHub;
 import com.timedeal.seatreservation.payment.PaymentRequestedEvent;
 import com.timedeal.seatreservation.queue.WaitingQueueService;
 import com.timedeal.seatreservation.seat.SeatReservationOutcome;
@@ -357,6 +358,8 @@ class SimulationServiceTest {
                 .thenReturn(new SeatReservationResult(SeatReservationOutcome.HELD, 100L, 1L, participantId, "hold-1"));
         SimulationService service = new SimulationService(
                 stateStore,
+                new SimulationEventHub(null, null),
+                null,
                 new ServerIdentity("api-test"),
                 (id, request) -> {
                 },
@@ -501,6 +504,8 @@ class SimulationServiceTest {
         };
         return new SimulationService(
                 stateStore,
+                new SimulationEventHub(null, null),
+                null,
                 new ServerIdentity("api-test"),
                 trafficGeneratorClient,
                 null,
@@ -523,6 +528,8 @@ class SimulationServiceTest {
         };
         return new SimulationService(
                 stateStore,
+                new SimulationEventHub(null, null),
+                null,
                 new ServerIdentity("api-test"),
                 trafficGeneratorClient,
                 null,
@@ -550,6 +557,8 @@ class SimulationServiceTest {
         };
         return new SimulationService(
                 stateStore,
+                new SimulationEventHub(null, null),
+                null,
                 new ServerIdentity("api-test"),
                 trafficGeneratorClient,
                 null,

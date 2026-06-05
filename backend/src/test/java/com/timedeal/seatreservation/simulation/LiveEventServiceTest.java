@@ -10,6 +10,7 @@ import com.timedeal.seatreservation.event.LiveEventSnapshot;
 import com.timedeal.seatreservation.event.ParticipantType;
 import com.timedeal.seatreservation.event.SeatHoldResponse;
 import com.timedeal.seatreservation.identity.ServerIdentity;
+import com.timedeal.seatreservation.events.SimulationEventHub;
 import com.timedeal.seatreservation.payment.PaymentRequestedEvent;
 import com.timedeal.seatreservation.queue.WaitingQueueService;
 import com.timedeal.seatreservation.seat.SeatReservationOutcome;
@@ -267,6 +268,8 @@ class LiveEventServiceTest {
         KafkaTemplate<String, PaymentRequestedEvent> kafkaTemplate = mock(KafkaTemplate.class);
         SimulationService simulationService = new SimulationService(
                 stateStore,
+                new SimulationEventHub(null, null),
+                null,
                 new ServerIdentity("api-test"),
                 (simulationId, request) -> {
                 },

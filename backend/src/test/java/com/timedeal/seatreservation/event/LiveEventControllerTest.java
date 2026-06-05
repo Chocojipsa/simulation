@@ -1,6 +1,7 @@
 package com.timedeal.seatreservation.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.timedeal.seatreservation.events.SimulationEventHub;
 import com.timedeal.seatreservation.simulation.VirtualUserCommandResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -44,7 +45,7 @@ class LiveEventControllerTest {
                 null,
                 120
         ));
-        MockMvc mvc = MockMvcBuilders.standaloneSetup(new LiveEventController(service)).build();
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new LiveEventController(service, new SimulationEventHub(null, null))).build();
 
         mvc.perform(post("/api/events/{eventId}/start", eventId))
                 .andExpect(status().isOk())
@@ -102,7 +103,7 @@ class LiveEventControllerTest {
                 "결제 확인 요청을 보냈습니다.",
                 "api-test"
         ));
-        MockMvc mvc = MockMvcBuilders.standaloneSetup(new LiveEventController(service)).build();
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new LiveEventController(service, new SimulationEventHub(null, null))).build();
 
         String activeJson = mvc.perform(get("/api/events/active"))
                 .andExpect(status().isOk())
