@@ -21,12 +21,16 @@ pipeline {
                     sh 'chmod +x ./gradlew'
                     sh './gradlew clean bootJar -Dorg.gradle.jvmargs="-Xmx512m -XX:MaxMetaspaceSize=256m" --no-daemon'
                 }
+                // Stash the generated JAR so it can be accessed in subsequent stages running on different agents/workspaces
+                stash name: 'backend-jar', includes: 'backend/build/libs/*.jar'
             }
         }
 
         stage('Docker Build') {
             steps {
                 script {
+                    // Extract the stashed JAR into the current workspace
+                    unstash 'backend-jar'
                     sh 'find backend/build/libs/ -name "*.jar" ! -name "*-plain.jar" -exec cp {} backend/app.jar \\;'
                     sh "docker build -f backend/Dockerfile.production -t \${DOCKER_IMAGE_NAME}:latest -t \${DOCKER_IMAGE_NAME}:\${BUILD_NUMBER} ./backend"
                 }
