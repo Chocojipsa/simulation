@@ -61,13 +61,13 @@ pipeline {
                         sh "docker compose -f lightsail-a.compose.yml exec -T nginx nginx -s reload || docker compose -f lightsail-a.compose.yml restart nginx"
                     }
                     
-                    echo "Checking health on Local api-a via Nginx Proxy..."
+                    echo "Checking health on Local api-a..."
                     timeout(time: 5, unit: 'MINUTES') {
                         waitUntil {
                             script {
                                 try {
-                                    // Query through the reverse proxy to verify actual routing is functional
-                                    def response = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://nginx:8080/health", returnStdout: true).trim()
+                                    // Query api-a directly to ensure the newly deployed instance itself is healthy
+                                    def response = sh(script: "curl -s -o /dev/null -w '%{http_code}' http://api-a:8080/health", returnStdout: true).trim()
                                     echo "Health check response: ${response}"
                                     return (response == "200")
                                 } catch (Exception e) {
