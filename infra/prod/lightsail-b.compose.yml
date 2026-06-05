@@ -1,7 +1,6 @@
 services:
   api-b:
-    build:
-      context: ../../backend
+    image: chocojipsa/timedeal-backend:latest
     env_file:
       - .env
     environment:
@@ -12,8 +11,7 @@ services:
     restart: unless-stopped
 
   worker:
-    build:
-      context: ../../backend
+    image: chocojipsa/timedeal-backend:latest
     env_file:
       - .env
     environment:
@@ -22,8 +20,7 @@ services:
     restart: unless-stopped
 
   traffic-generator:
-    build:
-      context: ../../backend
+    image: chocojipsa/timedeal-backend:latest
     env_file:
       - .env
     environment:

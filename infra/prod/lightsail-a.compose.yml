@@ -1,7 +1,6 @@
 services:
   api-a:
-    build:
-      context: ../../backend
+    image: chocojipsa/timedeal-backend:latest
     env_file:
       - .env
     environment:

@@ -27,7 +27,7 @@ pipeline {
         stage('Docker Build') {
             steps {
                 script {
-                    sh 'cp backend/build/libs/*.jar backend/app.jar'
+                    sh 'find backend/build/libs/ -name "*.jar" ! -name "*-plain.jar" -exec cp {} backend/app.jar \\;'
                     sh "docker build -f backend/Dockerfile.production -t \${DOCKER_IMAGE_NAME}:latest -t \${DOCKER_IMAGE_NAME}:\${BUILD_NUMBER} ./backend"
                 }
             }
@@ -82,7 +82,8 @@ pipeline {
                     sshagent(credentials: [SSH_CREDENTIALS_ID]) {
                         sh """
                             ssh -o StrictHostKeyChecking=no ubuntu@\${LIGHTSAIL_B_IP} '
-                                cd ~/simulation/infra/prod && \
+                                cd ~/simulation && git pull && \
+                                cd infra/prod && \
                                 docker compose -f lightsail-b.compose.yml pull api-b worker traffic-generator && \
                                 docker compose -f lightsail-b.compose.yml up -d --no-deps api-b worker traffic-generator
                             '
