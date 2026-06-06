@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import App from './App';
 
 vi.mock('./hooks/useLiveEventRoom', () => ({
@@ -37,7 +38,11 @@ vi.mock('./hooks/useLiveEventRoom', () => ({
 
 describe('App', () => {
   it('shows the start action prominently and disables entry before the event starts', () => {
-    render(<App />);
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>
+    );
 
     expect(screen.getByRole('heading', { name: /티켓팅/ })).toBeInTheDocument();
     expect(screen.getByText('LIVE CONSOLE')).toBeInTheDocument();
