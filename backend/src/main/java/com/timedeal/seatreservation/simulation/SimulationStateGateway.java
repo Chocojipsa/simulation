@@ -4,6 +4,7 @@ import com.timedeal.seatreservation.payment.PaymentResultEvent;
 import com.timedeal.seatreservation.event.ParticipantType;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public interface SimulationStateGateway {
@@ -50,6 +51,13 @@ public interface SimulationStateGateway {
     SimulationSnapshot expireSeatHold(UUID simulationId, UUID virtualUserId, String handledBy);
 
     SimulationSnapshot expireSeatSelection(UUID simulationId, UUID virtualUserId, String handledBy);
+
+    SimulationSnapshot expireTimedOutParticipants(
+            UUID simulationId,
+            List<UUID> seatHoldExpiredIds,
+            List<UUID> seatSelectionExpiredIds,
+            String handledBy
+    );
 
     Long markPaymentRequestedByParticipant(UUID simulationId, UUID virtualUserId, String handledBy);
 

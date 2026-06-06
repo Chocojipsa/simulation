@@ -345,6 +345,60 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
     }
 
     @Override
+    public SimulationSnapshot expireTimedOutParticipants(
+            UUID simulationId,
+            List<UUID> seatHoldExpiredIds,
+            List<UUID> seatSelectionExpiredIds,
+            String handledBy
+    ) {
+        if (seatHoldExpiredIds.isEmpty() && seatSelectionExpiredIds.isEmpty()) {
+            return snapshot(simulationId);
+        }
+        return mutate(simulationId, current -> {
+            List<SeatView> updatedSeats = current.seats();
+            List<VirtualUserView> updatedUsers = current.users();
+
+            for (UUID userId : seatHoldExpiredIds) {
+                updatedSeats = updateSelectedSeat(updatedSeats, updatedUsers, userId, SeatStatus.AVAILABLE);
+                updatedUsers = updateUser(updatedUsers, userId, user -> replaceUser(
+                        user,
+                        VirtualUserStatus.EXPIRED,
+                        null,
+                        appendEntry(user.timeline(), "좌석 선점 만료", "결제 제한 시간이 지나 좌석 선점이 해제되었습니다."),
+                        user.seatAttemptCount(),
+                        user.conflictCount(),
+                        user.paymentAttemptCount(),
+                        null,
+                        null
+                ));
+            }
+
+            for (UUID userId : seatSelectionExpiredIds) {
+                updatedUsers = updateUser(updatedUsers, userId, user -> replaceUser(
+                        user,
+                        VirtualUserStatus.EXPIRED,
+                        null,
+                        appendEntry(user.timeline(), "좌석 선택 만료", "좌석 선택 제한 시간이 지나 다시 예약하기가 필요합니다."),
+                        user.seatAttemptCount(),
+                        user.conflictCount(),
+                        user.paymentAttemptCount(),
+                        null,
+                        null
+                ));
+            }
+
+            return new SimulationSnapshot(
+                    current.simulationId(),
+                    updatedSeats,
+                    updatedUsers,
+                    current.metrics(),
+                    incrementServerStats(current.serverStats(), handledBy, false, false),
+                    current.running()
+            );
+        });
+    }
+
+    @Override
     public Long markPaymentRequestedByParticipant(UUID simulationId, UUID virtualUserId, String handledBy) {
         AtomicReference<Long> reservationId = new AtomicReference<>();
         mutate(simulationId, current -> new SimulationSnapshot(

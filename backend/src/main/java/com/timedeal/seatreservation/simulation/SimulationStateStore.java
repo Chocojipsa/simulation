@@ -245,6 +245,44 @@ public class SimulationStateStore implements SimulationStateGateway {
     }
 
     @Override
+    public SimulationSnapshot expireTimedOutParticipants(
+            UUID simulationId,
+            List<UUID> seatHoldExpiredIds,
+            List<UUID> seatSelectionExpiredIds,
+            String handledBy
+    ) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            for (UUID userId : seatHoldExpiredIds) {
+                try {
+                    MutableVirtualUser user = user(state, userId);
+                    String selectedSeatLabel = user.selectedSeatLabel;
+                    user.status = VirtualUserStatus.EXPIRED;
+                    user.selectedSeatLabel = null;
+                    user.reservationId = null;
+                    user.seatHoldExpiresAt = null;
+                    user.timeline.add(new TimelineEntry("좌석 선점 만료", "결제 제한 시간이 지나 좌석 선점이 해제되었습니다."));
+                    state.seats.stream()
+                            .filter(candidate -> candidate.label.equals(selectedSeatLabel))
+                            .findFirst()
+                            .ifPresent(candidate -> candidate.status = SeatStatus.AVAILABLE);
+                } catch (NoSuchElementException ignored) {}
+            }
+            for (UUID userId : seatSelectionExpiredIds) {
+                try {
+                    MutableVirtualUser user = user(state, userId);
+                    user.status = VirtualUserStatus.EXPIRED;
+                    user.selectedSeatLabel = null;
+                    user.reservationId = null;
+                    user.seatHoldExpiresAt = null;
+                    user.timeline.add(new TimelineEntry("좌석 선택 만료", "좌석 선택 제한 시간이 지나 다시 예약하기가 필요합니다."));
+                } catch (NoSuchElementException ignored) {}
+            }
+        }
+        return snapshot(simulationId);
+    }
+
+    @Override
     public Long markPaymentRequestedByParticipant(UUID simulationId, UUID virtualUserId, String handledBy) {
         MutableSimulationState state = state(simulationId);
         synchronized (state) {

@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -413,15 +414,22 @@ public class SimulationService {
         }
         lastExpirationCheck.put(simulationId, now);
 
+        List<UUID> seatHoldExpiredIds = new ArrayList<>();
+        List<UUID> seatSelectionExpiredIds = new ArrayList<>();
+
         stateStore.snapshot(simulationId).users().stream()
                 .filter(user -> user.seatHoldExpiresAt() != null && user.seatHoldExpiresAt().isBefore(now))
                 .forEach(user -> {
                     if (user.status() == VirtualUserStatus.SEAT_HELD || user.status() == VirtualUserStatus.PAYMENT_IN_PROGRESS) {
-                        stateStore.expireSeatHold(simulationId, user.id(), serverIdentity.id());
+                        seatHoldExpiredIds.add(user.id());
                     } else if (user.status() == VirtualUserStatus.SELECTING_SEAT) {
-                        stateStore.expireSeatSelection(simulationId, user.id(), serverIdentity.id());
+                        seatSelectionExpiredIds.add(user.id());
                     }
                 });
+
+        if (!seatHoldExpiredIds.isEmpty() || !seatSelectionExpiredIds.isEmpty()) {
+            stateStore.expireTimedOutParticipants(simulationId, seatHoldExpiredIds, seatSelectionExpiredIds, serverIdentity.id());
+        }
     }
 
     private Instant now() {
