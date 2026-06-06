@@ -323,6 +323,40 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
     }
 
     @Override
+    public SimulationSnapshot releaseSeat(UUID simulationId, UUID virtualUserId, String handledBy) {
+        return mutate(simulationId, current -> {
+            // If user status is not SEAT_HELD or PAYMENT_IN_PROGRESS, return current snapshot (idempotency)
+            VirtualUserView user = current.users().stream()
+                    .filter(u -> u.id().equals(virtualUserId))
+                    .findFirst()
+                    .orElse(null);
+            if (user == null || (user.status() != VirtualUserStatus.SEAT_HELD && user.status() != VirtualUserStatus.PAYMENT_IN_PROGRESS)) {
+                return current;
+            }
+            List<SeatView> updatedSeats = updateSelectedSeat(current.seats(), current.users(), virtualUserId, SeatStatus.AVAILABLE);
+            List<VirtualUserView> updatedUsers = updateUser(current.users(), virtualUserId, u -> replaceUser(
+                    u,
+                    VirtualUserStatus.SELECTING_SEAT,
+                    null,
+                    appendEntry(u.timeline(), "좌석 선점 취소", "결제를 취소하여 좌석 선점이 해제되었습니다."),
+                    u.seatAttemptCount(),
+                    u.conflictCount(),
+                    u.paymentAttemptCount(),
+                    null,
+                    null
+            ));
+            return new SimulationSnapshot(
+                    current.simulationId(),
+                    updatedSeats,
+                    updatedUsers,
+                    current.metrics(),
+                    incrementServerStats(current.serverStats(), handledBy, false, true),
+                    current.running()
+            );
+        });
+    }
+
+    @Override
     public SimulationSnapshot expireSeatSelection(UUID simulationId, UUID virtualUserId, String handledBy) {
         return mutate(simulationId, current -> new SimulationSnapshot(
                 current.simulationId(),

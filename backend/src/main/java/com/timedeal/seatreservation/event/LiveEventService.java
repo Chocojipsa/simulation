@@ -351,6 +351,12 @@ public class LiveEventService {
         return simulationService.confirmPayment(eventId, participantId);
     }
 
+    public void releaseSeat(UUID eventId, UUID participantId) {
+        ensureExpectedEvent(eventId);
+        ensureSimulationExists();
+        simulationService.releaseSeat(eventId, participantId);
+    }
+
     public RunSimulationResponse startAiParticipants(UUID eventId, StartAiParticipantsRequest request) {
         ensureExpectedEvent(eventId);
         return simulationService.runSimulation(eventId, new RunSimulationRequest(request.participantCount(), request.concurrency()));

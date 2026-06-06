@@ -83,6 +83,14 @@ public class LiveEventController {
         return liveEventService.confirmPayment(eventId, participantId);
     }
 
+    @PostMapping("/{eventId}/participants/{participantId}/seats/release")
+    public void releaseSeat(
+            @PathVariable UUID eventId,
+            @PathVariable UUID participantId
+    ) {
+        liveEventService.releaseSeat(eventId, participantId);
+    }
+
     @PostMapping("/{eventId}/ai/start")
     public RunSimulationResponse startAiParticipants(
             @PathVariable UUID eventId,

@@ -65,5 +65,7 @@ public interface SimulationStateGateway {
 
     SimulationSnapshot applyPaymentResult(PaymentResultEvent event);
 
+    SimulationSnapshot releaseSeat(UUID simulationId, UUID virtualUserId, String handledBy);
+
     SimulationSnapshot recordUserActivity(UUID simulationId, UUID userId, String label, String message);
 }

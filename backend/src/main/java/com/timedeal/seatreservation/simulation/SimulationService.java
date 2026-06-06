@@ -262,7 +262,7 @@ public class SimulationService {
 
     public VirtualUserCommandResponse enterQueue(UUID simulationId, UUID userId) {
         expireTimedOutParticipants(simulationId);
-        VirtualUserView participant = stateStore.participant(simulationId, userId);
+        VirtualUserView participant = getParticipant(simulationId, userId);
         if (participant.status() != VirtualUserStatus.WAITING_ROOM) {
             return new VirtualUserCommandResponse(simulationId, userId, participant.status().name(), serverIdentity.id(), "이미 대기열에 진입했거나 다른 상태입니다.", null);
         }
@@ -274,7 +274,7 @@ public class SimulationService {
 
     public VirtualUserCommandResponse postQueue(UUID simulationId, UUID userId) {
         expireTimedOutParticipants(simulationId);
-        VirtualUserView participant = stateStore.participant(simulationId, userId);
+        VirtualUserView participant = getParticipant(simulationId, userId);
 
         if (participant.status() == VirtualUserStatus.SELECTING_SEAT || participant.status() == VirtualUserStatus.SEAT_HELD || participant.status() == VirtualUserStatus.PAYMENT_IN_PROGRESS) {
             return new VirtualUserCommandResponse(simulationId, userId, "ADMITTED", serverIdentity.id(), "이미 입장 허가되었습니다.", null);
@@ -294,7 +294,7 @@ public class SimulationService {
 
     public SeatHoldResponse holdRandomSeat(UUID simulationId, UUID userId) {
         expireTimedOutParticipants(simulationId);
-        VirtualUserView participant = stateStore.participant(simulationId, userId);
+        VirtualUserView participant = getParticipant(simulationId, userId);
 
         if (participant.status() != VirtualUserStatus.SELECTING_SEAT) {
             return new SeatHoldResponse(simulationId, userId, 0L, participant.status().name(), "좌석을 선택할 수 있는 상태가 아닙니다.", null, serverIdentity.id());
@@ -326,7 +326,7 @@ public class SimulationService {
 
     public PaymentConfirmResponse confirmPayment(UUID simulationId, UUID userId) {
         expireTimedOutParticipants(simulationId);
-        VirtualUserView participant = stateStore.participant(simulationId, userId);
+        VirtualUserView participant = getParticipant(simulationId, userId);
 
         if (participant.status() != VirtualUserStatus.SEAT_HELD) {
             return null; // Should not happen in normal flow
@@ -351,6 +351,23 @@ public class SimulationService {
         return new PaymentConfirmResponse(simulationId, userId, VirtualUserStatus.PAYMENT_IN_PROGRESS.name(), "결제 요청이 접수되었습니다.", serverIdentity.id());
     }
 
+    public void releaseSeat(UUID simulationId, UUID userId) {
+        VirtualUserView participant = getParticipant(simulationId, userId);
+        if (participant.reservationId() != null && participant.selectedSeatLabel() != null) {
+            SeatView seat = stateStore.snapshot(simulationId).seats().stream()
+                    .filter(s -> s.label().equals(participant.selectedSeatLabel()))
+                    .findFirst()
+                    .orElse(null);
+            if (seat != null && seatReservationService != null) {
+                seatReservationService.expireHold(simulationId, participant.reservationId(), seat.id());
+            }
+        }
+        SimulationSnapshot snapshot = stateStore.releaseSeat(simulationId, userId, serverIdentity.id());
+        if (eventHub != null) {
+            eventHub.publish(snapshot);
+        }
+    }
+
     // Compatibility methods for LiveEventService and SimulationController
     public VirtualUserCommandResponse enterParticipantQueue(UUID simulationId, UUID userId) {
         return enterQueue(simulationId, userId);
@@ -363,7 +380,7 @@ public class SimulationService {
 
     public VirtualUserCommandResponse holdExplicitSeat(UUID simulationId, UUID userId, long seatId) {
         expireTimedOutParticipants(simulationId);
-        VirtualUserView participant = stateStore.participant(simulationId, userId);
+        VirtualUserView participant = getParticipant(simulationId, userId);
 
         if (participant.status() != VirtualUserStatus.SELECTING_SEAT) {
             return new VirtualUserCommandResponse(simulationId, userId, participant.status().name(), serverIdentity.id(), "좌석을 선택할 수 있는 상태가 아닙니다.", null);
@@ -434,5 +451,19 @@ public class SimulationService {
 
     private Instant now() {
         return clock.instant();
+    }
+
+    private VirtualUserView getParticipant(UUID simulationId, UUID userId) {
+        try {
+            VirtualUserView p = stateStore.participant(simulationId, userId);
+            if (p != null) {
+                return p;
+            }
+        } catch (Exception ignored) {
+        }
+        return stateStore.snapshot(simulationId).users().stream()
+                .filter(user -> user.id().equals(userId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Participant not found: " + userId));
     }
 }

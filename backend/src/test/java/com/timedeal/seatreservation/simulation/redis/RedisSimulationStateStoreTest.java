@@ -226,4 +226,45 @@ class RedisSimulationStateStoreTest {
         assertThat(updated.users().get(0).status()).isEqualTo(VirtualUserStatus.FAILED);
         assertThat(updated.running()).isTrue();
     }
+
+    @Test
+    void releaseSeatTransitionsStatusAndClearsReservationDetails() throws Exception {
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(Boolean.TRUE);
+
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000026");
+        UUID userId = UUID.nameUUIDFromBytes((simulationId + ":1").getBytes(StandardCharsets.UTF_8));
+        SeatView seat = new SeatView(1L, "A-1", SeatStatus.HELD);
+        SimulationSnapshot initial = new SimulationSnapshot(
+                simulationId,
+                List.of(seat),
+                List.of(new VirtualUserView(
+                        userId,
+                        "user 1",
+                        ParticipantType.AI,
+                        VirtualUserStatus.SEAT_HELD,
+                        "A-1",
+                        List.of(new TimelineEntry("선점", "선점되었습니다.")),
+                        1,
+                        0,
+                        0,
+                        103L,
+                        null
+                )),
+                new SimulationMetrics(0, 1, 1, 0, 0, 0),
+                List.of(new ServerStatsView("api-a", 1, 0, 1)),
+                true
+        );
+
+        when(values.get("simulation:00000000-0000-0000-0000-000000000026:snapshot"))
+                .thenReturn(objectMapper.writeValueAsString(initial));
+
+        SimulationSnapshot updated = store.releaseSeat(simulationId, userId, "api-a");
+
+        assertThat(updated.seats().get(0).status()).isEqualTo(SeatStatus.AVAILABLE);
+        assertThat(updated.users().get(0).status()).isEqualTo(VirtualUserStatus.SELECTING_SEAT);
+        assertThat(updated.users().get(0).selectedSeatLabel()).isNull();
+        assertThat(updated.users().get(0).reservationId()).isNull();
+        assertThat(updated.users().get(0).timeline()).anyMatch(entry -> entry.label().equals("좌석 선점 취소"));
+    }
 }

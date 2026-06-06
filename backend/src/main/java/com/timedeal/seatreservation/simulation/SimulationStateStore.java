@@ -231,6 +231,30 @@ public class SimulationStateStore implements SimulationStateGateway {
     }
 
     @Override
+    public SimulationSnapshot releaseSeat(UUID simulationId, UUID virtualUserId, String handledBy) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            MutableVirtualUser user = user(state, virtualUserId);
+            if (user.status != VirtualUserStatus.SEAT_HELD && user.status != VirtualUserStatus.PAYMENT_IN_PROGRESS) {
+                return snapshot(simulationId);
+            }
+            String selectedSeatLabel = user.selectedSeatLabel;
+            user.status = VirtualUserStatus.SELECTING_SEAT;
+            user.selectedSeatLabel = null;
+            user.reservationId = null;
+            user.seatHoldExpiresAt = null;
+            user.timeline.add(new TimelineEntry("좌석 선점 취소", "결제를 취소하여 좌석 선점이 해제되었습니다."));
+            if (selectedSeatLabel != null) {
+                state.seats.stream()
+                        .filter(candidate -> candidate.label.equals(selectedSeatLabel))
+                        .findFirst()
+                        .ifPresent(candidate -> candidate.status = SeatStatus.AVAILABLE);
+            }
+        }
+        return snapshot(simulationId);
+    }
+
+    @Override
     public SimulationSnapshot expireSeatSelection(UUID simulationId, UUID virtualUserId, String handledBy) {
         MutableSimulationState state = state(simulationId);
         synchronized (state) {
