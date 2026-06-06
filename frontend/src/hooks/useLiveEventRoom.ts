@@ -49,13 +49,28 @@ export function useLiveEventRoom(apiBaseUrl: string) {
   }, [refresh]);
 
   useEffect(() => {
-    if (!eventId || sseActive) return undefined;
-    const intervalMs = snapshot?.status === 'ENDED' ? 30000 : 2000;
+    if (!eventId || sseActive || snapshot?.status === 'ENDED') return undefined;
     const timer = window.setInterval(() => {
       void refresh();
-    }, intervalMs);
+    }, 2000);
     return () => window.clearInterval(timer);
   }, [eventId, refresh, sseActive, snapshot?.status]);
+
+  // Auto-refresh when countdown reaches opensAt or endsAt
+  useEffect(() => {
+    if (!snapshot) return undefined;
+    const timers: number[] = [];
+    const scheduleAt = (target: string | null) => {
+      if (!target) return;
+      const delayMs = new Date(target).getTime() - Date.now();
+      if (delayMs > -2000 && delayMs < 600_000) {
+        timers.push(window.setTimeout(() => { void refresh(); }, Math.max(0, delayMs + 500)));
+      }
+    };
+    if (snapshot.status === 'COUNTDOWN') scheduleAt(snapshot.opensAt);
+    if (snapshot.status === 'OPEN') scheduleAt(snapshot.endsAt);
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [snapshot?.status, snapshot?.opensAt, snapshot?.endsAt, refresh]);
 
   useEffect(() => {
     if (error) {

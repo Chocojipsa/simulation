@@ -90,6 +90,7 @@ public class SimulationEventHub {
                         .data(jsonData, MediaType.APPLICATION_JSON));
             } catch (IOException | IllegalStateException exception) {
                 remove(snapshot.simulationId(), emitter);
+                completeQuietly(emitter);
             }
         }
     }
@@ -115,6 +116,7 @@ public class SimulationEventHub {
                         .data(jsonData, MediaType.APPLICATION_JSON));
             } catch (IOException | IllegalStateException exception) {
                 removeUserEmitter(event.userId(), emitter);
+                completeQuietly(emitter);
             }
         }
     }
@@ -130,6 +132,7 @@ public class SimulationEventHub {
                 emitter.send(SseEmitter.event().comment("heartbeat"));
             } catch (IOException | IllegalStateException e) {
                 cancelHeartbeat(emitter);
+                completeQuietly(emitter);
             }
         }, HEARTBEAT_INTERVAL_SECONDS, HEARTBEAT_INTERVAL_SECONDS, TimeUnit.SECONDS);
         heartbeats.put(emitter, future);
@@ -161,6 +164,14 @@ public class SimulationEventHub {
         specificUserEmitters.remove(emitter);
         if (specificUserEmitters.isEmpty()) {
             userEmitters.remove(userId, specificUserEmitters);
+        }
+    }
+
+    private void completeQuietly(SseEmitter emitter) {
+        try {
+            emitter.complete();
+        } catch (Exception ignored) {
+            // Emitter already completed or connection broken — safe to ignore
         }
     }
 }
