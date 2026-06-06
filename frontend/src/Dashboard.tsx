@@ -19,6 +19,15 @@ export default function Dashboard() {
     }
   }, [room.participantId, selectedParticipantId]);
 
+  const openTicketingWindow = () => {
+    if (!room.eventId) return;
+    const url = `/ticketing/${room.eventId}`;
+    const win = window.open(url, 'TimedealTicketingWindow', 'width=900,height=700,status=no,menubar=no,toolbar=no');
+    if (win) {
+      win.focus();
+    }
+  };
+
   if (!room.snapshot) {
     return (
       <main className="dashboard">
@@ -48,7 +57,7 @@ export default function Dashboard() {
           participant={room.myParticipant}
           loading={room.loading}
           onJoin={() => void room.join(randomGuestName())}
-          onReserve={() => void room.reserve()}
+          onReserve={openTicketingWindow}
           onPay={() => void room.pay()}
         />
         <SeatMap
@@ -57,6 +66,7 @@ export default function Dashboard() {
           participant={room.myParticipant}
           selectedSeatLabel={room.myParticipant?.selectedSeatLabel ?? null}
           onSelectSeat={(seatId) => void room.selectSeat(seatId)}
+          readOnly={true}
         />
         <div className="side-column">
           <QueuePanel

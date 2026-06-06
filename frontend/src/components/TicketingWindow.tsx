@@ -1,3 +1,7 @@
+import { useParams } from 'react-router-dom';
+
 export function TicketingWindow() {
-  return <div>Ticketing Window Placeholder</div>;
+  const { eventId } = useParams<{ eventId: string }>();
+  return <div>Ticketing Window Placeholder for Event: {eventId}</div>;
 }
+

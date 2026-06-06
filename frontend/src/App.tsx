@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './Dashboard';
 import { TicketingWindow } from './components/TicketingWindow';
 
@@ -7,6 +7,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Dashboard />} />
       <Route path="/ticketing/:eventId" element={<TicketingWindow />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
+

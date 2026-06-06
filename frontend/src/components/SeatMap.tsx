@@ -8,6 +8,7 @@ interface SeatMapProps {
   participant: EventParticipantView | null;
   selectedSeatLabel: string | null;
   onSelectSeat?: (seatId: number) => void;
+  readOnly?: boolean;
 }
 
 function seatClassName(status: SeatView['status'], mine: boolean) {
@@ -15,7 +16,7 @@ function seatClassName(status: SeatView['status'], mine: boolean) {
   return `seat seat-${statusClass}${mine ? ' seat-mine' : ''}`;
 }
 
-export function SeatMap({ status, seats, participant, selectedSeatLabel, onSelectSeat }: SeatMapProps) {
+export function SeatMap({ status, seats, participant, selectedSeatLabel, onSelectSeat, readOnly = false }: SeatMapProps) {
   const selection = canSelectSeat(status, participant);
 
   return (
@@ -32,18 +33,19 @@ export function SeatMap({ status, seats, participant, selectedSeatLabel, onSelec
         <span><i className="legend-reserved" /> 예약 완료</span>
       </div>
       {selection.message ? <p className="seat-map-message">{selection.message}</p> : null}
-      <div className="seat-grid" aria-label="좌석표">
+      <div className="seat-grid" aria-label="좌석표" style={readOnly ? { pointerEvents: 'none' } : undefined}>
         {seats.map((seat) => {
           const mine = seat.label === selectedSeatLabel;
-          const disabled = seat.status !== 'AVAILABLE' || !selection.allowed;
+          const disabled = !readOnly && (seat.status !== 'AVAILABLE' || !selection.allowed);
           return (
             <button
               key={seat.id}
               type="button"
               className={seatClassName(seat.status, mine)}
               disabled={disabled}
+              tabIndex={readOnly ? -1 : undefined}
               title={`${seat.label} ${seat.status}`}
-              onClick={() => onSelectSeat?.(seat.id)}
+              onClick={readOnly ? undefined : () => onSelectSeat?.(seat.id)}
             >
               {seat.label}
             </button>
@@ -53,3 +55,4 @@ export function SeatMap({ status, seats, participant, selectedSeatLabel, onSelec
     </section>
   );
 }
+
