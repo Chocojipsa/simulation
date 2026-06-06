@@ -664,6 +664,9 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
     private List<TimelineEntry> appendEntry(List<TimelineEntry> timeline, String label, String message) {
         List<TimelineEntry> updated = new ArrayList<>(timeline);
         updated.add(new TimelineEntry(label, message));
+        if (updated.size() > 20) {
+            updated.remove(0);
+        }
         return updated;
     }
 

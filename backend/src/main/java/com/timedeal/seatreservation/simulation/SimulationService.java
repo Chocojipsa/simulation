@@ -352,9 +352,13 @@ public class SimulationService {
     }
 
     public void releaseSeat(UUID simulationId, UUID userId) {
-        VirtualUserView participant = getParticipant(simulationId, userId);
+        SimulationSnapshot snapshot = stateStore.snapshot(simulationId);
+        VirtualUserView participant = snapshot.users().stream()
+                .filter(user -> user.id().equals(userId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Participant not found: " + userId));
         if (participant.reservationId() != null && participant.selectedSeatLabel() != null) {
-            SeatView seat = stateStore.snapshot(simulationId).seats().stream()
+            SeatView seat = snapshot.seats().stream()
                     .filter(s -> s.label().equals(participant.selectedSeatLabel()))
                     .findFirst()
                     .orElse(null);
@@ -362,9 +366,9 @@ public class SimulationService {
                 seatReservationService.expireHold(simulationId, participant.reservationId(), seat.id());
             }
         }
-        SimulationSnapshot snapshot = stateStore.releaseSeat(simulationId, userId, serverIdentity.id());
+        SimulationSnapshot updatedSnapshot = stateStore.releaseSeat(simulationId, userId, serverIdentity.id());
         if (eventHub != null) {
-            eventHub.publish(snapshot);
+            eventHub.publish(updatedSnapshot);
         }
     }
 

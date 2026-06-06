@@ -494,6 +494,83 @@ class SimulationServiceTest {
         verify(waitingQueue).clearQueue(simulationId.toString());
     }
 
+    @Test
+    void releaseSeatInvokesExpireHoldAndPublishesSnapshot() {
+        SimulationStateGateway stateStore = mock(SimulationStateGateway.class);
+        SeatReservationService seatReservationService = mock(SeatReservationService.class);
+        SimulationEventHub eventHub = mock(SimulationEventHub.class);
+        UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000050");
+        UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000150");
+        SeatView seat = new SeatView(1L, "A-1", SeatStatus.HELD);
+        SimulationSnapshot initial = new SimulationSnapshot(
+                simulationId,
+                List.of(seat),
+                List.of(new VirtualUserView(
+                        userId,
+                        "user 1",
+                        ParticipantType.AI,
+                        VirtualUserStatus.SEAT_HELD,
+                        "A-1",
+                        List.of(),
+                        1,
+                        0,
+                        0,
+                        103L,
+                        null
+                )),
+                new SimulationMetrics(0, 1, 1, 0, 0, 0),
+                List.of(),
+                true
+        );
+        SimulationSnapshot updated = new SimulationSnapshot(
+                simulationId,
+                List.of(new SeatView(1L, "A-1", SeatStatus.AVAILABLE)),
+                List.of(new VirtualUserView(
+                        userId,
+                        "user 1",
+                        ParticipantType.AI,
+                        VirtualUserStatus.SELECTING_SEAT,
+                        null,
+                        List.of(),
+                        1,
+                        0,
+                        0,
+                        null,
+                        null
+                )),
+                new SimulationMetrics(0, 1, 0, 0, 0, 0),
+                List.of(),
+                true
+        );
+
+        when(stateStore.snapshot(simulationId)).thenReturn(initial);
+        when(stateStore.releaseSeat(simulationId, userId, "api-test")).thenReturn(updated);
+
+        SimulationService service = new SimulationService(
+                stateStore,
+                eventHub,
+                null,
+                new ServerIdentity("api-test"),
+                (simId, req) -> {},
+                null,
+                null,
+                seatReservationService,
+                null,
+                new java.util.Random(1),
+                java.time.Clock.systemUTC(),
+                java.time.Duration.ofSeconds(60),
+                java.time.Duration.ofSeconds(15),
+                1,
+                1
+        );
+
+        service.releaseSeat(simulationId, userId);
+
+        verify(seatReservationService).expireHold(simulationId, 103L, 1L);
+        verify(stateStore).releaseSeat(simulationId, userId, "api-test");
+        verify(eventHub).publish(updated);
+    }
+
     private SimulationService service(
             SimulationStateGateway stateStore,
             WaitingQueueService waitingQueue,
