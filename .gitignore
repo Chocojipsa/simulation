@@ -83,3 +83,6 @@ compose.override.yml
 
 # Gradle Home Cache
 /backend/.gradle_home/
+
+# Agent Prompt File
+prompt.txt
