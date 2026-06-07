@@ -28,6 +28,7 @@ public class TrafficGeneratorService implements TrafficGeneratorClient {
     private final ExecutorService simulationExecutor;
     private final IntSupplier virtualUserDelayMillis;
     private final IntConsumer sleeper;
+    private final long openWindowSeconds;
 
     @Autowired
     public TrafficGeneratorService(
@@ -35,7 +36,8 @@ public class TrafficGeneratorService implements TrafficGeneratorClient {
             @Value("${traffic-generator.target-base-url:http://localhost:8080}") String targetBaseUrl,
             @Value("${traffic-generator.default-concurrency:20}") int fallbackConcurrency,
             @Value("${traffic-generator.virtual-user-delay-min-ms:80}") int virtualUserDelayMinMillis,
-            @Value("${traffic-generator.virtual-user-delay-max-ms:300}") int virtualUserDelayMaxMillis
+            @Value("${traffic-generator.virtual-user-delay-max-ms:300}") int virtualUserDelayMaxMillis,
+            @Value("${live-event.open-window-seconds:300}") long openWindowSeconds
     ) {
         this(
                 client,
@@ -43,13 +45,14 @@ public class TrafficGeneratorService implements TrafficGeneratorClient {
                 fallbackConcurrency,
                 Executors.newCachedThreadPool(),
                 randomDelaySupplier(virtualUserDelayMinMillis, virtualUserDelayMaxMillis),
-                TrafficGeneratorService::sleep
+                TrafficGeneratorService::sleep,
+                openWindowSeconds
         );
     }
 
     TrafficGeneratorService(VirtualUserHttpClient client, String targetBaseUrl, int fallbackConcurrency) {
         this(client, targetBaseUrl, fallbackConcurrency, Executors.newCachedThreadPool(), () -> 0, ignored -> {
-        });
+        }, 60L);
     }
 
     TrafficGeneratorService(
@@ -60,12 +63,25 @@ public class TrafficGeneratorService implements TrafficGeneratorClient {
             IntSupplier virtualUserDelayMillis,
             IntConsumer sleeper
     ) {
+        this(client, targetBaseUrl, fallbackConcurrency, simulationExecutor, virtualUserDelayMillis, sleeper, 60L);
+    }
+
+    TrafficGeneratorService(
+            VirtualUserHttpClient client,
+            String targetBaseUrl,
+            int fallbackConcurrency,
+            ExecutorService simulationExecutor,
+            IntSupplier virtualUserDelayMillis,
+            IntConsumer sleeper,
+            long openWindowSeconds
+    ) {
         this.client = client;
         this.targetBaseUrl = targetBaseUrl;
         this.fallbackConcurrency = fallbackConcurrency;
         this.simulationExecutor = simulationExecutor;
         this.virtualUserDelayMillis = virtualUserDelayMillis;
         this.sleeper = sleeper;
+        this.openWindowSeconds = openWindowSeconds;
     }
 
     @Override
@@ -89,8 +105,8 @@ public class TrafficGeneratorService implements TrafficGeneratorClient {
             executor.shutdown();
         }
         try {
-            if (!executor.awaitTermination(1, TimeUnit.MINUTES)) {
-                log.warn("Simulation executor did not terminate within 1 minute, forcing shutdownNow for simulationId={}", simulationId);
+            if (!executor.awaitTermination(openWindowSeconds, TimeUnit.SECONDS)) {
+                log.warn("Simulation executor did not terminate within {} seconds, forcing shutdownNow for simulationId={}", openWindowSeconds, simulationId);
                 executor.shutdownNow();
             } else {
                 log.info("Simulation executor terminated successfully for simulationId={}", simulationId);
