@@ -74,9 +74,18 @@ export interface CommandResponse {
   handledBy: string;
 }
 
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+    this.name = 'ApiError';
+  }
+}
+
 async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status}`);
+    throw new ApiError(response.status, `API request failed: ${response.status}`);
   }
   return response.json() as Promise<T>;
 }
@@ -129,4 +138,14 @@ export async function startAiParticipants(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ participantCount, concurrency }),
   }));
+}
+
+export async function releaseSeat(apiBaseUrl: string, eventId: string, participantId: string): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}/api/events/${eventId}/participants/${participantId}/seats/release`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, `API request failed: ${response.status}`);
+  }
 }
