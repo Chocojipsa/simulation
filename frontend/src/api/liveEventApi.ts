@@ -55,6 +55,14 @@ export interface LiveEventSnapshot {
   myQueuePosition: number | null;
 }
 
+export interface SystemMetrics {
+  kafkaLag: number;
+  redisLockCount: number;
+  tps: number;
+  avgResponseTimeMs: number;
+  serverStats: ServerStatsView[];
+}
+
 export interface JoinEventResponse {
   eventId: string;
   participantId: string;
@@ -148,4 +156,8 @@ export async function releaseSeat(apiBaseUrl: string, eventId: string, participa
   if (!response.ok) {
     throw new ApiError(response.status, `API request failed: ${response.status}`);
   }
+}
+
+export async function fetchSystemMetrics(apiBaseUrl: string): Promise<SystemMetrics> {
+  return readJson(await fetch(`${apiBaseUrl}/api/system/metrics`));
 }

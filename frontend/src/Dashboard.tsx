@@ -86,7 +86,7 @@ export default function Dashboard() {
           />
         </div>
       </div>
-      <InsightPanel snapshot={room.snapshot} />
+      <InsightPanel snapshot={room.snapshot} apiBaseUrl={apiBaseUrl} />
     </main>
   );
 }
