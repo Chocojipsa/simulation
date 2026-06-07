@@ -69,6 +69,8 @@ export default function Dashboard() {
         <Metric label="SEATS" value={`${room.snapshot.metrics.reservedCount}/${room.snapshot.seats.length}`} detail="reserved" />
         <Metric label="QUEUE" value={`${room.snapshot.metrics.queueSize}`} detail="waiting" />
         <Metric label="HELD" value={`${room.snapshot.metrics.heldCount + room.snapshot.metrics.paymentInProgressCount}`} detail="checkout" />
+        <Metric label="ACTIVE USERS" value={`${room.snapshot.activeConnections ?? 0}`} detail="connected" />
+        <Metric label="ADMISSIONS AVAILABLE" value={`${room.snapshot.admissionsAvailable ?? 0}`} detail="slots" />
         <Metric label="KAFKA LAG" value={`${metrics ? metrics.kafkaLag : 0}`} detail="messages" />
         <Metric label="REDIS LOCKS" value={`${metrics ? metrics.redisLockCount : 0}`} detail="active locks" />
         <Metric label="NODES" value={`${metrics ? metrics.serverStats.length : room.snapshot.serverStats.length}`} detail="active" />

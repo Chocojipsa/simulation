@@ -222,6 +222,15 @@ public class SimulationService {
         return this.maxActiveAdmissions;
     }
 
+    public int getAdmissionsAvailable(UUID simulationId) {
+        long currentActiveCount = stateStore.snapshot(simulationId).users().stream()
+                .filter(user -> user.status() == VirtualUserStatus.SELECTING_SEAT
+                        || user.status() == VirtualUserStatus.SEAT_HELD
+                        || user.status() == VirtualUserStatus.PAYMENT_IN_PROGRESS)
+                .count();
+        return Math.max(0, maxActiveAdmissions - (int) currentActiveCount);
+    }
+
     public void admitParticipant(UUID simulationId, UUID userId) {
         if (waitingQueueService != null) {
             waitingQueueService.issueAdmissionToken(simulationId.toString(), userId.toString());

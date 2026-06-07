@@ -53,6 +53,8 @@ export interface LiveEventSnapshot {
   running: boolean;
   myParticipantId: string | null;
   myQueuePosition: number | null;
+  activeConnections?: number;
+  admissionsAvailable?: number;
 }
 
 export interface SystemMetrics {

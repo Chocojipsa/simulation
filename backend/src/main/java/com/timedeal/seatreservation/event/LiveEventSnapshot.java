@@ -25,6 +25,8 @@ public record LiveEventSnapshot(
         List<ServerStatsView> serverStats,
         boolean running,
         UUID myParticipantId,
-        Integer myQueuePosition
+        Integer myQueuePosition,
+        Integer activeConnections,
+        Integer admissionsAvailable
 ) {
 }

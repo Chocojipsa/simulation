@@ -10,6 +10,7 @@ import com.timedeal.seatreservation.simulation.SimulationSnapshot;
 import com.timedeal.seatreservation.simulation.SimulationStateGateway;
 import com.timedeal.seatreservation.simulation.VirtualUserCommandResponse;
 import com.timedeal.seatreservation.simulation.VirtualUserView;
+import com.timedeal.seatreservation.events.SimulationEventHub;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,6 +43,13 @@ public class LiveEventService {
     private final Clock clock;
     private final LiveEventAiStarter aiStarter;
     private final WaitingQueueService waitingQueueService;
+
+    @Autowired(required = false)
+    private SimulationEventHub eventHub;
+
+    public void setSimulationEventHub(SimulationEventHub eventHub) {
+        this.eventHub = eventHub;
+    }
 
     @Autowired
     public LiveEventService(
@@ -294,7 +302,9 @@ public class LiveEventService {
                 snapshot.serverStats(),
                 snapshot.running(),
                 myParticipantId,
-                queuePosition(eventId, myParticipantId)
+                queuePosition(eventId, myParticipantId),
+                eventHub != null ? eventHub.getActiveUserConnectionCount() : 0,
+                simulationService.getAdmissionsAvailable(eventId)
         );
     }
 

@@ -76,6 +76,10 @@ public class SimulationEventHub {
         return emitter;
     }
 
+    public int getActiveUserConnectionCount() {
+        return userEmitters.values().stream().mapToInt(List::size).sum();
+    }
+
     public void publish(SimulationSnapshot snapshot) {
         snapshotPublisher.publish(snapshot);
     }

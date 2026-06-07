@@ -48,7 +48,9 @@ class LiveEventContractTest {
                 List.of(new ServerStatsView("api-a", 1, 0, 0)),
                 false,
                 participantId,
-                42
+                42,
+                10,
+                5
         );
 
         String json = objectMapper.writeValueAsString(snapshot);
@@ -62,5 +64,7 @@ class LiveEventContractTest {
         assertThat(json).contains("\"type\":\"HUMAN\"");
         assertThat(json).contains("\"myParticipantId\":\"" + participantId + "\"");
         assertThat(json).contains("\"myQueuePosition\":42");
+        assertThat(json).contains("\"activeConnections\":10");
+        assertThat(json).contains("\"admissionsAvailable\":5");
     }
 }
