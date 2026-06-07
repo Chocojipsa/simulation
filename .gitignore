@@ -80,3 +80,6 @@ compose.override.yml
 
 # Local JDK
 /jdk17/
+
+# Gradle Home Cache
+/backend/.gradle_home/
