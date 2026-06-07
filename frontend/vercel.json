@@ -7,6 +7,10 @@
     {
       "source": "/health",
       "destination": "https://ticket-api.chocojipsa.blog/health"
+    },
+    {
+      "source": "/:path*",
+      "destination": "/index.html"
     }
   ]
 }
