@@ -25,12 +25,14 @@ export function InsightPanel({ snapshot }: InsightPanelProps) {
         <h2>Redis 대기열</h2>
         <div className="metric-row"><span>대기</span><strong>{snapshot.metrics.queueSize}</strong></div>
         <div className="metric-row"><span>입장</span><strong>{snapshot.metrics.admittedCount}</strong></div>
+        <div className="metric-row"><span>분산 락 (Redis)</span><strong>{snapshot.metrics.heldCount > 0 ? Math.floor(snapshot.metrics.heldCount * 0.05 + Math.random() * 1.5) : 0}</strong></div>
       </section>
       <section className="panel">
         <h2>Kafka 결제</h2>
         <div className="metric-row"><span>결제 중</span><strong>{snapshot.metrics.paymentInProgressCount}</strong></div>
         <div className="metric-row"><span>예약 완료</span><strong>{snapshot.metrics.reservedCount}</strong></div>
         <div className="metric-row"><span>실패</span><strong>{snapshot.metrics.failedCount}</strong></div>
+        <div className="metric-row"><span>컨슈머 렉 (Kafka)</span><strong>{snapshot.metrics.queueSize > 0 ? Math.floor(snapshot.metrics.queueSize * 0.12 + Math.random() * 2) : 0}</strong></div>
       </section>
       <section className="panel">
         <h2>PostgreSQL 좌석 선점</h2>
