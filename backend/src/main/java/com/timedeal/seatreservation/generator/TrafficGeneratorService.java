@@ -14,10 +14,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 @Profile("generator")
 public class TrafficGeneratorService implements TrafficGeneratorClient {
+    private static final Logger log = LoggerFactory.getLogger(TrafficGeneratorService.class);
+
     private final VirtualUserHttpClient client;
     private final String targetBaseUrl;
     private final int fallbackConcurrency;
@@ -66,11 +70,15 @@ public class TrafficGeneratorService implements TrafficGeneratorClient {
 
     @Override
     public void start(UUID simulationId, RunSimulationRequest request) {
+        log.info("start simulation request received. simulationId={}, virtualUserCount={}, concurrency={}", 
+                simulationId, request.virtualUserCount(), request.concurrency());
         simulationExecutor.submit(() -> runSimulation(simulationId, request));
     }
 
     private void runSimulation(UUID simulationId, RunSimulationRequest request) {
         int concurrency = Math.max(1, request.concurrency() > 0 ? request.concurrency() : fallbackConcurrency);
+        log.info("Running simulation: simulationId={}, virtualUserCount={}, concurrency={}", 
+                simulationId, request.virtualUserCount(), concurrency);
         ExecutorService executor = Executors.newFixedThreadPool(concurrency);
         try {
             for (int number = 1; number <= request.virtualUserCount(); number++) {
@@ -82,9 +90,13 @@ public class TrafficGeneratorService implements TrafficGeneratorClient {
         }
         try {
             if (!executor.awaitTermination(1, TimeUnit.MINUTES)) {
+                log.warn("Simulation executor did not terminate within 1 minute, forcing shutdownNow for simulationId={}", simulationId);
                 executor.shutdownNow();
+            } else {
+                log.info("Simulation executor terminated successfully for simulationId={}", simulationId);
             }
         } catch (InterruptedException exception) {
+            log.error("Simulation awaitTermination interrupted for simulationId={}", simulationId, exception);
             Thread.currentThread().interrupt();
             executor.shutdownNow();
         }
@@ -92,11 +104,13 @@ public class TrafficGeneratorService implements TrafficGeneratorClient {
 
     private void runVirtualUser(UUID simulationId, int virtualUserNumber) {
         sleeper.accept(virtualUserDelayMillis.getAsInt());
+        log.debug("Starting virtual user #{} for simulationId={}", virtualUserNumber, simulationId);
         client.runUser(targetBaseUrl, simulationId, virtualUserNumber);
     }
 
     @PreDestroy
     void shutdown() {
+        log.info("Shutting down TrafficGeneratorService executor");
         simulationExecutor.shutdownNow();
     }
 
