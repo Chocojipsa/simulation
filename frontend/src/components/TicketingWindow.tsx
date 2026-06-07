@@ -14,7 +14,19 @@ import {
 } from '../api/liveEventApi';
 import { getQueuePosition } from '../domain/liveEventSelectors';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
+const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('192.168.')) {
+      return 'https://ticket-api.chocojipsa.blog';
+    }
+  }
+  return '';
+};
+const apiBaseUrl = getApiBaseUrl();
 
 export function TicketingWindow() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -734,6 +746,10 @@ export function TicketingWindow() {
         .info-banner {
           background: #e6fffa;
           color: var(--mint);
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
       `}</style>
 

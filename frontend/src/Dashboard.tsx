@@ -8,7 +8,19 @@ import { SeatMap } from './components/SeatMap';
 import { useLiveEventRoom } from './hooks/useLiveEventRoom';
 import { InsightPanel } from './components/InsightPanel';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
+const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('192.168.')) {
+      return 'https://ticket-api.chocojipsa.blog';
+    }
+  }
+  return '';
+};
+const apiBaseUrl = getApiBaseUrl();
 
 export default function Dashboard() {
   const room = useLiveEventRoom(apiBaseUrl);
