@@ -24,7 +24,7 @@ describe('InsightPanel', () => {
       myQueuePosition: null,
     };
 
-    render(<InsightPanel snapshot={snapshot} />);
+    render(<InsightPanel snapshot={snapshot} metrics={null} />);
 
     expect(screen.getByText('api-a')).toBeInTheDocument();
     expect(screen.getByText('100')).toBeInTheDocument();

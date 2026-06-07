@@ -77,3 +77,6 @@ compose.override.yml
 /frontend/*.tsbuildinfo
 /frontend/vite.config.d.ts
 /frontend/vite.config.js
+
+# Local JDK
+/jdk17/
