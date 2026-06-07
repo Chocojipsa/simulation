@@ -61,13 +61,15 @@ public class SystemMetricsInterceptor implements HandlerInterceptor {
 
     public double getTps() {
         if (System.currentTimeMillis() - windowStartMs >= WINDOW_MS * 2) {
-            lastTps = 0.0;
-            lastAvgResponseTimeMs = 0.0;
+            return 0.0;
         }
         return lastTps;
     }
 
     public double getAvgResponseTimeMs() {
+        if (System.currentTimeMillis() - windowStartMs >= WINDOW_MS * 2) {
+            return 0.0;
+        }
         return lastAvgResponseTimeMs;
     }
 }

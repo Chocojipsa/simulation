@@ -8,10 +8,12 @@ import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsResult;
 import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaAdmin;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PreDestroy;
@@ -28,35 +30,44 @@ public class SystemMetricsService {
     private final LiveEventService liveEventService;
     private final SimulationService simulationService;
     private final AdminClient adminClient;
+    private final String consumerGroupId;
+
+    private volatile SystemMetrics cachedMetrics = new SystemMetrics(0, 0, 0.0, 0.0, List.of());
 
     public SystemMetricsService(
             StringRedisTemplate redisTemplate,
             SystemMetricsInterceptor interceptor,
             LiveEventService liveEventService,
             SimulationService simulationService,
-            KafkaAdmin kafkaAdmin
+            KafkaAdmin kafkaAdmin,
+            @Value("${spring.kafka.consumer.group-id:payment-result-applier}") String consumerGroupId
     ) {
         this.redisTemplate = redisTemplate;
         this.interceptor = interceptor;
         this.liveEventService = liveEventService;
         this.simulationService = simulationService;
         this.adminClient = AdminClient.create(kafkaAdmin.getConfigurationProperties());
+        this.consumerGroupId = consumerGroupId;
     }
 
     public SystemMetrics getSystemMetrics() {
+        return cachedMetrics;
+    }
+
+    @Scheduled(fixedRate = 2000)
+    public void updateMetrics() {
         long kafkaLag = calculateKafkaLag();
         long redisLockCount = calculateRedisLockCount();
         double tps = interceptor.getTps();
         double avgResponseTimeMs = interceptor.getAvgResponseTimeMs();
         List<ServerStatsView> serverStats = getServerStats();
 
-        return new SystemMetrics(kafkaLag, redisLockCount, tps, avgResponseTimeMs, serverStats);
+        this.cachedMetrics = new SystemMetrics(kafkaLag, redisLockCount, tps, avgResponseTimeMs, serverStats);
     }
 
     private long calculateKafkaLag() {
         try {
-            String groupId = "payment-result-applier";
-            ListConsumerGroupOffsetsResult offsetsResult = adminClient.listConsumerGroupOffsets(groupId);
+            ListConsumerGroupOffsetsResult offsetsResult = adminClient.listConsumerGroupOffsets(consumerGroupId);
             Map<TopicPartition, OffsetAndMetadata> consumerOffsets = offsetsResult.partitionsToOffsetAndMetadata().get(2, java.util.concurrent.TimeUnit.SECONDS);
             
             if (consumerOffsets == null || consumerOffsets.isEmpty()) {
@@ -114,7 +125,7 @@ public class SystemMetricsService {
         try {
             UUID eventId = liveEventService.activeEvent().eventId();
             return simulationService.getSimulation(eventId).serverStats();
-        } catch (Exception e) {
+        } catch (java.util.NoSuchElementException | IllegalStateException | IllegalArgumentException e) {
             return List.of();
         }
     }
