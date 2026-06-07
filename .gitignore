@@ -3,6 +3,7 @@
 .worktrees/
 worktrees/
 .idea/
+.git-rewrite/
 
 # OS / editor
 .DS_Store
@@ -86,3 +87,4 @@ compose.override.yml
 
 # Agent Prompt File
 prompt.txt
+
