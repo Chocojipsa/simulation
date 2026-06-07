@@ -57,7 +57,7 @@ public class SystemMetricsService {
         try {
             String groupId = "payment-result-applier";
             ListConsumerGroupOffsetsResult offsetsResult = adminClient.listConsumerGroupOffsets(groupId);
-            Map<TopicPartition, OffsetAndMetadata> consumerOffsets = offsetsResult.partitionsToOffsetAndMetadata().get();
+            Map<TopicPartition, OffsetAndMetadata> consumerOffsets = offsetsResult.partitionsToOffsetAndMetadata().get(2, java.util.concurrent.TimeUnit.SECONDS);
             
             if (consumerOffsets == null || consumerOffsets.isEmpty()) {
                 return 0;
@@ -67,7 +67,7 @@ public class SystemMetricsService {
                     .collect(Collectors.toMap(tp -> tp, tp -> OffsetSpec.latest()));
 
             Map<TopicPartition, org.apache.kafka.clients.admin.ListOffsetsResult.ListOffsetsResultInfo> endOffsets =
-                    adminClient.listOffsets(requestOffsets).all().get();
+                    adminClient.listOffsets(requestOffsets).all().get(2, java.util.concurrent.TimeUnit.SECONDS);
 
             long lag = 0;
             for (Map.Entry<TopicPartition, OffsetAndMetadata> entry : consumerOffsets.entrySet()) {
@@ -81,7 +81,7 @@ public class SystemMetricsService {
                 }
             }
             return lag;
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException | ExecutionException | java.util.concurrent.TimeoutException e) {
             return 0;
         }
     }
@@ -89,16 +89,20 @@ public class SystemMetricsService {
     private long calculateRedisLockCount() {
         Long count = redisTemplate.execute((org.springframework.data.redis.connection.RedisConnection connection) -> {
             long c = 0;
+            long iterations = 0;
             try (Cursor<byte[]> cursor = connection.scan(ScanOptions.scanOptions().match("simulation:*:lock").count(100).build())) {
-                while (cursor.hasNext()) {
+                while (cursor.hasNext() && iterations < 1000) {
                     cursor.next();
                     c++;
+                    iterations++;
                 }
             }
+            iterations = 0;
             try (Cursor<byte[]> cursor = connection.scan(ScanOptions.scanOptions().match("live-event:*:lock").count(100).build())) {
-                while (cursor.hasNext()) {
+                while (cursor.hasNext() && iterations < 1000) {
                     cursor.next();
                     c++;
+                    iterations++;
                 }
             }
             return c;

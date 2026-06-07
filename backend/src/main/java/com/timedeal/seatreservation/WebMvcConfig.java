@@ -21,6 +21,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(org.springframework.web.servlet.config.annotation.InterceptorRegistry registry) {
-        registry.addInterceptor(systemMetricsInterceptor).addPathPatterns("/api/**");
+        registry.addInterceptor(systemMetricsInterceptor)
+                .addPathPatterns("/api/**")
+                .excludePathPatterns("/api/system/metrics");
     }
 }

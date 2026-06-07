@@ -1,35 +1,14 @@
-import { useEffect, useState } from 'react';
 import type { LiveEventSnapshot, SystemMetrics } from '../api/liveEventApi';
 import type { SimulationSnapshot } from '../api/simulationApi';
-import { fetchSystemMetrics } from '../api/liveEventApi';
 import { countSeatsByStatus } from '../domain/simulationSelectors';
 
 interface InsightPanelProps {
   snapshot: SimulationSnapshot | LiveEventSnapshot;
-  apiBaseUrl?: string;
+  metrics: SystemMetrics | null;
 }
 
-export function InsightPanel({ snapshot, apiBaseUrl = '' }: InsightPanelProps) {
+export function InsightPanel({ snapshot, metrics }: InsightPanelProps) {
   const seatCounts = countSeatsByStatus(snapshot.seats);
-  const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    const fetchMetrics = async () => {
-      try {
-        const data = await fetchSystemMetrics(apiBaseUrl);
-        if (mounted) setMetrics(data);
-      } catch (e) {
-        // ignore errors for metrics
-      }
-    };
-    fetchMetrics();
-    const interval = setInterval(fetchMetrics, 5000);
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
-  }, [apiBaseUrl]);
 
   return (
     <aside className="insight-row">

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { fetchSystemMetrics, type SystemMetrics } from './api/liveEventApi';
 import { EventActivityPanel } from './components/EventActivityPanel';
 import { EventHeader } from './components/EventHeader';
 import { MyTicketPanel } from './components/MyTicketPanel';
@@ -12,6 +13,25 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
 export default function Dashboard() {
   const room = useLiveEventRoom(apiBaseUrl);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadMetrics = async () => {
+      try {
+        const data = await fetchSystemMetrics(apiBaseUrl);
+        if (mounted) setMetrics(data);
+      } catch (e) {
+        // ignore errors
+      }
+    };
+    loadMetrics();
+    const interval = setInterval(loadMetrics, 5000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     if (room.participantId && !selectedParticipantId) {
@@ -49,9 +69,9 @@ export default function Dashboard() {
         <Metric label="SEATS" value={`${room.snapshot.metrics.reservedCount}/${room.snapshot.seats.length}`} detail="reserved" />
         <Metric label="QUEUE" value={`${room.snapshot.metrics.queueSize}`} detail="waiting" />
         <Metric label="HELD" value={`${room.snapshot.metrics.heldCount + room.snapshot.metrics.paymentInProgressCount}`} detail="checkout" />
-        <Metric label="KAFKA LAG" value={`${room.snapshot.metrics.queueSize > 0 ? Math.floor(room.snapshot.metrics.queueSize * 0.12 + Math.random() * 2) : 0}`} detail="messages" />
-        <Metric label="REDIS LOCKS" value={`${room.snapshot.metrics.heldCount > 0 ? Math.floor(room.snapshot.metrics.heldCount * 0.05 + Math.random() * 1.5) : 0}`} detail="active locks" />
-        <Metric label="NODES" value={`${room.snapshot.serverStats.length}`} detail="active" />
+        <Metric label="KAFKA LAG" value={`${metrics ? metrics.kafkaLag : 0}`} detail="messages" />
+        <Metric label="REDIS LOCKS" value={`${metrics ? metrics.redisLockCount : 0}`} detail="active locks" />
+        <Metric label="NODES" value={`${metrics ? metrics.serverStats.length : room.snapshot.serverStats.length}`} detail="active" />
       </div>
       <div className="dashboard-grid">
         <MyTicketPanel
@@ -86,7 +106,7 @@ export default function Dashboard() {
           />
         </div>
       </div>
-      <InsightPanel snapshot={room.snapshot} apiBaseUrl={apiBaseUrl} />
+      <InsightPanel snapshot={room.snapshot} metrics={metrics} />
     </main>
   );
 }
