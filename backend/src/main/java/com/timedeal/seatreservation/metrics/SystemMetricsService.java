@@ -98,27 +98,31 @@ public class SystemMetricsService {
     }
 
     private long calculateRedisLockCount() {
-        Long count = redisTemplate.execute((org.springframework.data.redis.connection.RedisConnection connection) -> {
-            long c = 0;
-            long iterations = 0;
-            try (Cursor<byte[]> cursor = connection.scan(ScanOptions.scanOptions().match("simulation:*:lock").count(100).build())) {
-                while (cursor.hasNext() && iterations < 1000) {
-                    cursor.next();
-                    c++;
-                    iterations++;
+        try {
+            Long count = redisTemplate.execute((org.springframework.data.redis.connection.RedisConnection connection) -> {
+                long c = 0;
+                long iterations = 0;
+                try (Cursor<byte[]> cursor = connection.scan(ScanOptions.scanOptions().match("simulation:*:lock").count(100).build())) {
+                    while (cursor.hasNext() && iterations < 1000) {
+                        cursor.next();
+                        c++;
+                        iterations++;
+                    }
                 }
-            }
-            iterations = 0;
-            try (Cursor<byte[]> cursor = connection.scan(ScanOptions.scanOptions().match("live-event:*:lock").count(100).build())) {
-                while (cursor.hasNext() && iterations < 1000) {
-                    cursor.next();
-                    c++;
-                    iterations++;
+                iterations = 0;
+                try (Cursor<byte[]> cursor = connection.scan(ScanOptions.scanOptions().match("live-event:*:lock").count(100).build())) {
+                    while (cursor.hasNext() && iterations < 1000) {
+                        cursor.next();
+                        c++;
+                        iterations++;
+                    }
                 }
-            }
-            return c;
-        });
-        return count != null ? count : 0L;
+                return c;
+            });
+            return count != null ? count : 0L;
+        } catch (Exception e) {
+            return 0L;
+        }
     }
 
     private List<ServerStatsView> getServerStats() {
