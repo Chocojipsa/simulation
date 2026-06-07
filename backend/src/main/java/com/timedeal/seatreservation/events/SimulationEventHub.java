@@ -37,7 +37,7 @@ public class SimulationEventHub {
     public SimulationEventHub(SnapshotPublisher snapshotPublisher, ObjectMapper objectMapper) {
         this.snapshotPublisher = snapshotPublisher;
         this.objectMapper = objectMapper;
-        this.heartbeatScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+        this.heartbeatScheduler = Executors.newScheduledThreadPool(4, r -> {
             Thread t = new Thread(r, "sse-heartbeat");
             t.setDaemon(true);
             return t;
@@ -46,7 +46,13 @@ public class SimulationEventHub {
 
     public SseEmitter open(UUID simulationId) {
         SseEmitter emitter = new SseEmitter(TIMEOUT_MILLIS);
-        emitters.computeIfAbsent(simulationId, ignored -> new CopyOnWriteArrayList<>()).add(emitter);
+        emitters.compute(simulationId, (key, list) -> {
+            if (list == null) {
+                list = new CopyOnWriteArrayList<>();
+            }
+            list.add(emitter);
+            return list;
+        });
         scheduleHeartbeat(emitter);
         emitter.onCompletion(() -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
         emitter.onTimeout(() -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
@@ -56,7 +62,13 @@ public class SimulationEventHub {
 
     public SseEmitter openUserStream(UUID participantId) {
         SseEmitter emitter = new SseEmitter(TIMEOUT_MILLIS);
-        userEmitters.computeIfAbsent(participantId, ignored -> new CopyOnWriteArrayList<>()).add(emitter);
+        userEmitters.compute(participantId, (key, list) -> {
+            if (list == null) {
+                list = new CopyOnWriteArrayList<>();
+            }
+            list.add(emitter);
+            return list;
+        });
         scheduleHeartbeat(emitter);
         emitter.onCompletion(() -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
         emitter.onTimeout(() -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
@@ -85,9 +97,11 @@ public class SimulationEventHub {
 
         for (SseEmitter emitter : simulationEmitters) {
             try {
-                emitter.send(SseEmitter.event()
-                        .name("snapshot")
-                        .data(jsonData, MediaType.APPLICATION_JSON));
+                synchronized (emitter) {
+                    emitter.send(SseEmitter.event()
+                            .name("snapshot")
+                            .data(jsonData, MediaType.APPLICATION_JSON));
+                }
             } catch (IOException | IllegalStateException exception) {
                 remove(snapshot.simulationId(), emitter);
                 completeQuietly(emitter);
@@ -111,9 +125,11 @@ public class SimulationEventHub {
 
         for (SseEmitter emitter : specificUserEmitters) {
             try {
-                emitter.send(SseEmitter.event()
-                        .name("activity")
-                        .data(jsonData, MediaType.APPLICATION_JSON));
+                synchronized (emitter) {
+                    emitter.send(SseEmitter.event()
+                            .name("activity")
+                            .data(jsonData, MediaType.APPLICATION_JSON));
+                }
             } catch (IOException | IllegalStateException exception) {
                 removeUserEmitter(event.userId(), emitter);
                 completeQuietly(emitter);
@@ -129,7 +145,9 @@ public class SimulationEventHub {
     private void scheduleHeartbeat(SseEmitter emitter) {
         ScheduledFuture<?> future = heartbeatScheduler.scheduleAtFixedRate(() -> {
             try {
-                emitter.send(SseEmitter.event().comment("heartbeat"));
+                synchronized (emitter) {
+                    emitter.send(SseEmitter.event().comment("heartbeat"));
+                }
             } catch (IOException | IllegalStateException e) {
                 cancelHeartbeat(emitter);
                 completeQuietly(emitter);
@@ -146,25 +164,17 @@ public class SimulationEventHub {
     }
 
     private void remove(UUID simulationId, SseEmitter emitter) {
-        List<SseEmitter> simulationEmitters = emitters.get(simulationId);
-        if (simulationEmitters == null) {
-            return;
-        }
-        simulationEmitters.remove(emitter);
-        if (simulationEmitters.isEmpty()) {
-            emitters.remove(simulationId, simulationEmitters);
-        }
+        emitters.computeIfPresent(simulationId, (key, list) -> {
+            list.remove(emitter);
+            return list.isEmpty() ? null : list;
+        });
     }
 
     private void removeUserEmitter(UUID userId, SseEmitter emitter) {
-        List<SseEmitter> specificUserEmitters = userEmitters.get(userId);
-        if (specificUserEmitters == null) {
-            return;
-        }
-        specificUserEmitters.remove(emitter);
-        if (specificUserEmitters.isEmpty()) {
-            userEmitters.remove(userId, specificUserEmitters);
-        }
+        userEmitters.computeIfPresent(userId, (key, list) -> {
+            list.remove(emitter);
+            return list.isEmpty() ? null : list;
+        });
     }
 
     private void completeQuietly(SseEmitter emitter) {

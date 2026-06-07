@@ -212,6 +212,28 @@ public class SimulationService {
         }
     }
 
+    public void publishUserActivityDirectly(UUID simulationId, UUID userId, String label, String message) {
+        if (activityPublisher != null) {
+            activityPublisher.publish(new UserActivityEvent(simulationId, userId, label, message));
+        }
+    }
+
+    public int getMaxActiveAdmissions() {
+        return this.maxActiveAdmissions;
+    }
+
+    public void admitParticipant(UUID simulationId, UUID userId) {
+        if (waitingQueueService != null) {
+            waitingQueueService.issueAdmissionToken(simulationId.toString(), userId.toString());
+        }
+        Instant expiresAt = now().plus(seatSelectionTtl);
+        stateStore.recordAdmitted(simulationId, userId, expiresAt, serverIdentity.id());
+        if (waitingQueueService != null) {
+            waitingQueueService.removeAdmissionCandidate(simulationId.toString(), userId.toString());
+        }
+        publishUserActivityDirectly(simulationId, userId, "queue_admitted", "대기열을 통과했습니다! 좌석을 선택합니다.");
+    }
+
     public SimulationResponse createSimulation(CreateSimulationRequest request) {
         UUID simulationId = UUID.randomUUID();
         return createSimulation(simulationId, request.virtualUserCount());

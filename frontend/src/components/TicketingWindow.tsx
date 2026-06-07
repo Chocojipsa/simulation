@@ -28,6 +28,8 @@ export function TicketingWindow() {
   const [message, setMessage] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
   const [bookingTime, setBookingTime] = useState<string>('');
+  const [sseQueuePos, setSseQueuePos] = useState<number | null>(null);
+  const [sseEstimatedSeconds, setSseEstimatedSeconds] = useState<number | null>(null);
 
   // 1. Session Recovery on mount
   useEffect(() => {
@@ -49,6 +51,8 @@ export function TicketingWindow() {
         if (p && ['QUEUED', 'SELECTING_SEAT', 'SEAT_HELD', 'PAYMENT_IN_PROGRESS', 'RESERVED'].includes(p.status)) {
           setParticipantId(storedId);
           if (p.status === 'QUEUED') {
+            setSseQueuePos(null);
+            setSseEstimatedSeconds(null);
             setStep(2);
           } else if (p.status === 'SELECTING_SEAT' || p.status === 'ADMITTED') {
             setStep(3);
@@ -80,41 +84,95 @@ export function TicketingWindow() {
     };
   }, [eventId]);
 
-  // 2. Queue Progress Polling (Step 2)
+  // 2. Queue Progress SSE Connection (Step 2) with HTTP Polling Fallback
   useEffect(() => {
     if (step !== 2 || !eventId || !participantId) return;
     let active = true;
-    const timer = setInterval(async () => {
-      try {
-        const snap = await fetchEventSnapshot(apiBaseUrl, eventId, participantId);
+    let eventSource: EventSource | null = null;
+    let fallbackTimer: any = null;
+
+    const startFallbackPolling = () => {
+      console.log('Falling back to HTTP Polling for queue checks...');
+      setSseQueuePos(null);
+      setSseEstimatedSeconds(null);
+      if (fallbackTimer) clearInterval(fallbackTimer);
+      fallbackTimer = setInterval(async () => {
+        try {
+          const snap = await fetchEventSnapshot(apiBaseUrl, eventId, participantId);
+          if (!active) return;
+          setSnapshot(snap);
+          const p = snap.participants.find((u) => u.id === participantId);
+          if (p) {
+            if (p.status !== 'QUEUED') {
+              if (p.status === 'SELECTING_SEAT' || p.status === 'ADMITTED') {
+                setStep(3);
+              } else if (p.status === 'SEAT_HELD' || p.status === 'PAYMENT_IN_PROGRESS') {
+                setStep(4);
+              } else if (p.status === 'RESERVED') {
+                setBookingTime(new Date().toLocaleString());
+                setStep(5);
+              } else {
+                localStorage.removeItem('timedeal.participantId');
+                setStep(1);
+              }
+            }
+          } else {
+            localStorage.removeItem('timedeal.participantId');
+            setStep(1);
+          }
+        } catch (err) {
+          console.error('Queue fallback polling failed:', err);
+        }
+      }, 1500);
+    };
+
+    const sseUrl = `${apiBaseUrl}/api/events/${eventId}/participants/${participantId}/stream`;
+    console.log(`Connecting to queue SSE stream: ${sseUrl}`);
+    try {
+      eventSource = new EventSource(sseUrl);
+
+      eventSource.addEventListener('activity', (event) => {
         if (!active) return;
-        setSnapshot(snap);
-        const p = snap.participants.find((u) => u.id === participantId);
-        if (p) {
-          if (p.status !== 'QUEUED') {
-            if (p.status === 'SELECTING_SEAT' || p.status === 'ADMITTED') {
-              setStep(3);
-            } else if (p.status === 'SEAT_HELD' || p.status === 'PAYMENT_IN_PROGRESS') {
-              setStep(4);
-            } else if (p.status === 'RESERVED') {
-              setBookingTime(new Date().toLocaleString());
-              setStep(5);
-            } else {
-              localStorage.removeItem('timedeal.participantId');
-              setStep(1);
+        try {
+          const data = JSON.parse(event.data);
+          if (data.label === 'queue_position_update') {
+            const payload = JSON.parse(data.message);
+            setSseQueuePos(payload.position);
+            setSseEstimatedSeconds(payload.estimatedWaitSeconds);
+          } else if (data.label === 'queue_admitted') {
+            setStep(3);
+            if (eventSource) {
+              eventSource.close();
             }
           }
-        } else {
-          localStorage.removeItem('timedeal.participantId');
-          setStep(1);
+        } catch (e) {
+          console.error('Failed to parse SSE activity event data:', e);
         }
-      } catch (err) {
-        console.error('Queue polling failed:', err);
-      }
-    }, 1500);
+      });
+
+      eventSource.onerror = (err) => {
+        console.error('SSE connection error, initiating fallback:', err);
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        if (active) {
+          startFallbackPolling();
+        }
+      };
+    } catch (err) {
+      console.error('Failed to create EventSource:', err);
+      startFallbackPolling();
+    }
+
     return () => {
       active = false;
-      clearInterval(timer);
+      if (eventSource) {
+        eventSource.close();
+      }
+      if (fallbackTimer) {
+        clearInterval(fallbackTimer);
+      }
     };
   }, [step, eventId, participantId]);
 
@@ -227,6 +285,8 @@ export function TicketingWindow() {
       // Fetch snapshot to get queue state
       const snap = await fetchEventSnapshot(apiBaseUrl, eventId, joinRes.participantId);
       setSnapshot(snap);
+      setSseQueuePos(null);
+      setSseEstimatedSeconds(null);
       setStep(2);
     } catch (err) {
       setError('대기열 진입에 실패했습니다. 이름 및 서버 상태를 확인하세요.');
@@ -312,8 +372,12 @@ export function TicketingWindow() {
   };
 
   const activeParticipant = snapshot?.participants.find((p) => p.id === participantId) ?? null;
-  const queuePos = snapshot ? (snapshot.myQueuePosition ?? getQueuePosition(snapshot, participantId)) : null;
-  const estimatedSeconds = queuePos ? Math.ceil(queuePos * 0.5) : 0;
+  const queuePos = sseQueuePos !== null
+    ? sseQueuePos
+    : (snapshot ? (snapshot.myQueuePosition ?? getQueuePosition(snapshot, participantId)) : null);
+  const estimatedSeconds = sseEstimatedSeconds !== null
+    ? sseEstimatedSeconds
+    : (queuePos ? Math.ceil(queuePos * 0.5) : 0);
   const holdRemaining = activeParticipant?.seatHoldExpiresAt
     ? Math.max(0, Math.ceil((new Date(activeParticipant.seatHoldExpiresAt).getTime() - now.getTime()) / 1000))
     : 0;
