@@ -89,10 +89,17 @@ public class SystemMetricsService {
     private long calculateRedisLockCount() {
         Long count = redisTemplate.execute((org.springframework.data.redis.connection.RedisConnection connection) -> {
             long c = 0;
-            Cursor<byte[]> cursor = connection.scan(ScanOptions.scanOptions().match("*:lock").count(100).build());
-            while (cursor.hasNext()) {
-                cursor.next();
-                c++;
+            try (Cursor<byte[]> cursor = connection.scan(ScanOptions.scanOptions().match("simulation:*:lock").count(100).build())) {
+                while (cursor.hasNext()) {
+                    cursor.next();
+                    c++;
+                }
+            }
+            try (Cursor<byte[]> cursor = connection.scan(ScanOptions.scanOptions().match("live-event:*:lock").count(100).build())) {
+                while (cursor.hasNext()) {
+                    cursor.next();
+                    c++;
+                }
             }
             return c;
         });
