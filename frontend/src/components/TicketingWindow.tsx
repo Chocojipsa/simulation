@@ -79,9 +79,12 @@ export function TicketingWindow() {
         setSseEstimatedSeconds(null);
         setStep(2);
       } catch (err) {
+        if (!isMountedRef.current) return;
         setError('대기열 진입에 실패했습니다. 서버 상태를 확인하세요.');
       } finally {
-        setLoading(false);
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
       }
     };
 
@@ -134,6 +137,7 @@ export function TicketingWindow() {
         if (!isMountedRef.current) return;
       }
     } catch (err) {
+      if (!isMountedRef.current) return;
       if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
         await autoJoinAndQueue();
         if (!isMountedRef.current) return;
@@ -141,7 +145,9 @@ export function TicketingWindow() {
         setError('서버와 통신할 수 없습니다. 다시 시도해 주세요.');
       }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [eventId]);
 
@@ -254,6 +260,7 @@ export function TicketingWindow() {
       });
 
       eventSource.onerror = (err) => {
+        if (!active) return;
         console.error('SSE connection error:', err);
         setSseQueuePos(null);
         setSseEstimatedSeconds(null);
