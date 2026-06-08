@@ -249,7 +249,10 @@ public class SimulationService {
             waitingQueueService.issueAdmissionToken(simulationId.toString(), userId.toString());
         }
         Instant expiresAt = now().plus(seatSelectionTtl);
-        stateStore.recordAdmitted(simulationId, userId, expiresAt, serverIdentity.id());
+        SimulationSnapshot updated = stateStore.recordAdmitted(simulationId, userId, expiresAt, serverIdentity.id());
+        if (eventHub != null) {
+            eventHub.publish(updated);
+        }
         publishUserActivityDirectly(simulationId, userId, "queue_admitted", "대기열을 통과했습니다! 좌석을 선택합니다.");
     }
 
@@ -308,8 +311,13 @@ public class SimulationService {
             return new VirtualUserCommandResponse(simulationId, userId, participant.status().name(), serverIdentity.id(), "이미 대기열에 진입했거나 다른 상태입니다.", null);
         }
 
-        waitingQueueService.enterQueue(simulationId.toString(), userId.toString());
-        stateStore.registerQueueEntry(simulationId, userId, serverIdentity.id());
+        if (waitingQueueService != null) {
+            waitingQueueService.enterQueue(simulationId.toString(), userId.toString());
+        }
+        SimulationSnapshot updated = stateStore.registerQueueEntry(simulationId, userId, serverIdentity.id());
+        if (eventHub != null) {
+            eventHub.publish(updated);
+        }
         return new VirtualUserCommandResponse(simulationId, userId, VirtualUserStatus.QUEUED.name(), serverIdentity.id(), "대기열에 진입했습니다.", null);
     }
 
@@ -329,7 +337,7 @@ public class SimulationService {
             return new VirtualUserCommandResponse(simulationId, userId, "ADMITTED", serverIdentity.id(), "입장 허가되었습니다.", null);
         }
 
-        long position = waitingQueueService.position(simulationId.toString(), userId.toString());
+        long position = waitingQueueService != null ? waitingQueueService.position(simulationId.toString(), userId.toString()) : 0L;
         return new VirtualUserCommandResponse(simulationId, userId, VirtualUserStatus.QUEUED.name(), serverIdentity.id(), "대기 중입니다. 현재 순번: " + position, null);
     }
 
@@ -355,10 +363,16 @@ public class SimulationService {
 
         if (result.outcome() == SeatReservationOutcome.HELD) {
             Instant expiresAt = now().plus(seatHoldTtl);
-            stateStore.recordSeatHeldForPayment(simulationId, userId, target, result.reservationId(), expiresAt, serverIdentity.id());
+            SimulationSnapshot updated = stateStore.recordSeatHeldForPayment(simulationId, userId, target, result.reservationId(), expiresAt, serverIdentity.id());
+            if (eventHub != null) {
+                eventHub.publish(updated);
+            }
             return new SeatHoldResponse(simulationId, userId, target.id(), VirtualUserStatus.SEAT_HELD.name(), "좌석을 선점했습니다.", target.label(), serverIdentity.id());
         } else if (result.outcome() == SeatReservationOutcome.ALREADY_HELD || result.outcome() == SeatReservationOutcome.IDEMPOTENT_REPLAY) {
-            stateStore.recordSeatConflict(simulationId, userId, target, serverIdentity.id());
+            SimulationSnapshot updated = stateStore.recordSeatConflict(simulationId, userId, target, serverIdentity.id());
+            if (eventHub != null) {
+                eventHub.publish(updated);
+            }
             return new SeatHoldResponse(simulationId, userId, target.id(), VirtualUserStatus.SELECTING_SEAT.name(), "이미 선택된 좌석입니다.", target.label(), serverIdentity.id());
         }
 
@@ -378,7 +392,10 @@ public class SimulationService {
                 .findFirst()
                 .orElse(null);
 
-        stateStore.recordPaymentRequested(simulationId, userId, seat, serverIdentity.id());
+        SimulationSnapshot updated = stateStore.recordPaymentRequested(simulationId, userId, seat, serverIdentity.id());
+        if (eventHub != null) {
+            eventHub.publish(updated);
+        }
 
         paymentKafkaTemplate.send(PAYMENT_EVENTS_TOPIC, userId.toString(), new PaymentRequestedEvent(
                 simulationId,
@@ -445,10 +462,17 @@ public class SimulationService {
 
         if (result.outcome() == SeatReservationOutcome.HELD) {
             Instant expiresAt = now().plus(seatHoldTtl);
-            stateStore.recordSeatHeldForPayment(simulationId, userId, target, result.reservationId(), expiresAt, serverIdentity.id());
+            SimulationSnapshot updated = stateStore.recordSeatHeldForPayment(simulationId, userId, target, result.reservationId(), expiresAt, serverIdentity.id());
+            if (eventHub != null) {
+                eventHub.publish(updated);
+            }
             return new VirtualUserCommandResponse(simulationId, userId, VirtualUserStatus.SEAT_HELD.name(), serverIdentity.id(), "좌석을 선점했습니다.", target.label());
         }
 
+        SimulationSnapshot updated = stateStore.recordSeatConflict(simulationId, userId, target, serverIdentity.id());
+        if (eventHub != null) {
+            eventHub.publish(updated);
+        }
         return new VirtualUserCommandResponse(simulationId, userId, VirtualUserStatus.SELECTING_SEAT.name(), serverIdentity.id(), "좌석 선점에 실패했습니다.", null);
     }
 
@@ -460,10 +484,15 @@ public class SimulationService {
                 .count();
 
         if (activeCount < maxActiveAdmissions) {
-            waitingQueueService.issueAdmissionToken(simulationId.toString(), userId.toString());
-            waitingQueueService.removeAdmissionCandidate(simulationId.toString(), userId.toString());
+            if (waitingQueueService != null) {
+                waitingQueueService.issueAdmissionToken(simulationId.toString(), userId.toString());
+                waitingQueueService.removeAdmissionCandidate(simulationId.toString(), userId.toString());
+            }
             Instant expiresAt = now().plus(seatSelectionTtl);
-            stateStore.recordAdmitted(simulationId, userId, expiresAt, serverIdentity.id());
+            SimulationSnapshot updated = stateStore.recordAdmitted(simulationId, userId, expiresAt, serverIdentity.id());
+            if (eventHub != null) {
+                eventHub.publish(updated);
+            }
             return true;
         }
         return false;
@@ -491,7 +520,10 @@ public class SimulationService {
                 });
 
         if (!seatHoldExpiredIds.isEmpty() || !seatSelectionExpiredIds.isEmpty()) {
-            stateStore.expireTimedOutParticipants(simulationId, seatHoldExpiredIds, seatSelectionExpiredIds, serverIdentity.id());
+            SimulationSnapshot updated = stateStore.expireTimedOutParticipants(simulationId, seatHoldExpiredIds, seatSelectionExpiredIds, serverIdentity.id());
+            if (eventHub != null) {
+                eventHub.publish(updated);
+            }
             // Clean up expired users from Redis queue to prevent phantom entries
             if (waitingQueueService != null) {
                 for (UUID userId : seatHoldExpiredIds) {

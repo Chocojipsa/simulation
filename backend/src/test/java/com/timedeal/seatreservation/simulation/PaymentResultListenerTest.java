@@ -23,7 +23,8 @@ class PaymentResultListenerTest {
     void appliesPaymentResultToStateStore() {
         SimulationStateGateway stateStore = mock(SimulationStateGateway.class);
         SeatReservationService seatReservationService = mock(SeatReservationService.class);
-        PaymentResultListener listener = new PaymentResultListener(stateStore, seatReservationService);
+        com.timedeal.seatreservation.events.SimulationEventHub eventHub = mock(com.timedeal.seatreservation.events.SimulationEventHub.class);
+        PaymentResultListener listener = new PaymentResultListener(stateStore, seatReservationService, eventHub);
         PaymentResultEvent event = new PaymentResultEvent(
                 UUID.fromString("00000000-0000-0000-0000-000000000060"),
                 UUID.fromString("00000000-0000-0000-0000-000000000160"),

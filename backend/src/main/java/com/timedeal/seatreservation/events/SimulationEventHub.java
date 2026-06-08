@@ -81,7 +81,9 @@ public class SimulationEventHub {
     }
 
     public void publish(SimulationSnapshot snapshot) {
-        snapshotPublisher.publish(snapshot);
+        if (snapshotPublisher != null) {
+            snapshotPublisher.publish(snapshot);
+        }
     }
 
     public void publishLocally(SimulationSnapshot snapshot) {

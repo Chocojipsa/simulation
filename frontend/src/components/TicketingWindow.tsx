@@ -43,58 +43,96 @@ export function TicketingWindow() {
   const [sseQueuePos, setSseQueuePos] = useState<number | null>(null);
   const [sseEstimatedSeconds, setSseEstimatedSeconds] = useState<number | null>(null);
 
+  const initSession = useCallback(async () => {
+    if (!eventId) return;
+
+    const autoJoinAndQueue = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const guestName = `게스트-${Math.floor(1000 + Math.random() * 9000)}`;
+        const joinRes = await joinEvent(apiBaseUrl, eventId, guestName);
+        localStorage.setItem('timedeal.participantId', joinRes.participantId);
+        setParticipantId(joinRes.participantId);
+        await queueParticipant(apiBaseUrl, eventId, joinRes.participantId);
+        const snap = await fetchEventSnapshot(apiBaseUrl, eventId, joinRes.participantId);
+        setSnapshot(snap);
+        setSseQueuePos(null);
+        setSseEstimatedSeconds(null);
+        setStep(2);
+      } catch (err) {
+        setError('대기열 진입에 실패했습니다. 서버 상태를 확인하세요.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const storedId = localStorage.getItem('timedeal.participantId');
+    if (!storedId) {
+      await autoJoinAndQueue();
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const snap = await fetchEventSnapshot(apiBaseUrl, eventId, storedId);
+      setSnapshot(snap);
+      const p = snap.participants.find((u) => u.id === storedId);
+      if (p) {
+        if (p.status === 'CREATED' || p.status === 'WAITING_ROOM') {
+          setParticipantId(storedId);
+          await queueParticipant(apiBaseUrl, eventId, storedId);
+          const nextSnap = await fetchEventSnapshot(apiBaseUrl, eventId, storedId);
+          setSnapshot(nextSnap);
+          setSseQueuePos(null);
+          setSseEstimatedSeconds(null);
+          setStep(2);
+        } else if (p.status === 'QUEUED') {
+          setParticipantId(storedId);
+          setSseQueuePos(null);
+          setSseEstimatedSeconds(null);
+          setStep(2);
+        } else if (p.status === 'SELECTING_SEAT' || p.status === 'ADMITTED') {
+          setParticipantId(storedId);
+          setStep(3);
+        } else if (p.status === 'SEAT_HELD' || p.status === 'PAYMENT_IN_PROGRESS') {
+          setParticipantId(storedId);
+          setStep(4);
+        } else if (p.status === 'RESERVED') {
+          setParticipantId(storedId);
+          setBookingTime(new Date().toLocaleString());
+          setStep(5);
+        } else {
+          await autoJoinAndQueue();
+        }
+      } else {
+        await autoJoinAndQueue();
+      }
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
+        await autoJoinAndQueue();
+      } else {
+        setError('서버와 통신할 수 없습니다. 다시 시도해 주세요.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [eventId]);
+
   // 1. Session Recovery on mount
   useEffect(() => {
     let active = true;
-    const initSession = async () => {
-      if (!eventId) return;
-      const storedId = localStorage.getItem('timedeal.participantId');
-      if (!storedId) {
-        if (active) setStep(1);
-        return;
-      }
-
-      try {
-        if (active) setLoading(true);
-        const snap = await fetchEventSnapshot(apiBaseUrl, eventId, storedId);
-        if (!active) return;
-        setSnapshot(snap);
-        const p = snap.participants.find((u) => u.id === storedId);
-        if (p && ['QUEUED', 'SELECTING_SEAT', 'SEAT_HELD', 'PAYMENT_IN_PROGRESS', 'RESERVED'].includes(p.status)) {
-          setParticipantId(storedId);
-          if (p.status === 'QUEUED') {
-            setSseQueuePos(null);
-            setSseEstimatedSeconds(null);
-            setStep(2);
-          } else if (p.status === 'SELECTING_SEAT' || p.status === 'ADMITTED') {
-            setStep(3);
-          } else if (p.status === 'SEAT_HELD' || p.status === 'PAYMENT_IN_PROGRESS') {
-            setStep(4);
-          } else if (p.status === 'RESERVED') {
-            setBookingTime(new Date().toLocaleString());
-            setStep(5);
-          }
-        } else {
-          localStorage.removeItem('timedeal.participantId');
-          setStep(1);
-        }
-      } catch (err) {
-        if (!active) return;
-        if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
-          localStorage.removeItem('timedeal.participantId');
-          setStep(1);
-        } else {
-          setError('서버와 통신할 수 없습니다. 다시 시도해 주세요.');
-        }
-      } finally {
-        if (active) setLoading(false);
+    const run = async () => {
+      if (active) {
+        await initSession();
       }
     };
-    void initSession();
+    void run();
     return () => {
       active = false;
     };
-  }, [eventId]);
+  }, [eventId, initSession]);
 
   // 2. Queue Progress SSE Connection (Step 2) with HTTP Polling Fallback
   useEffect(() => {
@@ -125,12 +163,12 @@ export function TicketingWindow() {
                 setStep(5);
               } else {
                 localStorage.removeItem('timedeal.participantId');
-                setStep(1);
+                void initSession();
               }
             }
           } else {
             localStorage.removeItem('timedeal.participantId');
-            setStep(1);
+            void initSession();
           }
         } catch (err) {
           console.error('Queue fallback polling failed:', err);
@@ -230,11 +268,11 @@ export function TicketingWindow() {
             setStep(3);
           } else if (!['SEAT_HELD', 'PAYMENT_IN_PROGRESS'].includes(p.status)) {
             localStorage.removeItem('timedeal.participantId');
-            setStep(1);
+            void initSession();
           }
         } else {
           localStorage.removeItem('timedeal.participantId');
-          setStep(1);
+          void initSession();
         }
       } catch (err) {
         console.error('Payment polling failed:', err);
@@ -792,31 +830,28 @@ export function TicketingWindow() {
         {error && <div className="error-banner">{error}</div>}
         {message && <div className="info-banner">{message}</div>}
 
-        {/* Step 1: Queue Entry */}
+        {/* Step 1: Preparing Entry */}
         {step === 1 && (
-          <form onSubmit={handleJoin}>
-            <div className="form-group">
-              <label htmlFor="displayName">예매자 이름</label>
-              <input
-                id="displayName"
-                type="text"
-                className="form-input"
-                placeholder="예매자 성함을 입력해 주세요"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                required
-                disabled={loading}
-              />
-            </div>
-            <button
-              type="submit"
-              className="primary-action icon-action"
-              disabled={loading || !displayName.trim()}
-              style={{ width: '100%', minHeight: '46px' }}
-            >
-              <LogIn size={18} /> 대기열 진입하기
-            </button>
-          </form>
+          <div className="progress-container">
+            {error ? (
+              <button
+                type="button"
+                className="primary-action"
+                style={{ minHeight: '44px', width: '100%' }}
+                onClick={() => {
+                  setError(null);
+                  void initSession();
+                }}
+              >
+                다시 시도하기
+              </button>
+            ) : (
+              <>
+                <p className="wait-time">대기열 진입을 준비 중입니다...</p>
+                <div className="spinner" />
+              </>
+            )}
+          </div>
         )}
 
         {/* Step 2: Queue Progress */}
