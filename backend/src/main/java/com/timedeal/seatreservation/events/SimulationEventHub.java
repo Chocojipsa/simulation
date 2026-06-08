@@ -73,7 +73,11 @@ public class SimulationEventHub {
             return emitter;
         }
 
-        scheduleHeartbeat(emitter);
+        // Only schedule heartbeat if client hasn't disconnected concurrently
+        List<SseEmitter> active = emitters.get(simulationId);
+        if (active != null && active.contains(emitter)) {
+            scheduleHeartbeat(emitter);
+        }
         return emitter;
     }
 
@@ -102,7 +106,11 @@ public class SimulationEventHub {
             return emitter;
         }
 
-        scheduleHeartbeat(emitter);
+        // Only schedule heartbeat if client hasn't disconnected concurrently
+        List<SseEmitter> active = userEmitters.get(participantId);
+        if (active != null && active.contains(emitter)) {
+            scheduleHeartbeat(emitter);
+        }
         return emitter;
     }
 
