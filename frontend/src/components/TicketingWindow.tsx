@@ -44,6 +44,12 @@ export function TicketingWindow() {
   const [sseQueuePos, setSseQueuePos] = useState<number | null>(null);
   const [sseEstimatedSeconds, setSseEstimatedSeconds] = useState<number | null>(null);
 
+  const resetSession = useCallback(() => {
+    localStorage.removeItem('timedeal.participantId');
+    setParticipantId(null);
+    setStep(1);
+  }, []);
+
   const initSession = useCallback(async () => {
     if (!eventId) return;
 
@@ -155,7 +161,9 @@ export function TicketingWindow() {
           if (snap.status === 'OPEN' && (p.status === 'WAITING_ROOM' || p.status === 'CREATED')) {
             console.log('Event is OPEN. Attempting to enter queue...');
             await queueParticipant(apiBaseUrl, eventId, participantId);
+            if (!active) return;
             const nextSnap = await fetchEventSnapshot(apiBaseUrl, eventId, participantId);
+            if (!active) return;
             setSnapshot(nextSnap);
 
             const nextP = nextSnap.participants.find((u) => u.id === participantId);
@@ -183,22 +191,16 @@ export function TicketingWindow() {
             } else if (p.status === 'WAITING_ROOM' || p.status === 'CREATED') {
               // Stay in Step 2, just wait
             } else {
-              localStorage.removeItem('timedeal.participantId');
-              setParticipantId(null);
-              setStep(1);
+              resetSession();
             }
           }
         } else {
-          localStorage.removeItem('timedeal.participantId');
-          setParticipantId(null);
-          setStep(1);
+          resetSession();
         }
       } catch (err) {
         console.error('Queue status check failed:', err);
         if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
-          localStorage.removeItem('timedeal.participantId');
-          setParticipantId(null);
-          setStep(1);
+          resetSession();
         }
       } finally {
         checkStatusInProgress = false;
@@ -250,7 +252,7 @@ export function TicketingWindow() {
         clearInterval(pollTimer);
       }
     };
-  }, [step, eventId, participantId]);
+  }, [step, eventId, participantId, resetSession]);
 
   // 3. Auto-Refresh Timer (Step 3)
   useEffect(() => {
@@ -263,13 +265,16 @@ export function TicketingWindow() {
         setSnapshot(snap);
       } catch (err) {
         console.error('Auto refresh failed:', err);
+        if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
+          resetSession();
+        }
       }
     }, 4000);
     return () => {
       active = false;
       clearInterval(timer);
     };
-  }, [step, autoRefresh, eventId, participantId]);
+  }, [step, autoRefresh, eventId, participantId, resetSession]);
 
   // 4. Payment Page Countdown & Status Polling (Step 4)
   useEffect(() => {
@@ -293,17 +298,16 @@ export function TicketingWindow() {
           } else if (p.status === 'SELECTING_SEAT' || p.status === 'ADMITTED') {
             setStep(3);
           } else if (!['SEAT_HELD', 'PAYMENT_IN_PROGRESS'].includes(p.status)) {
-            localStorage.removeItem('timedeal.participantId');
-            setParticipantId(null);
-            setStep(1);
+            resetSession();
           }
         } else {
-          localStorage.removeItem('timedeal.participantId');
-          setParticipantId(null);
-          setStep(1);
+          resetSession();
         }
       } catch (err) {
         console.error('Payment polling failed:', err);
+        if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
+          resetSession();
+        }
       }
     }, 3000);
 
@@ -312,7 +316,7 @@ export function TicketingWindow() {
       clearInterval(timeTimer);
       clearInterval(pollTimer);
     };
-  }, [step, eventId, participantId]);
+  }, [step, eventId, participantId, resetSession]);
 
   // 5. Release Beacon on beforeunload
   useEffect(() => {
