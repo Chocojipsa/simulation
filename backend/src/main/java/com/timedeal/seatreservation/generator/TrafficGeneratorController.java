@@ -48,6 +48,6 @@ public class TrafficGeneratorController {
             @PathVariable UUID userId,
             @RequestBody UserActivityEvent event
     ) {
-        simulationService.recordUserActivity(simulationId, userId, event.label(), event.message());
+        simulationService.publishUserActivityDirectly(simulationId, userId, event.label(), event.message());
     }
 }

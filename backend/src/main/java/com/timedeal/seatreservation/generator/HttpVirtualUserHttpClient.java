@@ -162,7 +162,8 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
             try {
                 activityPublisher.publish(new UserActivityEvent(simulationId, userId, label, message));
             } catch (Exception e) {
-                log.warn("Failed to publish direct user activity", e);
+                log.warn("Failed to publish direct user activity: {}", e.getMessage());
+                log.debug("Direct publishing failure details", e);
             }
             return;
         }
