@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { LogIn, RefreshCw, CreditCard, CheckCircle, AlertTriangle } from 'lucide-react';
 import { SeatMap } from './SeatMap';
@@ -30,6 +30,14 @@ const getApiBaseUrl = () => {
 const apiBaseUrl = getApiBaseUrl();
 
 export function TicketingWindow() {
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const { eventId } = useParams<{ eventId: string }>();
   const [step, setStep] = useState<number>(1);
   const [payeeName, setPayeeName] = useState('');
@@ -59,10 +67,13 @@ export function TicketingWindow() {
         setError(null);
         const guestName = `게스트-${Math.floor(1000 + Math.random() * 9000)}`;
         const joinRes = await joinEvent(apiBaseUrl, eventId, guestName);
+        if (!isMountedRef.current) return;
         localStorage.setItem('timedeal.participantId', joinRes.participantId);
         setParticipantId(joinRes.participantId);
         await queueParticipant(apiBaseUrl, eventId, joinRes.participantId);
+        if (!isMountedRef.current) return;
         const snap = await fetchEventSnapshot(apiBaseUrl, eventId, joinRes.participantId);
+        if (!isMountedRef.current) return;
         setSnapshot(snap);
         setSseQueuePos(null);
         setSseEstimatedSeconds(null);
@@ -77,6 +88,7 @@ export function TicketingWindow() {
     const storedId = localStorage.getItem('timedeal.participantId');
     if (!storedId) {
       await autoJoinAndQueue();
+      if (!isMountedRef.current) return;
       return;
     }
 
@@ -84,13 +96,16 @@ export function TicketingWindow() {
       setLoading(true);
       setError(null);
       const snap = await fetchEventSnapshot(apiBaseUrl, eventId, storedId);
+      if (!isMountedRef.current) return;
       setSnapshot(snap);
       const p = snap.participants.find((u) => u.id === storedId);
       if (p) {
         if (p.status === 'CREATED' || p.status === 'WAITING_ROOM') {
           setParticipantId(storedId);
           await queueParticipant(apiBaseUrl, eventId, storedId);
+          if (!isMountedRef.current) return;
           const nextSnap = await fetchEventSnapshot(apiBaseUrl, eventId, storedId);
+          if (!isMountedRef.current) return;
           setSnapshot(nextSnap);
           setSseQueuePos(null);
           setSseEstimatedSeconds(null);
@@ -112,13 +127,16 @@ export function TicketingWindow() {
           setStep(5);
         } else {
           await autoJoinAndQueue();
+          if (!isMountedRef.current) return;
         }
       } else {
         await autoJoinAndQueue();
+        if (!isMountedRef.current) return;
       }
     } catch (err) {
       if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
         await autoJoinAndQueue();
+        if (!isMountedRef.current) return;
       } else {
         setError('서버와 통신할 수 없습니다. 다시 시도해 주세요.');
       }
@@ -198,6 +216,7 @@ export function TicketingWindow() {
           resetSession();
         }
       } catch (err) {
+        if (!active) return;
         console.error('Queue status check failed:', err);
         if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
           resetSession();
@@ -264,6 +283,7 @@ export function TicketingWindow() {
         if (!active) return;
         setSnapshot(snap);
       } catch (err) {
+        if (!active) return;
         console.error('Auto refresh failed:', err);
         if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
           resetSession();
@@ -304,6 +324,7 @@ export function TicketingWindow() {
           resetSession();
         }
       } catch (err) {
+        if (!active) return;
         console.error('Payment polling failed:', err);
         if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
           resetSession();
