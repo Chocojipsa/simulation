@@ -24,6 +24,9 @@ import org.slf4j.LoggerFactory;
 public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
     private static final Logger log = LoggerFactory.getLogger(HttpVirtualUserHttpClient.class);
 
+    @Autowired(required = false)
+    private com.timedeal.seatreservation.simulation.SimulationService simulationService;
+
     private static final int DEFAULT_MAX_SEAT_ATTEMPTS = 3000;
     private static final long DEFAULT_RETRY_DELAY_MILLIS = 100L;
     private static final int COMMAND_RETRY_ATTEMPTS = 5;
@@ -150,6 +153,13 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
     }
 
     private void logActivity(UUID simulationId, UUID userId, String label, String message) {
+        if (simulationService != null) {
+            try {
+                simulationService.publishUserActivityDirectly(simulationId, userId, label, message);
+            } catch (Exception ignored) {
+            }
+            return;
+        }
         try {
             restClient.post()
                     .uri(controlBaseUrl + "/internal/traffic-generator/simulations/{simulationId}/users/{userId}/activity", simulationId, userId)
