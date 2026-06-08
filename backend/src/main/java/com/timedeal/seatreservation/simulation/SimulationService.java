@@ -218,6 +218,12 @@ public class SimulationService {
         }
     }
 
+    public void publishQueuePositionsBatch(com.timedeal.seatreservation.queue.QueuePositionsBatchEvent event) {
+        if (activityPublisher != null) {
+            activityPublisher.publishBatch(event);
+        }
+    }
+
     public int getMaxActiveAdmissions() {
         return this.maxActiveAdmissions;
     }

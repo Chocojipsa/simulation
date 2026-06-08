@@ -7,9 +7,11 @@ import com.timedeal.seatreservation.simulation.SimulationService;
 import com.timedeal.seatreservation.simulation.SimulationSnapshot;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -17,23 +19,32 @@ import java.util.UUID;
 @Component
 public class LiveEventQueueScheduler {
     private static final Logger log = LoggerFactory.getLogger(LiveEventQueueScheduler.class);
+    private static final String LOCK_KEY = "lock:scheduler:queue-process";
 
     private final LiveEventService liveEventService;
     private final SimulationService simulationService;
     private final WaitingQueueService waitingQueueService;
+    private final StringRedisTemplate redisTemplate;
 
     public LiveEventQueueScheduler(
             LiveEventService liveEventService,
             SimulationService simulationService,
-            WaitingQueueService waitingQueueService
+            WaitingQueueService waitingQueueService,
+            StringRedisTemplate redisTemplate
     ) {
         this.liveEventService = liveEventService;
         this.simulationService = simulationService;
         this.waitingQueueService = waitingQueueService;
+        this.redisTemplate = redisTemplate;
     }
 
     @Scheduled(fixedRate = 1000)
     public void processQueue() {
+        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(LOCK_KEY, "locked", Duration.ofMillis(900));
+        if (acquired == null || !acquired) {
+            return;
+        }
+
         try {
             LiveEventResponse activeEvent = liveEventService.activeEvent();
             if (activeEvent == null || !"OPEN".equals(activeEvent.status())) {
@@ -63,16 +74,19 @@ public class LiveEventQueueScheduler {
                 }
             }
 
-            // Update remaining users position (limited to top 100 users)
+            // Update remaining users position (limited to top 100 users) in a batch
             List<String> remainingUserIds = waitingQueueService.queuedUserIds(eventId.toString());
             int limit = Math.min(remainingUserIds.size(), 100);
+            List<UserQueuePosition> batchPositions = new java.util.ArrayList<>();
             for (int i = 0; i < limit; i++) {
                 String userIdStr = remainingUserIds.get(i);
                 UUID userId = UUID.fromString(userIdStr);
                 int position = i + 1;
                 double estimatedWait = position * 0.5;
-                String message = String.format(Locale.US, "{\"position\":%d,\"estimatedWaitSeconds\":%.1f}", position, estimatedWait);
-                simulationService.publishUserActivityDirectly(eventId, userId, "queue_position_update", message);
+                batchPositions.add(new UserQueuePosition(userId, position, estimatedWait));
+            }
+            if (!batchPositions.isEmpty()) {
+                simulationService.publishQueuePositionsBatch(new QueuePositionsBatchEvent(eventId, batchPositions));
             }
         } catch (Exception e) {
             log.error("Error processing queue in scheduler", e);

@@ -17,6 +17,18 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void configureAsyncSupport(AsyncSupportConfigurer configurer) {
         configurer.setDefaultTimeout(ASYNC_TIMEOUT_MILLIS);
+        configurer.setTaskExecutor(mvcAsyncTaskExecutor());
+    }
+
+    @org.springframework.context.annotation.Bean
+    public org.springframework.core.task.AsyncTaskExecutor mvcAsyncTaskExecutor() {
+        org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor executor = new org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(10);
+        executor.setMaxPoolSize(50);
+        executor.setQueueCapacity(1000);
+        executor.setThreadNamePrefix("mvc-async-");
+        executor.initialize();
+        return executor;
     }
 
     @Override

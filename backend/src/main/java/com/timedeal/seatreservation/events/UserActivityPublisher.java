@@ -24,4 +24,13 @@ public class UserActivityPublisher {
             throw new RuntimeException("Failed to serialize UserActivityEvent", e);
         }
     }
+
+    public void publishBatch(com.timedeal.seatreservation.queue.QueuePositionsBatchEvent event) {
+        try {
+            String message = objectMapper.writeValueAsString(event);
+            redisTemplate.convertAndSend(UserActivityBroadcastConfig.BATCH_ACTIVITY_CHANNEL, message);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize QueuePositionsBatchEvent", e);
+        }
+    }
 }
