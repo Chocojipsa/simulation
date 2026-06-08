@@ -357,6 +357,30 @@ public class RedisSimulationStateStore implements SimulationStateGateway {
     }
 
     @Override
+    public SimulationSnapshot updateParticipantName(UUID simulationId, UUID participantId, String displayName) {
+        return mutate(simulationId, current -> new SimulationSnapshot(
+                current.simulationId(),
+                current.seats(),
+                updateUser(current.users(), participantId, user -> new VirtualUserView(
+                        user.id(),
+                        displayName,
+                        user.type(),
+                        user.status(),
+                        user.selectedSeatLabel(),
+                        user.timeline(),
+                        user.seatAttemptCount(),
+                        user.conflictCount(),
+                        user.paymentAttemptCount(),
+                        user.reservationId(),
+                        user.seatHoldExpiresAt()
+                )),
+                current.metrics(),
+                current.serverStats(),
+                current.running()
+        ));
+    }
+
+    @Override
     public SimulationSnapshot expireSeatSelection(UUID simulationId, UUID virtualUserId, String handledBy) {
         return mutate(simulationId, current -> new SimulationSnapshot(
                 current.simulationId(),

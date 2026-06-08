@@ -352,6 +352,16 @@ public class SimulationStateStore implements SimulationStateGateway {
         return snapshot(simulationId);
     }
 
+    @Override
+    public SimulationSnapshot updateParticipantName(UUID simulationId, UUID participantId, String displayName) {
+        MutableSimulationState state = state(simulationId);
+        synchronized (state) {
+            MutableVirtualUser user = user(state, participantId);
+            user.displayName = displayName;
+        }
+        return snapshot(simulationId);
+    }
+
     MutableSimulationState state(UUID simulationId) {
         MutableSimulationState state = simulations.get(simulationId);
         if (state == null) {
@@ -465,7 +475,7 @@ public class SimulationStateStore implements SimulationStateGateway {
 
     static final class MutableVirtualUser {
         final UUID id;
-        final String displayName;
+        String displayName;
         final ParticipantType type;
         final List<TimelineEntry> timeline = new ArrayList<>();
         VirtualUserStatus status = VirtualUserStatus.QUEUED;

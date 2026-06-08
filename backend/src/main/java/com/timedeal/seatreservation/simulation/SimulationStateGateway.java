@@ -68,4 +68,6 @@ public interface SimulationStateGateway {
     SimulationSnapshot releaseSeat(UUID simulationId, UUID virtualUserId, String handledBy);
 
     SimulationSnapshot recordUserActivity(UUID simulationId, UUID userId, String label, String message);
+
+    SimulationSnapshot updateParticipantName(UUID simulationId, UUID participantId, String displayName);
 }

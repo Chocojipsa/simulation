@@ -30,6 +30,7 @@ public class SimulationEventHub {
     private final ConcurrentHashMap<UUID, CopyOnWriteArrayList<SseEmitter>> emitters = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, CopyOnWriteArrayList<SseEmitter>> userEmitters = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<SseEmitter, ScheduledFuture<?>> heartbeats = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, SimulationSnapshot> latestSnapshots = new ConcurrentHashMap<>();
     private final SnapshotPublisher snapshotPublisher;
     private final ObjectMapper objectMapper;
     private final ScheduledExecutorService heartbeatScheduler;
@@ -42,6 +43,7 @@ public class SimulationEventHub {
             t.setDaemon(true);
             return t;
         });
+        this.heartbeatScheduler.scheduleAtFixedRate(this::broadcastLatestSnapshots, 500, 500, TimeUnit.MILLISECONDS);
     }
 
     protected SseEmitter createEmitter(long timeout) {
@@ -163,6 +165,19 @@ public class SimulationEventHub {
     }
 
     public void publishLocally(SimulationSnapshot snapshot) {
+        latestSnapshots.put(snapshot.simulationId(), snapshot);
+    }
+
+    private void broadcastLatestSnapshots() {
+        latestSnapshots.forEach((simulationId, snapshot) -> {
+            SimulationSnapshot currentSnapshot = latestSnapshots.remove(simulationId);
+            if (currentSnapshot != null) {
+                sendSnapshotLocally(currentSnapshot);
+            }
+        });
+    }
+
+    private void sendSnapshotLocally(SimulationSnapshot snapshot) {
         List<SseEmitter> simulationEmitters = emitters.get(snapshot.simulationId());
         if (simulationEmitters == null || simulationEmitters.isEmpty()) {
             return;

@@ -40,12 +40,12 @@ export function MyTicketPanel({ status, participant, loading, onJoin, onReserve,
         <strong>{holdRemaining}</strong>
       </div>
       <TicketHint participant={participant} />
-      {!participant ? (
-        <button className="primary-action icon-action" disabled={joinDisabled} onClick={onJoin}>
-          <LogIn size={18} /> 이벤트 입장
+      {(!participant || canReserve(participant)) ? (
+        <button className="primary-action icon-action" disabled={status !== 'OPEN'} onClick={onReserve}>
+          <Ticket size={18} /> 예약하기
         </button>
       ) : (
-        <button className="primary-action icon-action" disabled={reserveDisabled} onClick={onReserve}>
+        <button className="primary-action icon-action" disabled={true} onClick={onReserve}>
           <Ticket size={18} /> 예약하기
         </button>
       )}

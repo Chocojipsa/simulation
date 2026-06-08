@@ -163,3 +163,16 @@ export async function releaseSeat(apiBaseUrl: string, eventId: string, participa
 export async function fetchSystemMetrics(apiBaseUrl: string): Promise<SystemMetrics> {
   return readJson(await fetch(`${apiBaseUrl}/api/system/metrics`));
 }
+
+export async function updateParticipantName(
+  apiBaseUrl: string,
+  eventId: string,
+  participantId: string,
+  displayName: string,
+): Promise<CommandResponse> {
+  return readJson(await fetch(`${apiBaseUrl}/api/events/${eventId}/participants/${participantId}/name`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ displayName }),
+  }));
+}

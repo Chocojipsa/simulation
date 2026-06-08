@@ -9,6 +9,7 @@ import {
   holdSeat,
   confirmPayment,
   releaseSeat,
+  updateParticipantName,
   type LiveEventSnapshot,
   ApiError,
 } from '../api/liveEventApi';
@@ -32,6 +33,7 @@ export function TicketingWindow() {
   const { eventId } = useParams<{ eventId: string }>();
   const [step, setStep] = useState<number>(1);
   const [displayName, setDisplayName] = useState('');
+  const [payeeName, setPayeeName] = useState('');
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<LiveEventSnapshot | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
@@ -134,49 +136,46 @@ export function TicketingWindow() {
     };
   }, [eventId, step, initSession]);
 
-  // 2. Queue Progress SSE Connection (Step 2) with HTTP Polling Fallback
+  // 2. Queue Progress SSE Connection (Step 2) with status reconciliation poll
   useEffect(() => {
     if (step !== 2 || !eventId || !participantId) return;
     let active = true;
     let eventSource: EventSource | null = null;
-    let fallbackTimer: any = null;
+    let pollTimer: any = null;
 
-    const startFallbackPolling = () => {
-      console.log('Falling back to HTTP Polling for queue checks...');
-      setSseQueuePos(null);
-      setSseEstimatedSeconds(null);
-      if (fallbackTimer) clearInterval(fallbackTimer);
-      fallbackTimer = setInterval(async () => {
-        try {
-          const snap = await fetchEventSnapshot(apiBaseUrl, eventId, participantId);
-          if (!active) return;
-          setSnapshot(snap);
-          const p = snap.participants.find((u) => u.id === participantId);
-          if (p) {
-            if (p.status !== 'QUEUED') {
-              if (p.status === 'SELECTING_SEAT' || p.status === 'ADMITTED') {
-                setStep(3);
-              } else if (p.status === 'SEAT_HELD' || p.status === 'PAYMENT_IN_PROGRESS') {
-                setStep(4);
-              } else if (p.status === 'RESERVED') {
-                setBookingTime(new Date().toLocaleString());
-                setStep(5);
-              } else {
-                localStorage.removeItem('timedeal.participantId');
-                setParticipantId(null);
-                setStep(1);
-              }
+    const checkStatus = async () => {
+      try {
+        const snap = await fetchEventSnapshot(apiBaseUrl, eventId, participantId);
+        if (!active) return;
+        setSnapshot(snap);
+        const p = snap.participants.find((u) => u.id === participantId);
+        if (p) {
+          if (p.status !== 'QUEUED') {
+            if (p.status === 'SELECTING_SEAT' || p.status === 'ADMITTED') {
+              setStep(3);
+            } else if (p.status === 'SEAT_HELD' || p.status === 'PAYMENT_IN_PROGRESS') {
+              setStep(4);
+            } else if (p.status === 'RESERVED') {
+              setBookingTime(new Date().toLocaleString());
+              setStep(5);
+            } else {
+              localStorage.removeItem('timedeal.participantId');
+              setParticipantId(null);
+              setStep(1);
             }
-          } else {
-            localStorage.removeItem('timedeal.participantId');
-            setParticipantId(null);
-            setStep(1);
           }
-        } catch (err) {
-          console.error('Queue fallback polling failed:', err);
+        } else {
+          localStorage.removeItem('timedeal.participantId');
+          setParticipantId(null);
+          setStep(1);
         }
-      }, 1500);
+      } catch (err) {
+        console.error('Queue status check failed:', err);
+      }
     };
+
+    // Run status check every 3 seconds to guarantee progress even if SSE drops
+    pollTimer = setInterval(checkStatus, 3000);
 
     const sseUrl = `${apiBaseUrl}/api/events/${eventId}/participants/${participantId}/stream`;
     console.log(`Connecting to queue SSE stream: ${sseUrl}`);
@@ -203,18 +202,14 @@ export function TicketingWindow() {
       });
 
       eventSource.onerror = (err) => {
-        console.error('SSE connection error, initiating fallback:', err);
+        console.error('SSE connection error:', err);
         if (eventSource) {
           eventSource.close();
           eventSource = null;
         }
-        if (active) {
-          startFallbackPolling();
-        }
       };
     } catch (err) {
       console.error('Failed to create EventSource:', err);
-      startFallbackPolling();
     }
 
     return () => {
@@ -222,8 +217,8 @@ export function TicketingWindow() {
       if (eventSource) {
         eventSource.close();
       }
-      if (fallbackTimer) {
-        clearInterval(fallbackTimer);
+      if (pollTimer) {
+        clearInterval(pollTimer);
       }
     };
   }, [step, eventId, participantId]);
@@ -404,9 +399,14 @@ export function TicketingWindow() {
 
   const handleConfirmPayment = async () => {
     if (!eventId || !participantId) return;
+    if (!payeeName.trim()) {
+      setError('예매자 이름을 입력해 주세요.');
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
+      await updateParticipantName(apiBaseUrl, eventId, participantId, payeeName.trim());
       const res = await confirmPayment(apiBaseUrl, eventId, participantId);
       if (res.status === 'RESERVED') {
         const snap = await fetchEventSnapshot(apiBaseUrl, eventId, participantId);
@@ -935,9 +935,25 @@ export function TicketingWindow() {
                 <span>선택한 좌석</span>
                 <strong>{activeParticipant?.selectedSeatLabel}</strong>
               </div>
-              <div className="payment-row">
-                <span>예매자</span>
-                <strong>{activeParticipant?.displayName}</strong>
+              <div className="payment-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '8px', padding: '12px 0' }}>
+                <span>예매자 이름</span>
+                <input
+                  type="text"
+                  placeholder="예매자 이름을 입력하세요"
+                  value={payeeName}
+                  onChange={(e) => setPayeeName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '2px solid var(--line)',
+                    backgroundColor: '#fff',
+                    fontFamily: 'inherit',
+                    fontSize: '14px',
+                    fontWeight: '800',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
               </div>
             </div>
 

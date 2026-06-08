@@ -224,6 +224,14 @@ public class SimulationService {
         }
     }
 
+    public SimulationSnapshot updateParticipantName(UUID simulationId, UUID participantId, String displayName) {
+        SimulationSnapshot updated = stateStore.updateParticipantName(simulationId, participantId, displayName);
+        if (eventHub != null) {
+            eventHub.publish(updated);
+        }
+        return updated;
+    }
+
     public int getMaxActiveAdmissions() {
         return this.maxActiveAdmissions;
     }

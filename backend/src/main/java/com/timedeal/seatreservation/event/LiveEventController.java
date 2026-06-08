@@ -111,4 +111,14 @@ public class LiveEventController {
     ) {
         return simulationEventHub.openUserStream(participantId);
     }
+
+    @PostMapping("/{eventId}/participants/{participantId}/name")
+    public VirtualUserCommandResponse updateParticipantName(
+            @PathVariable UUID eventId,
+            @PathVariable UUID participantId,
+            @RequestBody UpdateNameRequest request
+    ) {
+        liveEventService.updateParticipantName(eventId, participantId, request.displayName());
+        return new VirtualUserCommandResponse(eventId, participantId, "SUCCESS", "api", "이름이 변경되었습니다.", null);
+    }
 }

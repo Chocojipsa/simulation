@@ -367,6 +367,12 @@ public class LiveEventService {
         simulationService.releaseSeat(eventId, participantId);
     }
 
+    public com.timedeal.seatreservation.simulation.SimulationSnapshot updateParticipantName(UUID eventId, UUID participantId, String displayName) {
+        ensureExpectedEvent(eventId);
+        ensureSimulationExists();
+        return simulationService.updateParticipantName(eventId, participantId, displayName);
+    }
+
     public RunSimulationResponse startAiParticipants(UUID eventId, StartAiParticipantsRequest request) {
         ensureExpectedEvent(eventId);
         return simulationService.runSimulation(eventId, new RunSimulationRequest(request.participantCount(), request.concurrency()));
