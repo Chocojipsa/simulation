@@ -62,19 +62,18 @@ public class SimulationEventHub {
         emitter.onCompletion(() -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
         emitter.onTimeout(() -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
         emitter.onError(ignored -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
-        scheduleHeartbeat(emitter);
 
         try {
             synchronized (emitter) {
                 emitter.send(SseEmitter.event().name("connect").data("connected"));
             }
         } catch (IOException | IllegalStateException e) {
-            cancelHeartbeat(emitter);
             remove(simulationId, emitter);
             completeQuietly(emitter);
             return emitter;
         }
 
+        scheduleHeartbeat(emitter);
         return emitter;
     }
 
@@ -92,19 +91,18 @@ public class SimulationEventHub {
         emitter.onCompletion(() -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
         emitter.onTimeout(() -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
         emitter.onError(ignored -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
-        scheduleHeartbeat(emitter);
 
         try {
             synchronized (emitter) {
                 emitter.send(SseEmitter.event().name("connect").data("connected"));
             }
         } catch (IOException | IllegalStateException e) {
-            cancelHeartbeat(emitter);
             removeUserEmitter(participantId, emitter);
             completeQuietly(emitter);
             return emitter;
         }
 
+        scheduleHeartbeat(emitter);
         return emitter;
     }
 
@@ -178,6 +176,8 @@ public class SimulationEventHub {
     @PreDestroy
     void shutdown() {
         heartbeatScheduler.shutdownNow();
+        emitters.values().forEach(list -> list.forEach(this::completeQuietly));
+        userEmitters.values().forEach(list -> list.forEach(this::completeQuietly));
     }
 
     private void scheduleHeartbeat(SseEmitter emitter) {
