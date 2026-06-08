@@ -176,3 +176,54 @@ export async function updateParticipantName(
     body: JSON.stringify({ displayName }),
   }));
 }
+
+export function normalizeSnapshot(snapshot: any, prevSnapshot?: LiveEventSnapshot | null): LiveEventSnapshot {
+  if (!snapshot) return null as any;
+
+  const isSimulation = 'simulationId' in snapshot && 'users' in snapshot;
+
+  const eventId = isSimulation ? snapshot.simulationId : (snapshot.eventId || '');
+  const title = snapshot.title || prevSnapshot?.title || '콘서트 예매';
+  const status = snapshot.status || prevSnapshot?.status || (snapshot.running ? 'OPEN' : 'READY');
+  const generation = snapshot.generation !== undefined ? snapshot.generation : (prevSnapshot?.generation ?? 0);
+  const opensAt = snapshot.opensAt || prevSnapshot?.opensAt || null;
+  const endsAt = snapshot.endsAt || prevSnapshot?.endsAt || null;
+  
+  const seats = snapshot.seats || prevSnapshot?.seats || [];
+  const participants = isSimulation ? (snapshot.users || []) : (snapshot.participants || prevSnapshot?.participants || []);
+  
+  const metrics = snapshot.metrics || prevSnapshot?.metrics || {
+    queueSize: 0,
+    admittedCount: 0,
+    heldCount: 0,
+    paymentInProgressCount: 0,
+    reservedCount: 0,
+    failedCount: 0
+  };
+  
+  const serverStats = snapshot.serverStats || prevSnapshot?.serverStats || [];
+  const running = typeof snapshot.running === 'boolean' ? snapshot.running : (prevSnapshot?.running ?? false);
+  const myParticipantId = snapshot.myParticipantId !== undefined ? snapshot.myParticipantId : (prevSnapshot?.myParticipantId ?? null);
+  const myQueuePosition = snapshot.myQueuePosition !== undefined ? snapshot.myQueuePosition : (prevSnapshot?.myQueuePosition ?? null);
+  const activeConnections = snapshot.activeConnections !== undefined ? snapshot.activeConnections : (prevSnapshot?.activeConnections ?? 0);
+  const admissionsAvailable = snapshot.admissionsAvailable !== undefined ? snapshot.admissionsAvailable : (prevSnapshot?.admissionsAvailable ?? 0);
+
+  return {
+    eventId,
+    title,
+    status,
+    generation,
+    opensAt,
+    endsAt,
+    seats,
+    participants,
+    metrics,
+    serverStats,
+    running,
+    myParticipantId,
+    myQueuePosition,
+    activeConnections,
+    admissionsAvailable
+  };
+}
+

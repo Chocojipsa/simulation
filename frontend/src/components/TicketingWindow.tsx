@@ -12,6 +12,7 @@ import {
   updateParticipantName,
   type LiveEventSnapshot,
   ApiError,
+  normalizeSnapshot,
 } from '../api/liveEventApi';
 import { getQueuePosition } from '../domain/liveEventSelectors';
 
@@ -42,7 +43,13 @@ export function TicketingWindow() {
   const [step, setStep] = useState<number>(1);
   const [payeeName, setPayeeName] = useState('');
   const [participantId, setParticipantId] = useState<string | null>(null);
-  const [snapshot, setSnapshot] = useState<LiveEventSnapshot | null>(null);
+  const [snapshot, setRawSnapshot] = useState<LiveEventSnapshot | null>(null);
+  const setSnapshot = useCallback((val: any) => {
+    setRawSnapshot((prev) => {
+      const nextVal = typeof val === 'function' ? val(prev) : val;
+      return normalizeSnapshot(nextVal, prev);
+    });
+  }, []);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

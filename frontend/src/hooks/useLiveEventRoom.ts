@@ -11,6 +11,7 @@ import {
   startEvent,
   type CommandResponse,
   type LiveEventSnapshot,
+  normalizeSnapshot,
 } from '../api/liveEventApi';
 import { getMyParticipant } from '../domain/liveEventSelectors';
 
@@ -32,7 +33,7 @@ export function useLiveEventRoom(apiBaseUrl: string) {
     refreshingRef.current = true;
     try {
       const next = await fetchEventSnapshot(apiBaseUrl, eventId, participantId);
-      setSnapshot(next);
+      setSnapshot(prev => normalizeSnapshot(next, prev));
     } finally {
       refreshingRef.current = false;
     }
@@ -116,7 +117,7 @@ export function useLiveEventRoom(apiBaseUrl: string) {
         if (rafId === null) {
           rafId = requestAnimationFrame(() => {
             if (pendingSnapshot) {
-              setSnapshot(pendingSnapshot);
+              setSnapshot(prev => normalizeSnapshot(pendingSnapshot, prev));
               setError(null);
               pendingSnapshot = null;
             }
