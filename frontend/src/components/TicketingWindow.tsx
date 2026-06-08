@@ -120,11 +120,11 @@ export function TicketingWindow() {
     }
   }, [eventId]);
 
-  // 1. Session Recovery on mount
+  // 1. Session Recovery on mount or reset
   useEffect(() => {
     let active = true;
     const run = async () => {
-      if (active) {
+      if (active && step === 1) {
         await initSession();
       }
     };
@@ -132,7 +132,7 @@ export function TicketingWindow() {
     return () => {
       active = false;
     };
-  }, [eventId, initSession]);
+  }, [eventId, step, initSession]);
 
   // 2. Queue Progress SSE Connection (Step 2) with HTTP Polling Fallback
   useEffect(() => {
@@ -163,12 +163,14 @@ export function TicketingWindow() {
                 setStep(5);
               } else {
                 localStorage.removeItem('timedeal.participantId');
-                void initSession();
+                setParticipantId(null);
+                setStep(1);
               }
             }
           } else {
             localStorage.removeItem('timedeal.participantId');
-            void initSession();
+            setParticipantId(null);
+            setStep(1);
           }
         } catch (err) {
           console.error('Queue fallback polling failed:', err);
@@ -268,11 +270,13 @@ export function TicketingWindow() {
             setStep(3);
           } else if (!['SEAT_HELD', 'PAYMENT_IN_PROGRESS'].includes(p.status)) {
             localStorage.removeItem('timedeal.participantId');
-            void initSession();
+            setParticipantId(null);
+            setStep(1);
           }
         } else {
           localStorage.removeItem('timedeal.participantId');
-          void initSession();
+          setParticipantId(null);
+          setStep(1);
         }
       } catch (err) {
         console.error('Payment polling failed:', err);

@@ -21,7 +21,6 @@ public class LiveEventQueueScheduler {
     private final LiveEventService liveEventService;
     private final SimulationService simulationService;
     private final WaitingQueueService waitingQueueService;
-    private int tickCounter = 0;
 
     public LiveEventQueueScheduler(
             LiveEventService liveEventService,
@@ -64,19 +63,16 @@ public class LiveEventQueueScheduler {
                 }
             }
 
-            // Update remaining users position (throttled to every 3 seconds and limited to top 100 users)
-            tickCounter++;
-            if (tickCounter % 3 == 0) {
-                List<String> remainingUserIds = waitingQueueService.queuedUserIds(eventId.toString());
-                int limit = Math.min(remainingUserIds.size(), 100);
-                for (int i = 0; i < limit; i++) {
-                    String userIdStr = remainingUserIds.get(i);
-                    UUID userId = UUID.fromString(userIdStr);
-                    int position = i + 1;
-                    double estimatedWait = position * 0.5;
-                    String message = String.format(Locale.US, "{\"position\":%d,\"estimatedWaitSeconds\":%.1f}", position, estimatedWait);
-                    simulationService.publishUserActivityDirectly(eventId, userId, "queue_position_update", message);
-                }
+            // Update remaining users position (limited to top 100 users)
+            List<String> remainingUserIds = waitingQueueService.queuedUserIds(eventId.toString());
+            int limit = Math.min(remainingUserIds.size(), 100);
+            for (int i = 0; i < limit; i++) {
+                String userIdStr = remainingUserIds.get(i);
+                UUID userId = UUID.fromString(userIdStr);
+                int position = i + 1;
+                double estimatedWait = position * 0.5;
+                String message = String.format(Locale.US, "{\"position\":%d,\"estimatedWaitSeconds\":%.1f}", position, estimatedWait);
+                simulationService.publishUserActivityDirectly(eventId, userId, "queue_position_update", message);
             }
         } catch (Exception e) {
             log.error("Error processing queue in scheduler", e);
