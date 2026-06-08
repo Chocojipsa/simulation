@@ -233,13 +233,23 @@ public class SimulationService {
 
     public void admitParticipant(UUID simulationId, UUID userId) {
         if (waitingQueueService != null) {
+            // Always remove from Redis queue first to prevent phantom entries
+            waitingQueueService.removeAdmissionCandidate(simulationId.toString(), userId.toString());
+        }
+        // Only admit if user is still in QUEUED status (prevents re-admitting expired/completed users)
+        try {
+            VirtualUserView participant = getParticipant(simulationId, userId);
+            if (participant.status() != VirtualUserStatus.QUEUED) {
+                return;
+            }
+        } catch (Exception e) {
+            return;
+        }
+        if (waitingQueueService != null) {
             waitingQueueService.issueAdmissionToken(simulationId.toString(), userId.toString());
         }
         Instant expiresAt = now().plus(seatSelectionTtl);
         stateStore.recordAdmitted(simulationId, userId, expiresAt, serverIdentity.id());
-        if (waitingQueueService != null) {
-            waitingQueueService.removeAdmissionCandidate(simulationId.toString(), userId.toString());
-        }
         publishUserActivityDirectly(simulationId, userId, "queue_admitted", "대기열을 통과했습니다! 좌석을 선택합니다.");
     }
 
@@ -451,6 +461,7 @@ public class SimulationService {
 
         if (activeCount < maxActiveAdmissions) {
             waitingQueueService.issueAdmissionToken(simulationId.toString(), userId.toString());
+            waitingQueueService.removeAdmissionCandidate(simulationId.toString(), userId.toString());
             Instant expiresAt = now().plus(seatSelectionTtl);
             stateStore.recordAdmitted(simulationId, userId, expiresAt, serverIdentity.id());
             return true;
@@ -481,6 +492,15 @@ public class SimulationService {
 
         if (!seatHoldExpiredIds.isEmpty() || !seatSelectionExpiredIds.isEmpty()) {
             stateStore.expireTimedOutParticipants(simulationId, seatHoldExpiredIds, seatSelectionExpiredIds, serverIdentity.id());
+            // Clean up expired users from Redis queue to prevent phantom entries
+            if (waitingQueueService != null) {
+                for (UUID userId : seatHoldExpiredIds) {
+                    waitingQueueService.removeAdmissionCandidate(simulationId.toString(), userId.toString());
+                }
+                for (UUID userId : seatSelectionExpiredIds) {
+                    waitingQueueService.removeAdmissionCandidate(simulationId.toString(), userId.toString());
+                }
+            }
         }
     }
 
