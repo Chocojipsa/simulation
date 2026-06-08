@@ -44,8 +44,20 @@ public class SimulationEventHub {
         });
     }
 
+    protected SseEmitter createEmitter(long timeout) {
+        return new SseEmitter(timeout);
+    }
+
     public SseEmitter open(UUID simulationId) {
-        SseEmitter emitter = new SseEmitter(TIMEOUT_MILLIS);
+        SseEmitter emitter = createEmitter(TIMEOUT_MILLIS);
+
+        emitters.compute(simulationId, (key, list) -> {
+            if (list == null) {
+                list = new CopyOnWriteArrayList<>();
+            }
+            list.add(emitter);
+            return list;
+        });
 
         emitter.onCompletion(() -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
         emitter.onTimeout(() -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
@@ -58,23 +70,24 @@ public class SimulationEventHub {
             }
         } catch (IOException | IllegalStateException e) {
             cancelHeartbeat(emitter);
+            remove(simulationId, emitter);
             completeQuietly(emitter);
             return emitter;
         }
 
-        emitters.compute(simulationId, (key, list) -> {
+        return emitter;
+    }
+
+    public SseEmitter openUserStream(UUID participantId) {
+        SseEmitter emitter = createEmitter(TIMEOUT_MILLIS);
+
+        userEmitters.compute(participantId, (key, list) -> {
             if (list == null) {
                 list = new CopyOnWriteArrayList<>();
             }
             list.add(emitter);
             return list;
         });
-
-        return emitter;
-    }
-
-    public SseEmitter openUserStream(UUID participantId) {
-        SseEmitter emitter = new SseEmitter(TIMEOUT_MILLIS);
 
         emitter.onCompletion(() -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
         emitter.onTimeout(() -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
@@ -87,17 +100,10 @@ public class SimulationEventHub {
             }
         } catch (IOException | IllegalStateException e) {
             cancelHeartbeat(emitter);
+            removeUserEmitter(participantId, emitter);
             completeQuietly(emitter);
             return emitter;
         }
-
-        userEmitters.compute(participantId, (key, list) -> {
-            if (list == null) {
-                list = new CopyOnWriteArrayList<>();
-            }
-            list.add(emitter);
-            return list;
-        });
 
         return emitter;
     }
