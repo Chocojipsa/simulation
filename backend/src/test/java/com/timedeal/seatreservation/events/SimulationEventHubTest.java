@@ -131,4 +131,62 @@ class SimulationEventHubTest {
             hub.shutdown();
         }
     }
+
+    @Test
+    void openUserStreamTimeoutCleanUp() throws Exception {
+        SnapshotPublisher publisher = mock(SnapshotPublisher.class);
+        ObjectMapper mapper = new ObjectMapper();
+        SseEmitter mockEmitter = mock(SseEmitter.class);
+        
+        SimulationEventHub hub = new SimulationEventHub(publisher, mapper) {
+            @Override
+            protected SseEmitter createEmitter(long timeout) {
+                return mockEmitter;
+            }
+        };
+
+        UUID participantId = UUID.randomUUID();
+        try {
+            hub.openUserStream(participantId);
+            
+            org.mockito.ArgumentCaptor<Runnable> timeoutCaptor = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+            verify(mockEmitter).onTimeout(timeoutCaptor.capture());
+            
+            assertEquals(1, hub.getActiveUserConnectionCount());
+            timeoutCaptor.getValue().run();
+            assertEquals(0, hub.getActiveUserConnectionCount());
+        } finally {
+            hub.shutdown();
+        }
+    }
+
+    @Test
+    void openUserStreamErrorCleanUp() throws Exception {
+        SnapshotPublisher publisher = mock(SnapshotPublisher.class);
+        ObjectMapper mapper = new ObjectMapper();
+        SseEmitter mockEmitter = mock(SseEmitter.class);
+        
+        SimulationEventHub hub = new SimulationEventHub(publisher, mapper) {
+            @Override
+            protected SseEmitter createEmitter(long timeout) {
+                return mockEmitter;
+            }
+        };
+
+        UUID participantId = UUID.randomUUID();
+        try {
+            hub.openUserStream(participantId);
+            
+            @SuppressWarnings("unchecked")
+            org.mockito.ArgumentCaptor<java.util.function.Consumer<Throwable>> errorCaptor = 
+                org.mockito.ArgumentCaptor.forClass(java.util.function.Consumer.class);
+            verify(mockEmitter).onError(errorCaptor.capture());
+            
+            assertEquals(1, hub.getActiveUserConnectionCount());
+            errorCaptor.getValue().accept(new RuntimeException("Test error"));
+            assertEquals(0, hub.getActiveUserConnectionCount());
+        } finally {
+            hub.shutdown();
+        }
+    }
 }

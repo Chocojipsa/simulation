@@ -59,24 +59,43 @@ public class SimulationEventHub {
             return list;
         });
 
-        emitter.onCompletion(() -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
-        emitter.onTimeout(() -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
-        emitter.onError(ignored -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
+        emitter.onCompletion(() -> {
+            synchronized (emitter) {
+                cancelHeartbeat(emitter);
+                remove(simulationId, emitter);
+            }
+        });
+        emitter.onTimeout(() -> {
+            synchronized (emitter) {
+                cancelHeartbeat(emitter);
+                remove(simulationId, emitter);
+            }
+        });
+        emitter.onError(ignored -> {
+            synchronized (emitter) {
+                cancelHeartbeat(emitter);
+                remove(simulationId, emitter);
+            }
+        });
 
         try {
             synchronized (emitter) {
                 emitter.send(SseEmitter.event().name("connect").data("connected"));
             }
         } catch (IOException | IllegalStateException e) {
-            remove(simulationId, emitter);
-            completeQuietly(emitter);
+            synchronized (emitter) {
+                remove(simulationId, emitter);
+                completeQuietly(emitter);
+            }
             return emitter;
         }
 
         // Only schedule heartbeat if client hasn't disconnected concurrently
-        List<SseEmitter> active = emitters.get(simulationId);
-        if (active != null && active.contains(emitter)) {
-            scheduleHeartbeat(emitter);
+        synchronized (emitter) {
+            List<SseEmitter> active = emitters.get(simulationId);
+            if (active != null && active.contains(emitter)) {
+                scheduleHeartbeat(emitter);
+            }
         }
         return emitter;
     }
@@ -92,24 +111,43 @@ public class SimulationEventHub {
             return list;
         });
 
-        emitter.onCompletion(() -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
-        emitter.onTimeout(() -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
-        emitter.onError(ignored -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
+        emitter.onCompletion(() -> {
+            synchronized (emitter) {
+                cancelHeartbeat(emitter);
+                removeUserEmitter(participantId, emitter);
+            }
+        });
+        emitter.onTimeout(() -> {
+            synchronized (emitter) {
+                cancelHeartbeat(emitter);
+                removeUserEmitter(participantId, emitter);
+            }
+        });
+        emitter.onError(ignored -> {
+            synchronized (emitter) {
+                cancelHeartbeat(emitter);
+                removeUserEmitter(participantId, emitter);
+            }
+        });
 
         try {
             synchronized (emitter) {
                 emitter.send(SseEmitter.event().name("connect").data("connected"));
             }
         } catch (IOException | IllegalStateException e) {
-            removeUserEmitter(participantId, emitter);
-            completeQuietly(emitter);
+            synchronized (emitter) {
+                removeUserEmitter(participantId, emitter);
+                completeQuietly(emitter);
+            }
             return emitter;
         }
 
         // Only schedule heartbeat if client hasn't disconnected concurrently
-        List<SseEmitter> active = userEmitters.get(participantId);
-        if (active != null && active.contains(emitter)) {
-            scheduleHeartbeat(emitter);
+        synchronized (emitter) {
+            List<SseEmitter> active = userEmitters.get(participantId);
+            if (active != null && active.contains(emitter)) {
+                scheduleHeartbeat(emitter);
+            }
         }
         return emitter;
     }
@@ -147,8 +185,11 @@ public class SimulationEventHub {
                             .data(jsonData, MediaType.APPLICATION_JSON));
                 }
             } catch (IOException | IllegalStateException exception) {
-                remove(snapshot.simulationId(), emitter);
-                completeQuietly(emitter);
+                synchronized (emitter) {
+                    cancelHeartbeat(emitter);
+                    remove(snapshot.simulationId(), emitter);
+                    completeQuietly(emitter);
+                }
             }
         }
     }
@@ -175,8 +216,11 @@ public class SimulationEventHub {
                             .data(jsonData, MediaType.APPLICATION_JSON));
                 }
             } catch (IOException | IllegalStateException exception) {
-                removeUserEmitter(event.userId(), emitter);
-                completeQuietly(emitter);
+                synchronized (emitter) {
+                    cancelHeartbeat(emitter);
+                    removeUserEmitter(event.userId(), emitter);
+                    completeQuietly(emitter);
+                }
             }
         }
     }
@@ -189,17 +233,19 @@ public class SimulationEventHub {
     }
 
     private void scheduleHeartbeat(SseEmitter emitter) {
-        ScheduledFuture<?> future = heartbeatScheduler.scheduleAtFixedRate(() -> {
-            try {
-                synchronized (emitter) {
-                    emitter.send(SseEmitter.event().comment("heartbeat"));
+        synchronized (emitter) {
+            ScheduledFuture<?> future = heartbeatScheduler.scheduleAtFixedRate(() -> {
+                try {
+                    synchronized (emitter) {
+                        emitter.send(SseEmitter.event().comment("heartbeat"));
+                    }
+                } catch (IOException | IllegalStateException e) {
+                    cancelHeartbeat(emitter);
+                    completeQuietly(emitter);
                 }
-            } catch (IOException | IllegalStateException e) {
-                cancelHeartbeat(emitter);
-                completeQuietly(emitter);
-            }
-        }, HEARTBEAT_INTERVAL_SECONDS, HEARTBEAT_INTERVAL_SECONDS, TimeUnit.SECONDS);
-        heartbeats.put(emitter, future);
+            }, HEARTBEAT_INTERVAL_SECONDS, HEARTBEAT_INTERVAL_SECONDS, TimeUnit.SECONDS);
+            heartbeats.put(emitter, future);
+        }
     }
 
     private void cancelHeartbeat(SseEmitter emitter) {
