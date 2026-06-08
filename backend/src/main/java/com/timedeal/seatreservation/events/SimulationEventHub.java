@@ -53,6 +53,17 @@ public class SimulationEventHub {
             list.add(emitter);
             return list;
         });
+
+        try {
+            synchronized (emitter) {
+                emitter.send(SseEmitter.event().name("connect").data("connected"));
+            }
+        } catch (IOException | IllegalStateException e) {
+            remove(simulationId, emitter);
+            completeQuietly(emitter);
+            return emitter;
+        }
+
         scheduleHeartbeat(emitter);
         emitter.onCompletion(() -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
         emitter.onTimeout(() -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
@@ -69,6 +80,17 @@ public class SimulationEventHub {
             list.add(emitter);
             return list;
         });
+
+        try {
+            synchronized (emitter) {
+                emitter.send(SseEmitter.event().name("connect").data("connected"));
+            }
+        } catch (IOException | IllegalStateException e) {
+            removeUserEmitter(participantId, emitter);
+            completeQuietly(emitter);
+            return emitter;
+        }
+
         scheduleHeartbeat(emitter);
         emitter.onCompletion(() -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
         emitter.onTimeout(() -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
