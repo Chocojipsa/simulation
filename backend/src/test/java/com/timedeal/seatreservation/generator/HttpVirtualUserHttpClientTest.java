@@ -4,6 +4,8 @@ import com.timedeal.seatreservation.event.JoinEventResponse;
 import com.timedeal.seatreservation.event.PaymentConfirmResponse;
 import com.timedeal.seatreservation.event.SeatHoldResponse;
 import com.timedeal.seatreservation.simulation.VirtualUserCommandResponse;
+import com.timedeal.seatreservation.events.UserActivityPublisher;
+import com.timedeal.seatreservation.simulation.UserActivityEvent;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -11,6 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
 
 class HttpVirtualUserHttpClientTest {
     @Test
@@ -149,6 +152,37 @@ class HttpVirtualUserHttpClientTest {
                 "hold:http://nginx:8080:00000000-0000-0000-0000-000000000041",
                 "confirm:http://nginx:8080:00000000-0000-0000-0000-000000000041"
         );
+    }
+
+    @Test
+    void logsActivityDirectlyWhenPublisherIsSet() {
+        RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, "http://localhost:8080", 3, 0);
+        
+        UserActivityPublisher mockPublisher = mock(UserActivityPublisher.class);
+        client.setActivityPublisher(mockPublisher);
+
+        UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000040");
+        client.runUser("http://nginx:8080", eventId, 1);
+
+        verify(mockPublisher, atLeastOnce()).publish(any(UserActivityEvent.class));
+    }
+
+    @Test
+    void directPublishingFailureDoesNotThrowException() {
+        RecordingEventCommandClient commandClient = new RecordingEventCommandClient();
+        HttpVirtualUserHttpClient client = new HttpVirtualUserHttpClient(commandClient, "http://localhost:8080", 3, 0);
+        
+        UserActivityPublisher mockPublisher = mock(UserActivityPublisher.class);
+        doThrow(new RuntimeException("Redis connection error")).when(mockPublisher).publish(any(UserActivityEvent.class));
+        client.setActivityPublisher(mockPublisher);
+
+        UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000040");
+        
+        // This execution should proceed without throwing exceptions, logging warnings instead
+        client.runUser("http://nginx:8080", eventId, 1);
+        
+        verify(mockPublisher, atLeastOnce()).publish(any(UserActivityEvent.class));
     }
 
     private static final class RecordingEventCommandClient implements VirtualUserCommandClient {

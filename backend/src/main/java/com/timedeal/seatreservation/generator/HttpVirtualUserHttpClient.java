@@ -3,6 +3,7 @@ package com.timedeal.seatreservation.generator;
 import com.timedeal.seatreservation.event.JoinEventResponse;
 import com.timedeal.seatreservation.event.PaymentConfirmResponse;
 import com.timedeal.seatreservation.event.SeatHoldResponse;
+import com.timedeal.seatreservation.events.UserActivityPublisher;
 import com.timedeal.seatreservation.simulation.UserActivityEvent;
 import com.timedeal.seatreservation.simulation.VirtualUserCommandResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +26,7 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
     private static final Logger log = LoggerFactory.getLogger(HttpVirtualUserHttpClient.class);
 
     @Autowired(required = false)
-    private com.timedeal.seatreservation.simulation.SimulationService simulationService;
+    private UserActivityPublisher activityPublisher;
 
     private static final int DEFAULT_MAX_SEAT_ATTEMPTS = 3000;
     private static final long DEFAULT_RETRY_DELAY_MILLIS = 100L;
@@ -71,6 +72,10 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
         this.retryDelayMillis = retryDelayMillis;
         this.seatClickDelayMillis = seatClickDelayMillis;
         this.sleeper = sleeper;
+    }
+
+    void setActivityPublisher(UserActivityPublisher activityPublisher) {
+        this.activityPublisher = activityPublisher;
     }
 
     @Override
@@ -153,13 +158,15 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
     }
 
     private void logActivity(UUID simulationId, UUID userId, String label, String message) {
-        if (simulationService != null) {
+        if (activityPublisher != null) {
             try {
-                simulationService.publishUserActivityDirectly(simulationId, userId, label, message);
-            } catch (Exception ignored) {
+                activityPublisher.publish(new UserActivityEvent(simulationId, userId, label, message));
+            } catch (Exception e) {
+                log.warn("Failed to publish direct user activity", e);
             }
             return;
         }
+
         try {
             restClient.post()
                     .uri(controlBaseUrl + "/internal/traffic-generator/simulations/{simulationId}/users/{userId}/activity", simulationId, userId)
