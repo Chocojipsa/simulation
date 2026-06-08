@@ -149,6 +149,14 @@ export function TicketingWindow() {
         setSnapshot(snap);
         const p = snap.participants.find((u) => u.id === participantId);
         if (p) {
+          if (snap.status === 'OPEN' && (p.status === 'WAITING_ROOM' || p.status === 'CREATED')) {
+            console.log('Event is OPEN. Attempting to enter queue...');
+            await queueParticipant(apiBaseUrl, eventId, participantId);
+            const nextSnap = await fetchEventSnapshot(apiBaseUrl, eventId, participantId);
+            setSnapshot(nextSnap);
+            return;
+          }
+
           if (p.status !== 'QUEUED') {
             if (p.status === 'SELECTING_SEAT' || p.status === 'ADMITTED') {
               setStep(3);
@@ -157,6 +165,8 @@ export function TicketingWindow() {
             } else if (p.status === 'RESERVED') {
               setBookingTime(new Date().toLocaleString());
               setStep(5);
+            } else if (p.status === 'WAITING_ROOM' || p.status === 'CREATED') {
+              // Stay in Step 2, just wait
             } else {
               localStorage.removeItem('timedeal.participantId');
               setParticipantId(null);
