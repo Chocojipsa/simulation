@@ -141,8 +141,11 @@ export function TicketingWindow() {
     let active = true;
     let eventSource: EventSource | null = null;
     let pollTimer: any = null;
+    let checkStatusInProgress = false;
 
     const checkStatus = async () => {
+      if (checkStatusInProgress) return;
+      checkStatusInProgress = true;
       try {
         const snap = await fetchEventSnapshot(apiBaseUrl, eventId, participantId);
         if (!active) return;
@@ -154,6 +157,18 @@ export function TicketingWindow() {
             await queueParticipant(apiBaseUrl, eventId, participantId);
             const nextSnap = await fetchEventSnapshot(apiBaseUrl, eventId, participantId);
             setSnapshot(nextSnap);
+
+            const nextP = nextSnap.participants.find((u) => u.id === participantId);
+            if (nextP && nextP.status !== 'QUEUED') {
+              if (nextP.status === 'SELECTING_SEAT' || nextP.status === 'ADMITTED') {
+                setStep(3);
+              } else if (nextP.status === 'SEAT_HELD' || nextP.status === 'PAYMENT_IN_PROGRESS') {
+                setStep(4);
+              } else if (nextP.status === 'RESERVED') {
+                setBookingTime(new Date().toLocaleString());
+                setStep(5);
+              }
+            }
             return;
           }
 
@@ -180,6 +195,13 @@ export function TicketingWindow() {
         }
       } catch (err) {
         console.error('Queue status check failed:', err);
+        if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
+          localStorage.removeItem('timedeal.participantId');
+          setParticipantId(null);
+          setStep(1);
+        }
+      } finally {
+        checkStatusInProgress = false;
       }
     };
 
@@ -212,6 +234,8 @@ export function TicketingWindow() {
 
       eventSource.onerror = (err) => {
         console.error('SSE connection error:', err);
+        setSseQueuePos(null);
+        setSseEstimatedSeconds(null);
       };
     } catch (err) {
       console.error('Failed to create EventSource:', err);
