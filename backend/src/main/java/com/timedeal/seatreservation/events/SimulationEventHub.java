@@ -46,6 +46,22 @@ public class SimulationEventHub {
 
     public SseEmitter open(UUID simulationId) {
         SseEmitter emitter = new SseEmitter(TIMEOUT_MILLIS);
+
+        emitter.onCompletion(() -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
+        emitter.onTimeout(() -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
+        emitter.onError(ignored -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
+        scheduleHeartbeat(emitter);
+
+        try {
+            synchronized (emitter) {
+                emitter.send(SseEmitter.event().name("connect").data("connected"));
+            }
+        } catch (IOException | IllegalStateException e) {
+            cancelHeartbeat(emitter);
+            completeQuietly(emitter);
+            return emitter;
+        }
+
         emitters.compute(simulationId, (key, list) -> {
             if (list == null) {
                 list = new CopyOnWriteArrayList<>();
@@ -54,25 +70,27 @@ public class SimulationEventHub {
             return list;
         });
 
-        try {
-            synchronized (emitter) {
-                emitter.send(SseEmitter.event().name("connect").data("connected"));
-            }
-        } catch (IOException | IllegalStateException e) {
-            remove(simulationId, emitter);
-            completeQuietly(emitter);
-            return emitter;
-        }
-
-        scheduleHeartbeat(emitter);
-        emitter.onCompletion(() -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
-        emitter.onTimeout(() -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
-        emitter.onError(ignored -> { cancelHeartbeat(emitter); remove(simulationId, emitter); });
         return emitter;
     }
 
     public SseEmitter openUserStream(UUID participantId) {
         SseEmitter emitter = new SseEmitter(TIMEOUT_MILLIS);
+
+        emitter.onCompletion(() -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
+        emitter.onTimeout(() -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
+        emitter.onError(ignored -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
+        scheduleHeartbeat(emitter);
+
+        try {
+            synchronized (emitter) {
+                emitter.send(SseEmitter.event().name("connect").data("connected"));
+            }
+        } catch (IOException | IllegalStateException e) {
+            cancelHeartbeat(emitter);
+            completeQuietly(emitter);
+            return emitter;
+        }
+
         userEmitters.compute(participantId, (key, list) -> {
             if (list == null) {
                 list = new CopyOnWriteArrayList<>();
@@ -81,20 +99,6 @@ public class SimulationEventHub {
             return list;
         });
 
-        try {
-            synchronized (emitter) {
-                emitter.send(SseEmitter.event().name("connect").data("connected"));
-            }
-        } catch (IOException | IllegalStateException e) {
-            removeUserEmitter(participantId, emitter);
-            completeQuietly(emitter);
-            return emitter;
-        }
-
-        scheduleHeartbeat(emitter);
-        emitter.onCompletion(() -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
-        emitter.onTimeout(() -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
-        emitter.onError(ignored -> { cancelHeartbeat(emitter); removeUserEmitter(participantId, emitter); });
         return emitter;
     }
 
