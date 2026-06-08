@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { LogIn, RefreshCw, CreditCard, CheckCircle, AlertTriangle } from 'lucide-react';
 import { SeatMap } from './SeatMap';
@@ -32,7 +32,6 @@ const apiBaseUrl = getApiBaseUrl();
 export function TicketingWindow() {
   const { eventId } = useParams<{ eventId: string }>();
   const [step, setStep] = useState<number>(1);
-  const [displayName, setDisplayName] = useState('');
   const [payeeName, setPayeeName] = useState('');
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<LiveEventSnapshot | null>(null);
@@ -203,10 +202,6 @@ export function TicketingWindow() {
 
       eventSource.onerror = (err) => {
         console.error('SSE connection error:', err);
-        if (eventSource) {
-          eventSource.close();
-          eventSource = null;
-        }
       };
     } catch (err) {
       console.error('Failed to create EventSource:', err);
@@ -316,34 +311,6 @@ export function TicketingWindow() {
   }, [message]);
 
   // Event Handlers
-  const handleJoin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!eventId || !displayName.trim()) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-      // Step 1: Join Event
-      const joinRes = await joinEvent(apiBaseUrl, eventId, displayName.trim());
-      localStorage.setItem('timedeal.participantId', joinRes.participantId);
-      setParticipantId(joinRes.participantId);
-
-      // Step 2: Queue Participant
-      await queueParticipant(apiBaseUrl, eventId, joinRes.participantId);
-
-      // Fetch snapshot to get queue state
-      const snap = await fetchEventSnapshot(apiBaseUrl, eventId, joinRes.participantId);
-      setSnapshot(snap);
-      setSseQueuePos(null);
-      setSseEstimatedSeconds(null);
-      setStep(2);
-    } catch (err) {
-      setError('대기열 진입에 실패했습니다. 이름 및 서버 상태를 확인하세요.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleManualRefresh = async () => {
     if (!eventId) return;
     try {
