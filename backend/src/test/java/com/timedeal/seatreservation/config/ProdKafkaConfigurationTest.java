@@ -42,7 +42,7 @@ class ProdKafkaConfigurationTest {
         assertThat(properties.getProperty("waiting-queue.max-active-admissions"))
                 .isEqualTo("${WAITING_QUEUE_MAX_ACTIVE_ADMISSIONS:10}");
         assertThat(properties.getProperty("waiting-queue.selection-ttl-seconds"))
-                .isEqualTo("${WAITING_QUEUE_SELECTION_TTL_SECONDS:15}");
+                .isEqualTo("${WAITING_QUEUE_SELECTION_TTL_SECONDS:60}");
     }
 
     private PropertySource<?> prodProperties() throws IOException {

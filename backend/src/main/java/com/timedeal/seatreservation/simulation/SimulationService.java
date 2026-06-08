@@ -64,7 +64,7 @@ public class SimulationService {
             @Value("${payment.hold-ttl-seconds:60}") long seatHoldTtlSeconds,
             @Value("${waiting-queue.admission-batch-size:1}") int admissionBatchSize,
             @Value("${waiting-queue.max-active-admissions:1}") int maxActiveAdmissions,
-            @Value("${waiting-queue.selection-ttl-seconds:15}") long seatSelectionTtlSeconds
+            @Value("${waiting-queue.selection-ttl-seconds:60}") long seatSelectionTtlSeconds
     ) {
         this(
                 stateStore,
