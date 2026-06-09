@@ -90,7 +90,7 @@ class LiveEventAiStarterTest {
     @SuppressWarnings("unchecked")
     void usesRedisWhenAvailable() throws Exception {
         SimulationService simService = mock(SimulationService.class);
-        LiveEventAiStarter.BatchScheduler scheduler = (delay, task) -> {};
+        LiveEventAiStarter.BatchScheduler scheduler = (delay, task) -> task.run();
         RedisTemplate<String, String> redisTemplate = mock(RedisTemplate.class);
         ValueOperations<String, String> valueOperations = mock(ValueOperations.class);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
@@ -117,16 +117,20 @@ class LiveEventAiStarterTest {
         assertThat(cached.concurrency()).isEqualTo(40);
         assertThat(cached.speed()).isEqualTo("FAST");
 
-        // 3. Test start reads from Redis and deletes
+        // 3. Test start reads from Redis and deletes, then triggers simulation batches
         starter.start(eventId);
         verify(redisTemplate).delete(expectedKey);
+        verify(simService).runSimulation(
+                eq(eventId),
+                argThat(req -> req.virtualUserCount() == 20 && req.concurrency() == 20) // 10% batch
+        );
     }
 
     @Test
     @SuppressWarnings("unchecked")
     void fallsBackToLocalConfigWhenRedisThrows() {
         SimulationService simService = mock(SimulationService.class);
-        LiveEventAiStarter.BatchScheduler scheduler = (delay, task) -> {};
+        LiveEventAiStarter.BatchScheduler scheduler = (delay, task) -> task.run();
         RedisTemplate<String, String> redisTemplate = mock(RedisTemplate.class);
         ValueOperations<String, String> valueOperations = mock(ValueOperations.class);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
@@ -150,8 +154,11 @@ class LiveEventAiStarterTest {
         assertThat(cached.concurrency()).isEqualTo(60);
         assertThat(cached.speed()).isEqualTo("SLOW");
 
-        // 3. Start should handle Redis throw, read from localConfig, and successfully run
+        // 3. Start should handle Redis throw, read from localConfig, and trigger simulation
         starter.start(eventId);
-        // If it got here, it successfully read from localConfig and started.
+        verify(simService).runSimulation(
+                eq(eventId),
+                argThat(req -> req.virtualUserCount() == 30 && req.concurrency() == 30) // 10% batch
+        );
     }
 }

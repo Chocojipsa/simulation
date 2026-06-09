@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.timedeal.seatreservation.simulation.RunSimulationRequest;
 import com.timedeal.seatreservation.simulation.SimulationService;
 import jakarta.annotation.PreDestroy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +22,8 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class LiveEventAiStarter {
+    private static final Logger log = LoggerFactory.getLogger(LiveEventAiStarter.class);
+
     public record AiConfig(int participantCount, int concurrency, String speed) {}
 
     private final ConcurrentHashMap<UUID, AiConfig> localConfigs = new ConcurrentHashMap<>();
@@ -76,13 +80,19 @@ public class LiveEventAiStarter {
     public void start(UUID eventId) {
         AiConfig config = null;
         if (redisTemplate != null) {
+            String jsonKey = "live-event:" + eventId + ":ai-config";
             try {
-                String json = redisTemplate.opsForValue().get("live-event:" + eventId + ":ai-config");
+                String json = redisTemplate.opsForValue().get(jsonKey);
                 if (json != null) {
-                    config = objectMapper.readValue(json, AiConfig.class);
-                    redisTemplate.delete("live-event:" + eventId + ":ai-config");
+                    try {
+                        config = objectMapper.readValue(json, AiConfig.class);
+                    } finally {
+                        redisTemplate.delete(jsonKey);
+                    }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("Failed to retrieve or deserialize AI config from Redis for event {}. Falling back to local configs.", eventId, e);
+            }
         }
         if (config == null) {
             config = localConfigs.remove(eventId);
@@ -147,6 +157,7 @@ public class LiveEventAiStarter {
                 String json = objectMapper.writeValueAsString(config);
                 redisTemplate.opsForValue().set("live-event:" + eventId + ":ai-config", json, Duration.ofMinutes(10));
             } catch (Exception e) {
+                log.warn("Failed to save AI config to Redis for event {}. Falling back to local cache.", eventId, e);
                 localConfigs.put(eventId, config);
             }
         } else {
@@ -161,7 +172,9 @@ public class LiveEventAiStarter {
                 if (json != null) {
                     return objectMapper.readValue(json, AiConfig.class);
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("Failed to get cached AI config from Redis for event {}. Falling back to local cache.", eventId, e);
+            }
         }
         return localConfigs.get(eventId);
     }
