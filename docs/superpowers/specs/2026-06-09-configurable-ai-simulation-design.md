@@ -12,6 +12,8 @@ Currently, when the administrator starts an event from the dashboard, the backen
 To allow dynamic load testing, we want to expose these settings directly on the dashboard's control header before starting the event. 
 Since the live event metadata is stored in Redis/In-memory databases (`LiveEventMetadata`), modifying its database schema just to hold transient parameters is high-risk and violates separation of concerns. Instead, we will store the custom configuration transiently in the `LiveEventAiStarter` Spring service during the start transaction.
 
+Furthermore, the existing batch scheduling logic uses a hardcoded prefix list of sizes (`10, 15, 20, 25, 30` users), resulting in a massive sudden spike in the final batch for larger user counts (e.g., dumping 900 users all at once at the 6th step if user count is 1000). We will fix this by converting the batching sizes to proportional percentages (`10%, 15%, 20%, 25%, 30%` of the total user count), producing a smooth, gradual load curve for any target user count.
+
 ---
 
 ## 2. Proposed Architecture
@@ -109,13 +111,16 @@ Update `start(UUID eventId)` to read from the registry, fallback to defaults, tr
     private AiBatchSchedule buildCustomSchedule(int participantCount, int maxConcurrency, Duration interval) {
         int remaining = Math.max(0, participantCount);
         int normalizedConcurrency = Math.max(1, maxConcurrency);
-        int[] batchSizes = {10, 15, 20, 25, 30};
+        double[] batchPercentages = {0.10, 0.15, 0.20, 0.25, 0.30};
         long delayMillis = interval.toMillis();
         java.util.ArrayList<AiBatch> batches = new java.util.ArrayList<>();
         
-        for (int batchSize : batchSizes) {
+        for (double pct : batchPercentages) {
             if (remaining <= 0) break;
-            int count = Math.min(batchSize, remaining);
+            int count = (int) Math.round(participantCount * pct);
+            count = Math.min(count, remaining);
+            if (count <= 0) continue;
+            
             int concurrency = Math.min(normalizedConcurrency, count);
             batches.add(new AiBatch(count, concurrency, Duration.ofMillis(delayMillis)));
             remaining -= count;
