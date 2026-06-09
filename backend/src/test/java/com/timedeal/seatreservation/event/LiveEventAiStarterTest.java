@@ -124,6 +124,22 @@ class LiveEventAiStarterTest {
                 eq(eventId),
                 argThat(req -> req.virtualUserCount() == 20 && req.concurrency() == 20) // 10% batch
         );
+        verify(simService).runSimulation(
+                eq(eventId),
+                argThat(req -> req.virtualUserCount() == 30 && req.concurrency() == 30) // 15% batch
+        );
+        verify(simService).runSimulation(
+                eq(eventId),
+                argThat(req -> req.virtualUserCount() == 40 && req.concurrency() == 40) // 20% batch
+        );
+        verify(simService).runSimulation(
+                eq(eventId),
+                argThat(req -> req.virtualUserCount() == 50 && req.concurrency() == 40) // 25% batch
+        );
+        verify(simService).runSimulation(
+                eq(eventId),
+                argThat(req -> req.virtualUserCount() == 60 && req.concurrency() == 40) // 30% batch
+        );
     }
 
     @Test
@@ -159,6 +175,22 @@ class LiveEventAiStarterTest {
         verify(simService).runSimulation(
                 eq(eventId),
                 argThat(req -> req.virtualUserCount() == 30 && req.concurrency() == 30) // 10% batch
+        );
+        verify(simService).runSimulation(
+                eq(eventId),
+                argThat(req -> req.virtualUserCount() == 45 && req.concurrency() == 45) // 15% batch
+        );
+        verify(simService).runSimulation(
+                eq(eventId),
+                argThat(req -> req.virtualUserCount() == 60 && req.concurrency() == 60) // 20% batch
+        );
+        verify(simService).runSimulation(
+                eq(eventId),
+                argThat(req -> req.virtualUserCount() == 75 && req.concurrency() == 60) // 25% batch
+        );
+        verify(simService).runSimulation(
+                eq(eventId),
+                argThat(req -> req.virtualUserCount() == 90 && req.concurrency() == 60) // 30% batch
         );
     }
 }
