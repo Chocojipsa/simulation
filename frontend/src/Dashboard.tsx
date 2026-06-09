@@ -75,7 +75,7 @@ export default function Dashboard() {
         <Metric label="TPS" value={`${metrics ? metrics.tps.toFixed(1) : '0.0'}`} detail="transactions/s" />
         <Metric label="ACTIVE USERS" value={`${room.snapshot.activeConnections ?? 0}`} detail="connected" />
       </div>
-      <div style={{ maxWidth: '1200px', margin: '0 auto 16px auto' }}>
+      <div className="dashboard-hero-grid">
         <SeatMap
           status={room.snapshot.status}
           seats={room.snapshot.seats}
@@ -84,8 +84,6 @@ export default function Dashboard() {
           onSelectSeat={(seatId) => void room.selectSeat(seatId)}
           readOnly={true}
         />
-      </div>
-      <div className="dashboard-grid" style={{ gridTemplateColumns: 'minmax(230px, 280px) 1fr', gap: '16px' }}>
         <MyTicketPanel
           status={room.snapshot.status}
           participant={room.myParticipant}
@@ -94,6 +92,8 @@ export default function Dashboard() {
           onReserve={openTicketingWindow}
           onPay={() => void room.pay()}
         />
+      </div>
+      <div className="insight-section">
         <InsightPanel snapshot={room.snapshot} metrics={metrics} />
       </div>
     </main>

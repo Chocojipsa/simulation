@@ -766,4 +766,20 @@ button {
   border: 1px solid var(--line);
 }
 
+.dashboard-hero-grid {
+  display: grid;
+  grid-template-columns: 1fr minmax(230px, 280px);
+  gap: 16px;
+  max-width: 1200px;
+  margin: 0 auto 16px auto;
+}
 
+.insight-section {
+  margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+  .dashboard-hero-grid {
+    grid-template-columns: 1fr;
+  }
+}
