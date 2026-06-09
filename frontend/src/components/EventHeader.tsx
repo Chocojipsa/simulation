@@ -30,13 +30,6 @@ export function EventHeader({ snapshot, onStart, onReset }: EventHeaderProps) {
       <div className="event-title-block">
         <span className="eyebrow">LIVE CONSOLE</span>
         <h1>{snapshot.title}</h1>
-        <div className="infra-tags" aria-label="시스템 구성">
-          <span>nginx</span>
-          <span>api-a/b</span>
-          <span>redis</span>
-          <span>postgres</span>
-          <span>kafka</span>
-        </div>
         <div className="nav-links">
           <Link to="/" className={`nav-tab ${useLocation().pathname === '/' ? 'active' : ''}`}>Dashboard</Link>
           <Link to="/monitoring" className={`nav-tab ${useLocation().pathname === '/monitoring' ? 'active' : ''}`}>Monitoring Console</Link>
