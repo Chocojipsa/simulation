@@ -38,14 +38,49 @@ class LiveEventAiStarterTest {
                 Duration.ofMillis(1000),
                 Duration.ofMillis(1500),
                 Duration.ofMillis(2000),
-                Duration.ofMillis(2500),
-                Duration.ofMillis(3000)
+                Duration.ofMillis(2500)
         );
-        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(10, 10));
         verify(simulationService).runSimulation(eventId, new RunSimulationRequest(15, 15));
-        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(20, 20));
-        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(25, 25));
+        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(23, 23));
         verify(simulationService).runSimulation(eventId, new RunSimulationRequest(30, 30));
-        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(50, 50));
+        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(38, 38));
+        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(44, 44));
+    }
+
+    @Test
+    void appliesConfiguredProportionalScheduleAndSpeeds() {
+        SimulationService simService = mock(SimulationService.class);
+        LiveEventAiStarter.BatchScheduler scheduler = (delay, task) -> {
+            task.run();
+        };
+        
+        LiveEventAiStarter starter = new LiveEventAiStarter(simService, 150, 50, scheduler);
+        
+        UUID eventId = UUID.randomUUID();
+        starter.configure(eventId, 1000, 100, "FAST");
+        
+        starter.start(eventId);
+        
+        // Verify simulationService was called with proportional numbers
+        org.mockito.Mockito.verify(simService).runSimulation(
+                org.mockito.Mockito.eq(eventId),
+                org.mockito.Mockito.argThat(req -> req.virtualUserCount() == 100 && req.concurrency() == 100) // 10%
+        );
+        org.mockito.Mockito.verify(simService).runSimulation(
+                org.mockito.Mockito.eq(eventId),
+                org.mockito.Mockito.argThat(req -> req.virtualUserCount() == 150 && req.concurrency() == 100) // 15%
+        );
+        org.mockito.Mockito.verify(simService).runSimulation(
+                org.mockito.Mockito.eq(eventId),
+                org.mockito.Mockito.argThat(req -> req.virtualUserCount() == 200 && req.concurrency() == 100) // 20%
+        );
+        org.mockito.Mockito.verify(simService).runSimulation(
+                org.mockito.Mockito.eq(eventId),
+                org.mockito.Mockito.argThat(req -> req.virtualUserCount() == 250 && req.concurrency() == 100) // 25%
+        );
+        org.mockito.Mockito.verify(simService).runSimulation(
+                org.mockito.Mockito.eq(eventId),
+                org.mockito.Mockito.argThat(req -> req.virtualUserCount() == 300 && req.concurrency() == 100) // 30%
+        );
     }
 }

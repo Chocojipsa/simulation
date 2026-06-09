@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -47,13 +48,52 @@ public class LiveEventAiStarter {
     }
 
     public void start(UUID eventId) {
-        AiBatchSchedule schedule = AiBatchSchedule.defaultSchedule(participantCount, concurrency);
+        AiConfig config = customConfigs.remove(eventId);
+        int count = config != null ? config.participantCount() : this.participantCount;
+        int maxConcurrency = config != null ? config.concurrency() : this.concurrency;
+        String speed = config != null ? config.speed() : "NORMAL";
+
+        Duration interval;
+        if ("FAST".equals(speed)) {
+            interval = Duration.ofMillis(100);
+        } else if ("SLOW".equals(speed)) {
+            interval = Duration.ofMillis(1500);
+        } else {
+            interval = Duration.ofMillis(500);
+        }
+
+        AiBatchSchedule schedule = buildCustomSchedule(count, maxConcurrency, interval);
         for (AiBatch batch : schedule.batches()) {
             scheduler.schedule(batch.delay(), () -> simulationService.runSimulation(
                     eventId,
                     new RunSimulationRequest(batch.participantCount(), batch.concurrency())
             ));
         }
+    }
+
+    private AiBatchSchedule buildCustomSchedule(int participantCount, int maxConcurrency, Duration interval) {
+        int remaining = Math.max(0, participantCount);
+        int normalizedConcurrency = Math.max(1, maxConcurrency);
+        double[] batchPercentages = {0.10, 0.15, 0.20, 0.25, 0.30};
+        long delayMillis = interval.toMillis();
+        java.util.ArrayList<AiBatch> batches = new java.util.ArrayList<>();
+        
+        for (double pct : batchPercentages) {
+            if (remaining <= 0) break;
+            int count = (int) Math.round(participantCount * pct);
+            count = Math.min(count, remaining);
+            if (count <= 0) continue;
+            
+            int concurrency = Math.min(normalizedConcurrency, count);
+            batches.add(new AiBatch(count, concurrency, Duration.ofMillis(delayMillis)));
+            remaining -= count;
+            delayMillis += interval.toMillis();
+        }
+        if (remaining > 0) {
+            int concurrency = Math.min(normalizedConcurrency, remaining);
+            batches.add(new AiBatch(remaining, concurrency, Duration.ofMillis(delayMillis)));
+        }
+        return new AiBatchSchedule(List.copyOf(batches));
     }
 
     public void configure(UUID eventId, Integer participantCount, Integer concurrency, String speed) {
