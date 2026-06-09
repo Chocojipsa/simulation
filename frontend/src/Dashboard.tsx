@@ -75,7 +75,7 @@ export default function Dashboard() {
         <Metric label="TPS" value={`${metrics ? metrics.tps.toFixed(1) : '0.0'}`} detail="transactions/s" />
         <Metric label="ACTIVE USERS" value={`${room.snapshot.activeConnections ?? 0}`} detail="connected" />
       </div>
-      <div style={{ marginBottom: '16px' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto 16px auto' }}>
         <SeatMap
           status={room.snapshot.status}
           seats={room.snapshot.seats}
