@@ -74,7 +74,7 @@ export default function Dashboard() {
 
   return (
     <main className="dashboard">
-      <EventHeader snapshot={room.snapshot} onStart={() => void room.start()} onReset={() => void room.reset()} />
+      <EventHeader snapshot={room.snapshot} onStart={(request) => void room.start(request)} onReset={() => void room.reset()} />
       {room.error ? <div className="error-banner">{room.error}</div> : null}
       {room.message ? <div className="info-banner">{room.message}</div> : null}
       <div className="metric-strip" aria-label="실시간 이벤트 지표">
