@@ -257,12 +257,19 @@ public class LiveEventService {
     }
 
     public LiveEventResponse startEvent(UUID eventId, StartEventRequest request) {
-        // Temporarily delegate to startEvent(eventId) to keep compiling
         ensureExpectedEvent(eventId);
-        ensureSimulationExists();
-        LiveEventMetadata metadata = eventStateStore.startCountdown(eventId, now(), countdownDuration, openWindow);
-        triggerAiIfOpen(metadata);
-        return response(metadata);
+        LiveEventMetadata metadata = eventStateStore.getOrCreate(eventId, now());
+        if (metadata.statusAt(now()) != LiveEventStatus.READY) {
+            throw new IllegalStateException("Event already started or ended");
+        }
+        
+        if (request != null && aiStarter != null) {
+            aiStarter.configure(eventId, request.aiUserCount(), request.aiConcurrency(), request.aiSpeed());
+        }
+        
+        LiveEventMetadata started = eventStateStore.startCountdown(eventId, now(), countdownDuration, openWindow);
+        triggerAiIfOpen(started);
+        return response(started);
     }
 
     public LiveEventResponse resetEvent(UUID eventId) {

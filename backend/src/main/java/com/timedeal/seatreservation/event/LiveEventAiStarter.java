@@ -9,12 +9,17 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 @Service
 public class LiveEventAiStarter {
+    public record AiConfig(int participantCount, int concurrency, String speed) {}
+
+    private final ConcurrentHashMap<UUID, AiConfig> customConfigs = new ConcurrentHashMap<>();
+
     private final SimulationService simulationService;
     private final int participantCount;
     private final int concurrency;
@@ -49,6 +54,18 @@ public class LiveEventAiStarter {
                     new RunSimulationRequest(batch.participantCount(), batch.concurrency())
             ));
         }
+    }
+
+    public void configure(UUID eventId, Integer participantCount, Integer concurrency, String speed) {
+        if (participantCount == null && concurrency == null && speed == null) return;
+        int count = participantCount != null ? Math.max(0, Math.min(1000, participantCount)) : this.participantCount;
+        int maxConcurrency = concurrency != null ? Math.max(1, Math.min(120, concurrency)) : this.concurrency;
+        String normalizedSpeed = speed != null ? speed.toUpperCase() : "NORMAL";
+        customConfigs.put(eventId, new AiConfig(count, maxConcurrency, normalizedSpeed));
+    }
+
+    public AiConfig getCachedConfig(UUID eventId) {
+        return customConfigs.get(eventId);
     }
 
     @PreDestroy
