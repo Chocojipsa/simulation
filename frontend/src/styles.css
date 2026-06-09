@@ -41,7 +41,49 @@ button {
 
 .dashboard {
   min-height: 100vh;
-  padding: 12px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px 24px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.nav-tab {
+  display: inline-block;
+  padding: 6px 12px;
+  border: 2px solid var(--line);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  color: var(--ink);
+  background: var(--paper-2);
+  box-shadow: 2px 2px 0 var(--line);
+  transition: transform 100ms ease, box-shadow 100ms ease, background-color 100ms ease;
+  cursor: pointer;
+}
+
+.nav-tab:hover {
+  background: var(--paper);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--line);
+}
+
+.nav-tab:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--line);
+}
+
+.nav-tab.active {
+  background: var(--mint);
+  color: var(--paper);
+}
+
+.nav-tab.active:hover {
+  background: #3cb86f;
 }
 
 .top-bar {

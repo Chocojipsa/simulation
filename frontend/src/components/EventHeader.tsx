@@ -37,9 +37,9 @@ export function EventHeader({ snapshot, onStart, onReset }: EventHeaderProps) {
           <span>postgres</span>
           <span>kafka</span>
         </div>
-        <div className="nav-links" style={{ display: 'flex', gap: '15px', marginTop: '10px', borderTop: '1px solid var(--line)', paddingTop: '6px' }}>
-          <Link to="/" style={{ color: useLocation().pathname === '/' ? 'var(--mint)' : 'var(--text-muted, #888)', textDecoration: 'none', fontWeight: 'bold', fontSize: '13px' }}>Dashboard</Link>
-          <Link to="/monitoring" style={{ color: useLocation().pathname === '/monitoring' ? 'var(--mint)' : 'var(--text-muted, #888)', textDecoration: 'none', fontWeight: 'bold', fontSize: '13px' }}>Monitoring Console</Link>
+        <div className="nav-links">
+          <Link to="/" className={`nav-tab ${useLocation().pathname === '/' ? 'active' : ''}`}>Dashboard</Link>
+          <Link to="/monitoring" className={`nav-tab ${useLocation().pathname === '/monitoring' ? 'active' : ''}`}>Monitoring Console</Link>
         </div>
       </div>
       <div className="event-status">
