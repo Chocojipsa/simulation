@@ -10,6 +10,7 @@ import com.timedeal.seatreservation.simulation.SimulationSnapshot;
 import com.timedeal.seatreservation.simulation.SimulationStateGateway;
 import com.timedeal.seatreservation.simulation.VirtualUserCommandResponse;
 import com.timedeal.seatreservation.simulation.VirtualUserView;
+import com.timedeal.seatreservation.simulation.TimelineEntry;
 import com.timedeal.seatreservation.events.SimulationEventHub;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -388,6 +389,12 @@ public class LiveEventService {
     public RunSimulationResponse startAiParticipants(UUID eventId, StartAiParticipantsRequest request) {
         ensureExpectedEvent(eventId);
         return simulationService.runSimulation(eventId, new RunSimulationRequest(request.participantCount(), request.concurrency()));
+    }
+
+    public List<TimelineEntry> getParticipantTimeline(UUID eventId, UUID participantId) {
+        ensureExpectedEvent(eventId);
+        VirtualUserView participant = stateGateway.participant(eventId, participantId);
+        return participant != null ? participant.timeline() : List.of();
     }
 
     private void ensureSimulationExists() {

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.timedeal.seatreservation.simulation.SimulationSnapshot;
 import com.timedeal.seatreservation.simulation.UserActivityEvent;
+import com.timedeal.seatreservation.simulation.VirtualUserView;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -184,9 +185,24 @@ public class SimulationEventHub {
         }
 
         // Pre-serialize once to avoid N serializations for N clients
+        List<VirtualUserView> strippedUsers = snapshot.users().stream()
+                .map(u -> new VirtualUserView(
+                        u.id(), u.displayName(), u.type(), u.status(), u.selectedSeatLabel(),
+                        List.of(), // strip timeline!
+                        u.seatAttemptCount(), u.conflictCount(), u.paymentAttemptCount(),
+                        u.reservationId(), u.seatHoldExpiresAt()
+                )).toList();
+        SimulationSnapshot strippedSnapshot = new SimulationSnapshot(
+                snapshot.simulationId(),
+                snapshot.seats(),
+                strippedUsers,
+                snapshot.metrics(),
+                snapshot.serverStats(),
+                snapshot.running()
+        );
         String jsonData;
         try {
-            jsonData = objectMapper.writeValueAsString(snapshot);
+            jsonData = objectMapper.writeValueAsString(strippedSnapshot);
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize snapshot", e);
             return;

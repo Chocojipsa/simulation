@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.List;
 import java.util.UUID;
+import com.timedeal.seatreservation.simulation.TimelineEntry;
 
 @RestController
 @RequestMapping("/api/events")
@@ -123,5 +125,13 @@ public class LiveEventController {
     ) {
         liveEventService.updateParticipantName(eventId, participantId, request.displayName());
         return new VirtualUserCommandResponse(eventId, participantId, "SUCCESS", "api", "이름이 변경되었습니다.", null);
+    }
+
+    @GetMapping("/{eventId}/participants/{participantId}/timeline")
+    public List<TimelineEntry> getParticipantTimeline(
+            @PathVariable UUID eventId,
+            @PathVariable UUID participantId
+    ) {
+        return liveEventService.getParticipantTimeline(eventId, participantId);
     }
 }

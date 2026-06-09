@@ -9,12 +9,15 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
+import com.timedeal.seatreservation.simulation.TimelineEntry;
 
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -166,5 +169,21 @@ class LiveEventControllerTest {
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is("COUNTDOWN")));
+    }
+
+    @Test
+    void getParticipantTimelineReturnsList() throws Exception {
+        LiveEventService service = mock(LiveEventService.class);
+        UUID eventId = UUID.randomUUID();
+        UUID participantId = UUID.randomUUID();
+        when(service.getParticipantTimeline(eq(eventId), eq(participantId)))
+                .thenReturn(List.of(new TimelineEntry("THINKING", "탐색 중")));
+
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new LiveEventController(service, new SimulationEventHub(null, null))).build();
+
+        mvc.perform(get("/api/events/" + eventId + "/participants/" + participantId + "/timeline"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].label").value("THINKING"))
+                .andExpect(jsonPath("$[0].message").value("탐색 중"));
     }
 }
