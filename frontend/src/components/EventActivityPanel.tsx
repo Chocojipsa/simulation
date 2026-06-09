@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import type { LiveEventSnapshot } from '../api/liveEventApi';
+import { useMemo, useState, useEffect } from 'react';
+import { fetchParticipantTimeline, type LiveEventSnapshot, type TimelineEntry } from '../api/liveEventApi';
 import { useUserActivityStream } from '../hooks/useUserActivityStream';
 
 interface EventActivityPanelProps {
@@ -29,7 +29,19 @@ export function EventActivityPanel({
     targetId
   );
 
-  // If we have live activities from SSE, use them; otherwise fallback to the snapshot's timeline
+  const [fetchedTimeline, setFetchedTimeline] = useState<TimelineEntry[]>([]);
+
+  useEffect(() => {
+    if (targetId && snapshot.eventId) {
+      fetchParticipantTimeline(apiBaseUrl ?? '', snapshot.eventId, targetId)
+        .then(setFetchedTimeline)
+        .catch(console.error);
+    } else {
+      setFetchedTimeline([]);
+    }
+  }, [targetId, snapshot.eventId, apiBaseUrl]);
+
+  // If we have live activities from SSE, use them; otherwise fallback to the fetched timeline
   const activitiesToRender = useMemo(() => {
     if (!targetParticipant) return [];
     if (liveActivities.length > 0) {
@@ -39,24 +51,12 @@ export function EventActivityPanel({
         message: act.message,
       }));
     }
-    return targetParticipant.timeline.map((entry, index) => ({
-      id: `fallback-${targetId}-${index}`,
+    return fetchedTimeline.map((entry, index) => ({
+      id: `fetched-${targetId}-${index}`,
       label: entry.label,
       message: entry.message,
     })).reverse();
-  }, [targetParticipant, liveActivities, targetId]);
-
-  // Full merge log of all participants
-  const allLogs = useMemo(() =>
-    snapshot.participants.flatMap((p) =>
-      p.timeline.map((entry, index) => ({
-        id: `all-${p.id}-${index}`,
-        displayName: p.displayName,
-        label: entry.label,
-        message: entry.message,
-      }))
-    ).reverse().slice(0, 100),
-  [snapshot.participants]);
+  }, [targetParticipant, liveActivities, fetchedTimeline, targetId]);
 
   const getLabelClass = (label: string) => {
     const l = label.toUpperCase();
@@ -105,25 +105,17 @@ export function EventActivityPanel({
           </div>
         </div>
 
-        {/* 오른쪽 컬럼: 전체 로그 */}
+        {/* 오른쪽 컬럼: 안내 메시지 또는 전체 로그 */}
         <div className="activity-column history-log">
-          <h3>전체 로그</h3>
-          <div className="log-scroll-container">
-            {allLogs.length === 0 ? (
-              <p className="empty-log">기록이 없습니다.</p>
-            ) : (
-              <ol className="activity-list" style={{ paddingLeft: 0 }}>
-                {allLogs.map((entry) => (
-                  <li key={entry.id} className={`activity-item ${getLabelClass(entry.label)}`}>
-                    <strong className="activity-user" style={{ marginRight: '8px', color: 'var(--text-muted, #888)', fontSize: '12px' }}>
-                      {entry.displayName}
-                    </strong>
-                    <span className="activity-label">{entry.label}</span>
-                    <p>{entry.message}</p>
-                  </li>
-                ))}
-              </ol>
-            )}
+          <h3>시스템 알림</h3>
+          <div className="log-scroll-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', textAlign: 'center' }}>
+            <div style={{ color: 'var(--text-muted, #888)', fontSize: '14px', lineHeight: '1.6' }}>
+              <div style={{ fontSize: '24px', marginBottom: '10px' }}>⚡</div>
+              <strong style={{ color: 'var(--mint)', display: 'block', marginBottom: '8px' }}>네트워크 최적화 활성화됨</strong>
+              실시간 대역폭 최적화를 위해 전체 참가자의 상세 로그는 메인 스트림에서 제외되었습니다. 
+              좌측 <strong>참가자 대기열 목록</strong>에서 분석할 참가자를 선택하시면 
+              상세 타임라인을 온디맨드로 조회하거나 실시간 스트리밍으로 모니터링할 수 있습니다.
+            </div>
           </div>
         </div>
       </div>

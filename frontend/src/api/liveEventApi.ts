@@ -1,4 +1,5 @@
 import type { SeatView, ServerStatsView, SimulationMetrics, TimelineEntry } from './simulationApi';
+export type { TimelineEntry };
 
 export type ParticipantType = 'HUMAN' | 'AI';
 export type LiveEventStatus = 'READY' | 'COUNTDOWN' | 'OPEN' | 'ENDED';
@@ -241,3 +242,15 @@ export function normalizeSnapshot(snapshot: any, prevSnapshot?: LiveEventSnapsho
   };
 }
 
+export async function fetchParticipantTimeline(
+  apiBaseUrl: string,
+  eventId: string,
+  participantId: string
+): Promise<TimelineEntry[]> {
+  const url = `${apiBaseUrl}/api/events/${eventId}/participants/${participantId}/timeline`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error('Failed to fetch participant timeline');
+  }
+  return res.json();
+}

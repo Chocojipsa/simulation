@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { LiveEventSnapshot } from '../api/liveEventApi';
+import { Link, useLocation } from 'react-router-dom';
 import { formatEventStatus, getTimeLabel } from '../domain/liveEventSelectors';
 
 interface EventHeaderProps {
@@ -35,6 +36,10 @@ export function EventHeader({ snapshot, onStart, onReset }: EventHeaderProps) {
           <span>redis</span>
           <span>postgres</span>
           <span>kafka</span>
+        </div>
+        <div className="nav-links" style={{ display: 'flex', gap: '15px', marginTop: '10px', borderTop: '1px solid var(--line)', paddingTop: '6px' }}>
+          <Link to="/" style={{ color: useLocation().pathname === '/' ? 'var(--mint)' : 'var(--text-muted, #888)', textDecoration: 'none', fontWeight: 'bold', fontSize: '13px' }}>Dashboard</Link>
+          <Link to="/monitoring" style={{ color: useLocation().pathname === '/monitoring' ? 'var(--mint)' : 'var(--text-muted, #888)', textDecoration: 'none', fontWeight: 'bold', fontSize: '13px' }}>Monitoring Console</Link>
         </div>
       </div>
       <div className="event-status">

@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { fetchSystemMetrics, type SystemMetrics } from './api/liveEventApi';
-import { EventActivityPanel } from './components/EventActivityPanel';
 import { EventHeader } from './components/EventHeader';
 import { MyTicketPanel } from './components/MyTicketPanel';
-import { QueuePanel } from './components/QueuePanel';
 import { SeatMap } from './components/SeatMap';
 import { useLiveEventRoom } from './hooks/useLiveEventRoom';
 import { InsightPanel } from './components/InsightPanel';
@@ -24,7 +22,6 @@ const apiBaseUrl = getApiBaseUrl();
 
 export default function Dashboard() {
   const room = useLiveEventRoom(apiBaseUrl);
-  const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
 
   useEffect(() => {
@@ -45,11 +42,6 @@ export default function Dashboard() {
     };
   }, []);
 
-  useEffect(() => {
-    if (room.participantId && !selectedParticipantId) {
-      setSelectedParticipantId(room.participantId);
-    }
-  }, [room.participantId, selectedParticipantId]);
 
   const openTicketingWindow = () => {
     if (!room.eventId) return;
@@ -87,7 +79,7 @@ export default function Dashboard() {
         <Metric label="REDIS LOCKS" value={`${metrics ? metrics.redisLockCount : 0}`} detail="active locks" />
         <Metric label="NODES" value={`${metrics ? metrics.serverStats.length : room.snapshot.serverStats.length}`} detail="active" />
       </div>
-      <div className="dashboard-grid">
+      <div className="dashboard-grid" style={{ gridTemplateColumns: 'minmax(230px, 280px) 1fr' }}>
         <MyTicketPanel
           status={room.snapshot.status}
           participant={room.myParticipant}
@@ -104,21 +96,6 @@ export default function Dashboard() {
           onSelectSeat={(seatId) => void room.selectSeat(seatId)}
           readOnly={true}
         />
-        <div className="side-column">
-          <QueuePanel
-            snapshot={room.snapshot}
-            participantId={room.participantId}
-            selectedParticipantId={selectedParticipantId}
-            onSelectParticipant={setSelectedParticipantId}
-          />
-          <EventActivityPanel
-            snapshot={room.snapshot}
-            participantId={room.participantId}
-            selectedParticipantId={selectedParticipantId}
-            onSelectParticipant={setSelectedParticipantId}
-            apiBaseUrl={apiBaseUrl}
-          />
-        </div>
       </div>
       <InsightPanel snapshot={room.snapshot} metrics={metrics} />
     </main>
