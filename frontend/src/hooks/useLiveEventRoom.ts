@@ -12,6 +12,7 @@ import {
   type CommandResponse,
   type LiveEventSnapshot,
   normalizeSnapshot,
+  type StartEventRequest,
 } from '../api/liveEventApi';
 import { getMyParticipant } from '../domain/liveEventSelectors';
 
@@ -196,9 +197,9 @@ export function useLiveEventRoom(apiBaseUrl: string) {
     void wrapCommand(() => confirmPayment(apiBaseUrl, eventId, participantId));
   }, [apiBaseUrl, eventId, participantId, wrapCommand]);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (request?: StartEventRequest) => {
     if (!eventId) return;
-    await startEvent(apiBaseUrl, eventId);
+    await startEvent(apiBaseUrl, eventId, request);
     await refresh();
   }, [apiBaseUrl, eventId, refresh]);
 

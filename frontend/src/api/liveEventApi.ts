@@ -104,8 +104,22 @@ export async function fetchActiveEvent(apiBaseUrl: string): Promise<LiveEventRes
   return readJson(await fetch(`${apiBaseUrl}/api/events/active`));
 }
 
-export async function startEvent(apiBaseUrl: string, eventId: string): Promise<LiveEventResponse> {
-  return readJson(await fetch(`${apiBaseUrl}/api/events/${eventId}/start`, { method: 'POST' }));
+export interface StartEventRequest {
+  aiUserCount?: number;
+  aiConcurrency?: number;
+  aiSpeed?: 'SLOW' | 'NORMAL' | 'FAST';
+}
+
+export async function startEvent(
+  apiBaseUrl: string,
+  eventId: string,
+  request?: StartEventRequest
+): Promise<LiveEventResponse> {
+  return readJson(await fetch(`${apiBaseUrl}/api/events/${eventId}/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request || {}),
+  }));
 }
 
 export async function resetEvent(apiBaseUrl: string, eventId: string): Promise<LiveEventResponse> {
