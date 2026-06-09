@@ -72,22 +72,10 @@ export default function Dashboard() {
       <div className="metric-strip" aria-label="실시간 이벤트 지표">
         <Metric label="SEATS" value={`${room.snapshot.metrics.reservedCount}/${room.snapshot.seats.length}`} detail="reserved" />
         <Metric label="QUEUE" value={`${room.snapshot.metrics.queueSize}`} detail="waiting" />
-        <Metric label="HELD" value={`${room.snapshot.metrics.heldCount + room.snapshot.metrics.paymentInProgressCount}`} detail="checkout" />
+        <Metric label="TPS" value={`${metrics ? metrics.tps.toFixed(1) : '0.0'}`} detail="transactions/s" />
         <Metric label="ACTIVE USERS" value={`${room.snapshot.activeConnections ?? 0}`} detail="connected" />
-        <Metric label="ADMISSIONS AVAILABLE" value={`${room.snapshot.admissionsAvailable ?? 0}`} detail="slots" />
-        <Metric label="KAFKA LAG" value={`${metrics ? metrics.kafkaLag : 0}`} detail="messages" />
-        <Metric label="REDIS LOCKS" value={`${metrics ? metrics.redisLockCount : 0}`} detail="active locks" />
-        <Metric label="NODES" value={`${metrics ? metrics.serverStats.length : room.snapshot.serverStats.length}`} detail="active" />
       </div>
-      <div className="dashboard-grid" style={{ gridTemplateColumns: 'minmax(230px, 280px) 1fr' }}>
-        <MyTicketPanel
-          status={room.snapshot.status}
-          participant={room.myParticipant}
-          loading={room.loading}
-          onJoin={() => void room.join(randomGuestName())}
-          onReserve={openTicketingWindow}
-          onPay={() => void room.pay()}
-        />
+      <div style={{ marginBottom: '16px' }}>
         <SeatMap
           status={room.snapshot.status}
           seats={room.snapshot.seats}
@@ -97,7 +85,17 @@ export default function Dashboard() {
           readOnly={true}
         />
       </div>
-      <InsightPanel snapshot={room.snapshot} metrics={metrics} />
+      <div className="dashboard-grid" style={{ gridTemplateColumns: 'minmax(230px, 280px) 1fr', gap: '16px' }}>
+        <MyTicketPanel
+          status={room.snapshot.status}
+          participant={room.myParticipant}
+          loading={room.loading}
+          onJoin={() => void room.join(randomGuestName())}
+          onReserve={openTicketingWindow}
+          onPay={() => void room.pay()}
+        />
+        <InsightPanel snapshot={room.snapshot} metrics={metrics} />
+      </div>
     </main>
   );
 }
