@@ -41,8 +41,11 @@ public class LiveEventController {
     }
 
     @PostMapping("/{eventId}/start")
-    public LiveEventResponse startEvent(@PathVariable UUID eventId) {
-        return liveEventService.startEvent(eventId);
+    public LiveEventResponse startEvent(
+            @PathVariable UUID eventId,
+            @RequestBody(required = false) StartEventRequest request
+    ) {
+        return liveEventService.startEvent(eventId, request);
     }
 
     @PostMapping("/{eventId}/reset")

@@ -253,6 +253,11 @@ public class LiveEventService {
     }
 
     public LiveEventResponse startEvent(UUID eventId) {
+        return startEvent(eventId, null);
+    }
+
+    public LiveEventResponse startEvent(UUID eventId, StartEventRequest request) {
+        // Temporarily delegate to startEvent(eventId) to keep compiling
         ensureExpectedEvent(eventId);
         ensureSimulationExists();
         LiveEventMetadata metadata = eventStateStore.startCountdown(eventId, now(), countdownDuration, openWindow);

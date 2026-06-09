@@ -27,7 +27,7 @@ class LiveEventControllerTest {
     void startsAndResetsLiveEvent() throws Exception {
         LiveEventService service = mock(LiveEventService.class);
         UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000001");
-        when(service.startEvent(eventId)).thenReturn(new LiveEventResponse(
+        when(service.startEvent(eventId, null)).thenReturn(new LiveEventResponse(
                 eventId,
                 "Busan Ticketing",
                 "COUNTDOWN",
@@ -148,5 +148,23 @@ class LiveEventControllerTest {
                 .andExpect(status().isOk());
 
         org.mockito.Mockito.verify(service).releaseSeat(eventId, participantId);
+    }
+
+    @Test
+    void startsLiveEventWithConfig() throws Exception {
+        LiveEventService service = mock(LiveEventService.class);
+        UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        StartEventRequest request = new StartEventRequest(300, 80, "FAST");
+        
+        when(service.startEvent(org.mockito.ArgumentMatchers.eq(eventId), org.mockito.ArgumentMatchers.any(StartEventRequest.class)))
+                .thenReturn(new LiveEventResponse(eventId, "Test Event", "COUNTDOWN", 1, Instant.now(), Instant.now().plusSeconds(600), 120));
+                
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new LiveEventController(service, new SimulationEventHub(null, null))).build();
+        
+        mvc.perform(post("/api/events/{eventId}/start", eventId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("COUNTDOWN")));
     }
 }
