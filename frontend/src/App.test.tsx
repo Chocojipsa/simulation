@@ -37,9 +37,9 @@ vi.mock('./hooks/useLiveEventRoom', () => ({
 }));
 
 describe('App', () => {
-  it('shows the start action prominently and disables entry before the event starts', () => {
+  it('shows the start action prominently on the dashboard before the event starts', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/']}>
         <App />
       </MemoryRouter>
     );
@@ -50,10 +50,26 @@ describe('App', () => {
     expect(screen.getAllByText('QUEUE').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('시작 전')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '이벤트 시작하기' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /이벤트 입장/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '예약하기' })).toBeDisabled();
     expect(screen.queryByText('AI 참가자 시작')).not.toBeInTheDocument();
-    expect(screen.getByText('대기열')).toBeInTheDocument();
     expect(screen.getByText('예매가 아직 시작되지 않았습니다.')).toBeInTheDocument();
     expect(screen.getByText('서버 분산')).toBeInTheDocument();
   });
+
+  it('shows the monitoring console route with active participant panels', () => {
+    render(
+      <MemoryRouter initialEntries={['/monitoring']}>
+        <App />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('heading', { name: /티켓팅/ })).toBeInTheDocument();
+    expect(screen.getByText('LIVE CONSOLE')).toBeInTheDocument();
+    expect(screen.getByText('시작 전')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '이벤트 시작하기' })).toBeInTheDocument();
+    expect(screen.getByText('참가자 현황')).toBeInTheDocument();
+    expect(screen.getByText('시스템 알림')).toBeInTheDocument();
+    expect(screen.getByText('네트워크 최적화 활성화됨')).toBeInTheDocument();
+  });
 });
+

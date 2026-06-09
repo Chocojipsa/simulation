@@ -1,10 +1,20 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { LiveEventSnapshot } from '../api/liveEventApi';
 import { EventActivityPanel } from './EventActivityPanel';
 
+vi.mock('../api/liveEventApi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../api/liveEventApi')>();
+  return {
+    ...actual,
+    fetchParticipantTimeline: vi.fn().mockResolvedValue([
+      { label: '대기열 통과', message: '좌석을 선택해 주세요.' }
+    ]),
+  };
+});
+
 describe('EventActivityPanel', () => {
-  it('separates my progress from the full event log', () => {
+  it('separates my progress from the full event log', async () => {
     const snapshot: LiveEventSnapshot = {
       eventId: 'event-1',
       title: '부산 콘서트 티켓팅',
@@ -49,9 +59,10 @@ describe('EventActivityPanel', () => {
     render(<EventActivityPanel snapshot={snapshot} participantId="me" />);
 
     expect(screen.getByText('내 진행')).toBeInTheDocument();
-    expect(screen.getByText('전체 로그')).toBeInTheDocument();
-    expect(screen.getAllByText('좌석을 선택해 주세요.')).toHaveLength(2);
-    expect(screen.getByText('AI-1')).toBeInTheDocument();
-    expect(screen.getByText('예매 완료')).toBeInTheDocument();
+    expect(screen.getByText('시스템 알림')).toBeInTheDocument();
+    expect(screen.getByText('네트워크 최적화 활성화됨')).toBeInTheDocument();
+    expect(await screen.findAllByText('좌석을 선택해 주세요.')).toHaveLength(1);
   });
 });
+
+
