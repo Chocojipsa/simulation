@@ -11,7 +11,7 @@ export function InsightPanel({ snapshot, metrics }: InsightPanelProps) {
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
       <section className="panel">
         <h2>서버 분산</h2>
-        {(metrics ? metrics.serverStats : snapshot.serverStats).map((stats) => (
+        {((metrics?.serverStats ?? snapshot?.serverStats) ?? []).map((stats) => (
           <div className="metric-row" key={stats.serverId}>
             <span>{stats.serverId}</span>
             <strong>{stats.requestCount}</strong>
@@ -22,9 +22,9 @@ export function InsightPanel({ snapshot, metrics }: InsightPanelProps) {
       
       <section className="panel">
         <h2>시스템 및 인프라 상태</h2>
-        <div className="metric-row"><span>평균 응답 속도</span><strong>{metrics ? Math.round(metrics.avgResponseTimeMs) : 0}ms</strong></div>
-        <div className="metric-row"><span>Kafka Lag</span><strong>{metrics ? metrics.kafkaLag : 0} messages</strong></div>
-        <div className="metric-row"><span>Redis Active Locks</span><strong>{metrics ? metrics.redisLockCount : 0} locks</strong></div>
+        <div className="metric-row"><span>평균 응답 속도</span><strong>{metrics?.avgResponseTimeMs ? Math.round(metrics.avgResponseTimeMs) : 0}ms</strong></div>
+        <div className="metric-row"><span>Kafka Lag</span><strong>{metrics?.kafkaLag ?? 0} messages</strong></div>
+        <div className="metric-row"><span>Redis Active Locks</span><strong>{metrics?.redisLockCount ?? 0} locks</strong></div>
       </section>
     </div>
   );

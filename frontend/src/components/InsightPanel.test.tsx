@@ -28,6 +28,7 @@ describe('InsightPanel', () => {
 
     expect(screen.getByText('api-a')).toBeInTheDocument();
     expect(screen.getByText('100')).toBeInTheDocument();
-    expect(screen.getByText('10')).toBeInTheDocument(); // queueSize
+    expect(screen.getByText(/충돌 5/)).toBeInTheDocument();
+    expect(screen.getByText(/성공 95/)).toBeInTheDocument();
   });
 });
