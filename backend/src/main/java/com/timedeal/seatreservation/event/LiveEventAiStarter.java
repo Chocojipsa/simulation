@@ -1,10 +1,13 @@
 package com.timedeal.seatreservation.event;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.timedeal.seatreservation.simulation.RunSimulationRequest;
 import com.timedeal.seatreservation.simulation.SimulationService;
 import jakarta.annotation.PreDestroy;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -19,36 +22,72 @@ import java.util.concurrent.TimeUnit;
 public class LiveEventAiStarter {
     public record AiConfig(int participantCount, int concurrency, String speed) {}
 
-    private final ConcurrentHashMap<UUID, AiConfig> customConfigs = new ConcurrentHashMap<>();
-
+    private final ConcurrentHashMap<UUID, AiConfig> localConfigs = new ConcurrentHashMap<>();
     private final SimulationService simulationService;
     private final int participantCount;
     private final int concurrency;
     private final BatchScheduler scheduler;
+    private final RedisTemplate<String, String> redisTemplate;
+    private final ObjectMapper objectMapper;
 
     @Autowired
     public LiveEventAiStarter(
             SimulationService simulationService,
             @Value("${live-event.ai-user-count:150}") int participantCount,
-            @Value("${live-event.ai.concurrency:50}") int concurrency
+            @Value("${live-event.ai.concurrency:50}") int concurrency,
+            ObjectProvider<RedisTemplate<String, String>> redisTemplateProvider,
+            ObjectMapper objectMapper
     ) {
         this(
                 simulationService,
                 participantCount,
                 concurrency,
-                new ExecutorBatchScheduler(Executors.newSingleThreadScheduledExecutor())
+                new ExecutorBatchScheduler(Executors.newSingleThreadScheduledExecutor()),
+                redisTemplateProvider.getIfAvailable(),
+                objectMapper
         );
     }
 
-    LiveEventAiStarter(SimulationService simulationService, int participantCount, int concurrency, BatchScheduler scheduler) {
+    LiveEventAiStarter(
+            SimulationService simulationService,
+            int participantCount,
+            int concurrency,
+            BatchScheduler scheduler
+    ) {
+        this(simulationService, participantCount, concurrency, scheduler, null, new ObjectMapper());
+    }
+
+    LiveEventAiStarter(
+            SimulationService simulationService,
+            int participantCount,
+            int concurrency,
+            BatchScheduler scheduler,
+            RedisTemplate<String, String> redisTemplate,
+            ObjectMapper objectMapper
+    ) {
         this.simulationService = simulationService;
         this.participantCount = participantCount;
         this.concurrency = concurrency;
         this.scheduler = scheduler;
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
     }
 
     public void start(UUID eventId) {
-        AiConfig config = customConfigs.remove(eventId);
+        AiConfig config = null;
+        if (redisTemplate != null) {
+            try {
+                String json = redisTemplate.opsForValue().get("live-event:" + eventId + ":ai-config");
+                if (json != null) {
+                    config = objectMapper.readValue(json, AiConfig.class);
+                    redisTemplate.delete("live-event:" + eventId + ":ai-config");
+                }
+            } catch (Exception ignored) {}
+        }
+        if (config == null) {
+            config = localConfigs.remove(eventId);
+        }
+
         int count = config != null ? config.participantCount() : this.participantCount;
         int maxConcurrency = config != null ? config.concurrency() : this.concurrency;
         String speed = config != null ? config.speed() : "NORMAL";
@@ -101,11 +140,30 @@ public class LiveEventAiStarter {
         int count = participantCount != null ? Math.max(0, Math.min(1000, participantCount)) : this.participantCount;
         int maxConcurrency = concurrency != null ? Math.max(1, Math.min(120, concurrency)) : this.concurrency;
         String normalizedSpeed = speed != null ? speed.toUpperCase() : "NORMAL";
-        customConfigs.put(eventId, new AiConfig(count, maxConcurrency, normalizedSpeed));
+        AiConfig config = new AiConfig(count, maxConcurrency, normalizedSpeed);
+
+        if (redisTemplate != null) {
+            try {
+                String json = objectMapper.writeValueAsString(config);
+                redisTemplate.opsForValue().set("live-event:" + eventId + ":ai-config", json, Duration.ofMinutes(10));
+            } catch (Exception e) {
+                localConfigs.put(eventId, config);
+            }
+        } else {
+            localConfigs.put(eventId, config);
+        }
     }
 
     public AiConfig getCachedConfig(UUID eventId) {
-        return customConfigs.get(eventId);
+        if (redisTemplate != null) {
+            try {
+                String json = redisTemplate.opsForValue().get("live-event:" + eventId + ":ai-config");
+                if (json != null) {
+                    return objectMapper.readValue(json, AiConfig.class);
+                }
+            } catch (Exception ignored) {}
+        }
+        return localConfigs.get(eventId);
     }
 
     @PreDestroy
