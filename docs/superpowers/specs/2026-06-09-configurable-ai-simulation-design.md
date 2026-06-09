@@ -12,6 +12,8 @@ Currently, when the administrator starts an event from the dashboard, the backen
 To allow dynamic load testing, we want to expose these settings directly on the dashboard's control header before starting the event. 
 Since the live event metadata is stored in Redis/In-memory databases (`LiveEventMetadata`), modifying its database schema just to hold transient parameters is high-risk and violates separation of concerns. Instead, we will store the custom configuration transiently in the `LiveEventAiStarter` Spring service during the start transaction.
 
+To ensure consistency in a multi-instance production environment (where Nginx round-robins `/start` and `/snapshot` requests between `api-a` and `api-b`), we will cache the transient AI settings in **Redis** with a 10-minute expiration. If Redis is unavailable (e.g. in unit tests), the service will automatically fall back to using a local `ConcurrentHashMap` cache.
+
 Furthermore, the existing batch scheduling logic uses a hardcoded prefix list of sizes (`10, 15, 20, 25, 30` users), resulting in a massive sudden spike in the final batch for larger user counts (e.g., dumping 900 users all at once at the 6th step if user count is 1000). We will fix this by converting the batching sizes to proportional percentages (`10%, 15%, 20%, 25%, 30%` of the total user count), producing a smooth, gradual load curve for any target user count.
 
 ---
@@ -65,27 +67,98 @@ Update `startEvent` to store configurations in the AI starter before starting th
 ```
 
 #### D. AI Starter Service (`LiveEventAiStarter.java`)
-Add a thread-safe registry to cache parameters for the event initialization and dynamically build the batch schedule:
+Add Redis-caching with dynamic fallbacks to build the batch schedule:
 ```java
-    private final java.util.concurrent.ConcurrentHashMap<UUID, AiConfig> customConfigs = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<UUID, AiConfig> localConfigs = new java.util.concurrent.ConcurrentHashMap<>();
+    private final org.springframework.data.redis.core.RedisTemplate<String, String> redisTemplate;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     public record AiConfig(int participantCount, int concurrency, String speed) {}
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public LiveEventAiStarter(
+            SimulationService simulationService,
+            @org.springframework.beans.factory.annotation.Value("${live-event.ai-user-count:150}") int participantCount,
+            @org.springframework.beans.factory.annotation.Value("${live-event.ai.concurrency:50}") int concurrency,
+            org.springframework.beans.factory.ObjectProvider<org.springframework.data.redis.core.RedisTemplate<String, String>> redisTemplateProvider,
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper
+    ) {
+        this(
+                simulationService,
+                participantCount,
+                concurrency,
+                new ExecutorBatchScheduler(Executors.newSingleThreadScheduledExecutor()),
+                redisTemplateProvider.getIfAvailable(),
+                objectMapper
+        );
+    }
+
+    LiveEventAiStarter(
+            SimulationService simulationService,
+            int participantCount,
+            int concurrency,
+            BatchScheduler scheduler,
+            org.springframework.data.redis.core.RedisTemplate<String, String> redisTemplate,
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper
+    ) {
+        this.simulationService = simulationService;
+        this.participantCount = participantCount;
+        this.concurrency = concurrency;
+        this.scheduler = scheduler;
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
+    }
 
     public void configure(UUID eventId, Integer participantCount, Integer concurrency, String speed) {
         if (participantCount == null && concurrency == null && speed == null) return;
         
-        // Enforce safe boundaries on the backend
         int count = participantCount != null ? Math.max(0, Math.min(1000, participantCount)) : this.participantCount;
         int maxConcurrency = concurrency != null ? Math.max(1, Math.min(120, concurrency)) : this.concurrency;
         String normalizedSpeed = speed != null ? speed.toUpperCase() : "NORMAL";
         
-        customConfigs.put(eventId, new AiConfig(count, maxConcurrency, normalizedSpeed));
+        AiConfig config = new AiConfig(count, maxConcurrency, normalizedSpeed);
+        
+        if (redisTemplate != null) {
+            try {
+                String json = objectMapper.writeValueAsString(config);
+                redisTemplate.opsForValue().set("live-event:" + eventId + ":ai-config", json, java.time.Duration.ofMinutes(10));
+            } catch (Exception e) {
+                localConfigs.put(eventId, config);
+            }
+        } else {
+            localConfigs.put(eventId, config);
+        }
+    }
+
+    public AiConfig getCachedConfig(UUID eventId) {
+        if (redisTemplate != null) {
+            try {
+                String json = redisTemplate.opsForValue().get("live-event:" + eventId + ":ai-config");
+                if (json != null) {
+                    return objectMapper.readValue(json, AiConfig.class);
+                }
+            } catch (Exception ignored) {}
+        }
+        return localConfigs.get(eventId);
     }
 ```
-Update `start(UUID eventId)` to read from the registry, fallback to defaults, translate speeds, and build the schedule:
+Update `start(UUID eventId)` to read from Redis (or fallback to local configs), clean up, translate speeds, and build the schedule:
 ```java
     public void start(UUID eventId) {
-        AiConfig config = customConfigs.remove(eventId);
+        AiConfig config = null;
+        if (redisTemplate != null) {
+            try {
+                String json = redisTemplate.opsForValue().get("live-event:" + eventId + ":ai-config");
+                if (json != null) {
+                    config = objectMapper.readValue(json, AiConfig.class);
+                    redisTemplate.delete("live-event:" + eventId + ":ai-config");
+                }
+            } catch (Exception ignored) {}
+        }
+        if (config == null) {
+            config = localConfigs.remove(eventId);
+        }
+        
         int count = config != null ? config.participantCount() : this.participantCount;
         int maxConcurrency = config != null ? config.concurrency() : this.concurrency;
         String speed = config != null ? config.speed() : "NORMAL";
@@ -138,90 +211,7 @@ Update `start(UUID eventId)` to read from the registry, fallback to defaults, tr
 
 ### 2.2 Frontend Changes
 
-#### A. API Client (`liveEventApi.ts` & `useLiveEventRoom.ts`)
-* Add parameter interface:
-```typescript
-export interface StartEventRequest {
-  aiUserCount?: number;
-  aiConcurrency?: number;
-  aiSpeed?: 'SLOW' | 'NORMAL' | 'FAST';
-}
-```
-* Update `startEvent` to post with the request body:
-```typescript
-export async function startEvent(
-  apiBaseUrl: string,
-  eventId: string,
-  request?: StartEventRequest
-): Promise<LiveEventResponse> {
-  return readJson(await fetch(`${apiBaseUrl}/api/events/${eventId}/start`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request || {}),
-  }));
-}
-```
-* Update `useLiveEventRoom.ts` `start` method to accept this request:
-```typescript
-  const start = useCallback(async (request?: StartEventRequest) => {
-    if (!eventId) return;
-    await startEvent(apiBaseUrl, eventId, request);
-    await refresh();
-  }, [apiBaseUrl, eventId, refresh]);
-```
-
-#### B. Dashboard Header Controls (`EventHeader.tsx`)
-* Define state variables inside `EventHeader` for configurations:
-```typescript
-  const [aiCount, setAiCount] = useState<number>(150);
-  const [aiConcurrency, setAiConcurrency] = useState<number>(50);
-  const [aiSpeed, setAiSpeed] = useState<'SLOW' | 'NORMAL' | 'FAST'>('NORMAL');
-```
-* Under `READY` status, display inline inputs:
-```html
-<div className="ai-config-toolbar">
-  <div className="input-group">
-    <label htmlFor="ai-count-input">AI 유저 수</label>
-    <input 
-      id="ai-count-input"
-      type="number" 
-      min={0} 
-      max={1000} 
-      value={aiCount} 
-      onChange={(e) => setAiCount(Math.max(0, Math.min(1000, parseInt(e.target.value) || 0)))} 
-    />
-  </div>
-  <div className="input-group">
-    <label htmlFor="ai-concurrency-input">동시성</label>
-    <input 
-      id="ai-concurrency-input"
-      type="number" 
-      min={1} 
-      max={120} 
-      value={aiConcurrency} 
-      onChange={(e) => setAiConcurrency(Math.max(1, Math.min(120, parseInt(e.target.value) || 1)))} 
-    />
-  </div>
-  <div className="input-group">
-    <label htmlFor="ai-speed-select">투입 속도</label>
-    <select 
-      id="ai-speed-select"
-      value={aiSpeed} 
-      onChange={(e) => setAiSpeed(e.target.value as any)}
-    >
-      <option value="SLOW">느림 (1.5초 간격)</option>
-      <option value="NORMAL">보통 (0.5초 간격)</option>
-      <option value="FAST">빠름 (0.1초 간격)</option>
-    </select>
-  </div>
-  <button 
-    className="header-action" 
-    onClick={() => onStart({ aiUserCount: aiCount, aiConcurrency: aiConcurrency, aiSpeed: aiSpeed })}
-  >
-    이벤트 시작하기
-  </button>
-</div>
-```
+No changes are required in the frontend since the existing payload and toolbar format are fully compliant with the request parameters.
 
 ---
 
@@ -233,18 +223,22 @@ sequenceDiagram
     participant Ctrl as LiveEventController
     participant Serv as LiveEventService
     participant Starter as LiveEventAiStarter
+    participant Redis as Redis Server
     participant Sim as SimulationService
 
     User->>Ctrl: POST /api/events/{eventId}/start (aiUserCount, aiConcurrency, aiSpeed)
     Ctrl->>Serv: startEvent(eventId, StartEventRequest)
     Serv->>Starter: configure(eventId, count, concurrency, speed)
-    Note over Starter: Cache transient settings in ConcurrentHashMap
+    Starter->>Redis: SET live-event:{eventId}:ai-config (with TTL)
     Serv->>Serv: Transition event to COUNTDOWN/OPEN
     Serv-->>User: LiveEventResponse
     
     Note over Serv: Event transitions to OPEN status
     Serv->>Starter: start(eventId)
-    Starter->>Starter: Retrieve cached parameters & build schedule
+    Starter->>Redis: GET live-event:{eventId}:ai-config
+    Redis-->>Starter: JSON Config
+    Starter->>Redis: DEL live-event:{eventId}:ai-config
+    Starter->>Starter: Retrieve parameters & build schedule
     loop For each batch in schedule
         Starter->>Sim: runSimulation(eventId, RunSimulationRequest)
     end
@@ -255,7 +249,7 @@ sequenceDiagram
 ## 4. Verification & Testing Plan
 
 1. **Unit Tests**:
-   * Add test case to `LiveEventServiceTest` and `LiveEventAiStarterTest` verifying that custom AI configurations are correctly applied during start.
+   * Add a test in `LiveEventAiStarterTest` verifying that the service correctly uses the local cache fallback when `redisTemplate` is null.
+   * Add a test verifying that when `redisTemplate` is present, it correctly writes to and reads from Redis.
 2. **Type Checking & Linting**:
    * Run `./gradlew compileJava compileTestJava` for the backend.
-   * Run `npx tsc --noEmit` in the `frontend` directory.
