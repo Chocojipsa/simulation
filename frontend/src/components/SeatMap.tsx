@@ -98,37 +98,27 @@ export function SeatMap({ status, seats, participant, selectedSeatLabel, onSelec
                 const mine = seat.label === selectedSeatLabel;
                 const disabled = !readOnly && (seat.status !== 'AVAILABLE' || !selection.allowed);
 
-                // Select background color based on status and ownership
-                let bg = 'var(--seat-available)';
+                let statusClass = 'available';
                 if (seat.status === 'RESERVED') {
-                  bg = 'var(--seat-booked)';
+                  statusClass = 'booked';
                 } else if (seat.status === 'PAYMENT_IN_PROGRESS') {
-                  bg = 'var(--warning-amber)';
+                  statusClass = 'payment';
                 } else if (seat.status === 'HELD' || mine) {
-                  bg = 'var(--seat-selected)';
+                  statusClass = 'held';
+                }
+                if (mine) {
+                  statusClass += ' mine';
                 }
 
                 return (
                   <button
                     key={seat.id}
                     type="button"
+                    className={`seat ${statusClass}`}
                     disabled={disabled}
                     tabIndex={readOnly ? -1 : undefined}
                     title={`${seat.label} - ${seat.status}${mine ? ' (내 좌석)' : ''}`}
                     onClick={readOnly ? undefined : () => onSelectSeat?.(seat.id)}
-                    style={{
-                      aspectRatio: '1/1',
-                      width: '100%',
-                      maxWidth: '36px',
-                      minWidth: '24px',
-                      backgroundColor: bg,
-                      border: mine ? '2px solid var(--primary-indigo)' : '1px solid transparent',
-                      borderRadius: 'var(--radius-sm)',
-                      cursor: readOnly || disabled ? 'default' : 'pointer',
-                      transition: 'all 0.15s ease',
-                      outline: 'none',
-                      boxShadow: mine ? '0 0 6px var(--primary-indigo)' : 'none'
-                    }}
                   />
                 );
               })}
