@@ -30,32 +30,6 @@ export function SeatMap({ status, seats, participant, selectedSeatLabel, onSelec
         <div style={{ height: '4px', background: 'var(--teal-accent)', borderRadius: '9999px' }}></div>
       </div>
 
-      {/* Seat Legend (seatdesign.PNG Reference) */}
-      <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginBottom: '24px', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-          <div style={{ width: '12px', height: '12px', backgroundColor: 'var(--seat-available)', borderRadius: 'var(--radius-sm)' }}></div>
-          <span>예매 가능</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-          <div style={{ width: '12px', height: '12px', backgroundColor: 'var(--seat-selected)', borderRadius: 'var(--radius-sm)' }}></div>
-          <span>선점 (내 선택)</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-          <div style={{ width: '12px', height: '12px', backgroundColor: 'var(--warning-amber)', borderRadius: 'var(--radius-sm)' }}></div>
-          <span>결제 중</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-          <div style={{ width: '12px', height: '12px', backgroundColor: 'var(--seat-booked)', borderRadius: 'var(--radius-sm)' }}></div>
-          <span>매진</span>
-        </div>
-      </div>
-
-      {selection.message ? (
-        <div className="info-banner" style={{ marginBottom: '16px', fontSize: '13px', textAlign: 'center' }}>
-          {selection.message}
-        </div>
-      ) : null}
-
       {/* Dynamic Grid Map (seatdesign.PNG Reference) */}
       {seats.length > 0 && cols.length > 0 ? (
         <div 
@@ -66,7 +40,8 @@ export function SeatMap({ status, seats, participant, selectedSeatLabel, onSelec
             alignItems: 'center',
             maxWidth: '100%',
             overflowX: 'auto',
-            padding: '4px'
+            padding: '4px',
+            marginBottom: '24px'
           }}
           aria-label="좌석표"
         >
@@ -130,6 +105,26 @@ export function SeatMap({ status, seats, participant, selectedSeatLabel, onSelec
           등록된 좌석이 없습니다.
         </div>
       )}
+
+      {/* Seat Legend (하단 배치로 변경) */}
+      <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+          <div style={{ width: '12px', height: '12px', backgroundColor: 'var(--seat-available)', borderRadius: 'var(--radius-sm)' }}></div>
+          <span>예매 가능</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+          <div style={{ width: '12px', height: '12px', backgroundColor: 'var(--seat-selected)', borderRadius: 'var(--radius-sm)' }}></div>
+          <span>선점 (내 선택)</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+          <div style={{ width: '12px', height: '12px', backgroundColor: 'var(--warning-amber)', borderRadius: 'var(--radius-sm)' }}></div>
+          <span>결제 중</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+          <div style={{ width: '12px', height: '12px', backgroundColor: 'var(--seat-booked)', borderRadius: 'var(--radius-sm)' }}></div>
+          <span>매진</span>
+        </div>
+      </div>
     </section>
   );
 }

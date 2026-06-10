@@ -52,7 +52,7 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: '이벤트 시작하기' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '예약하기' })).toBeDisabled();
     expect(screen.queryByText('AI 참가자 시작')).not.toBeInTheDocument();
-    expect(screen.getByText('예매가 아직 시작되지 않았습니다.')).toBeInTheDocument();
+    expect(screen.queryByText('예매가 아직 시작되지 않았습니다.')).not.toBeInTheDocument();
     expect(screen.getByText('서버 분산')).toBeInTheDocument();
   });
 

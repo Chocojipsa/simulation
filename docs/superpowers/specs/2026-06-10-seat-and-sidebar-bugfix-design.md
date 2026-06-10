@@ -99,6 +99,8 @@
   ```
 
 ### 2.2 `frontend/src/components/SeatMap.tsx`
+* 좌석 윗단에 노출되던 안내 배너(`selection.message`)를 완전히 제거합니다.
+* 좌석 범례(`Seat Legend` div) 요소를 화면 상단에서 제거하고, 좌석 그리드 하단(`cols.length > 0` 렌더링 구문 아래)으로 이동시킵니다.
 * 버튼 요소에서 인라인 스타일을 걷어내고 신규 CSS 클래스명을 부여하도록 변경:
   ```tsx
   const mine = seat.label === selectedSeatLabel;
