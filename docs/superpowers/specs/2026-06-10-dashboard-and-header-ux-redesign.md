@@ -23,71 +23,31 @@
 ## 2. 변경 파일 및 구성 상세
 
 ### 2.1 `frontend/src/components/EventHeader.tsx`
-* AI 설정 관련 상태 및 폼 마크업을 제거하고 props 인터페이스를 컴팩트하게 변경합니다.
-* **props 변경**:
+* **Props 인터페이스 복구**: `onStart` 핸들러 프롭을 다시 도입합니다.
   ```tsx
   interface EventHeaderProps {
     snapshot: LiveEventSnapshot;
+    onStart: (request: { aiUserCount: number; aiConcurrency: number; aiSpeed: 'SLOW' | 'NORMAL' | 'FAST' }) => void;
     onReset: () => void;
   }
   ```
-* **마크업 변경**: `READY` 상태일 때 나타나던 `ai-config-toolbar` 전체를 삭제하고, `event-actions` 영역에는 이벤트 완료 상태(`ENDED`)일 때의 `새 이벤트 시작` 버튼만 유지합니다.
+* **드롭다운 팝오버 상태 및 폼**:
+  * 내부 상태 `isSettingsOpen` 토글 상태 추가.
+  * 내부 상태 `aiCount`, `aiConcurrency`, `aiSpeed` 추가.
+  * 이벤트 상태가 `READY`일 때 `이벤트 시작하기` 버튼을 렌더링하고, 클릭 시 설정 카드 팝오버가 토글되도록 구현합니다.
+  * 팝오버 카드는 `position: absolute; right: 0; top: calc(100% + 8px); z-index: 50;` 속성과 깔끔한 Box Shadow, 백그라운드 카드를 가진 오버레이 형태로 배치되어 헤더 요소를 침범하지 않고 띄워집니다.
 
 ### 2.2 `frontend/src/Dashboard.tsx`
-* 헤더에서 제거된 AI 설정 도구를 본문 내의 "시뮬레이션 시작 패널" 카드로 추가 구현합니다.
-* `snapshot.status === 'READY'`일 때 본문 상단에 아래 카드를 노출합니다:
+* 대시보드 본문 영역에 구현했던 임시 `simulation-starter-card` 영역을 완전히 삭제합니다.
+* `EventHeader`를 호출할 때 `onStart` 프롭을 다시 온전히 넘겨줍니다:
   ```tsx
-  {room.snapshot.status === 'READY' && (
-    <section className="panel simulation-starter-card" style={{ padding: '24px', marginBottom: '24px' }}>
-      <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px' }}>AI 시뮬레이션 설정 및 시작</h2>
-      <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>AI 유저 수</label>
-          <input
-            type="number"
-            min={0}
-            max={1000}
-            value={aiCount}
-            onChange={(e) => setAiCount(Math.max(0, Math.min(1000, parseInt(e.target.value) || 0)))}
-            style={{ width: '120px', padding: '8px 12px', border: '1px solid var(--border-line)', borderRadius: 'var(--radius-md)' }}
-          />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>동시 인입 수 (Concurrency)</label>
-          <input
-            type="number"
-            min={1}
-            max={120}
-            value={aiConcurrency}
-            onChange={(e) => setAiConcurrency(Math.max(1, Math.min(120, parseInt(e.target.value) || 1)))}
-            style={{ width: '120px', padding: '8px 12px', border: '1px solid var(--border-line)', borderRadius: 'var(--radius-md)' }}
-          />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>행동 속도 (Speed)</label>
-          <select
-            value={aiSpeed}
-            onChange={(e) => setAiSpeed(e.target.value as any)}
-            style={{ padding: '8px 12px', border: '1px solid var(--border-line)', borderRadius: 'var(--radius-md)', backgroundColor: '#FFFFFF' }}
-          >
-            <option value="SLOW">느림 (1.5초)</option>
-            <option value="NORMAL">보통 (0.5초)</option>
-            <option value="FAST">빠름 (0.1초)</option>
-          </select>
-        </div>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => room.start({ aiUserCount: aiCount, aiConcurrency: aiConcurrency, aiSpeed: aiSpeed })}
-          style={{ height: '38px', padding: '0 24px' }}
-        >
-          시뮬레이션 및 이벤트 시작하기
-        </button>
-      </div>
-    </section>
-  )}
+  <EventHeader
+    snapshot={room.snapshot}
+    onStart={(request) => void room.start(request)}
+    onReset={() => void room.reset()}
+  />
   ```
-* 대시보드 본문 하단의 `InsightPanel`을 삭제합니다.
+* 대시보드에 구현했던 로컬 상태 `aiCount`, `aiConcurrency`, `aiSpeed`를 제거합니다.
 
 ### 2.3 `frontend/src/components/MonitoringConsole.tsx`
 * 대시보드 하단에 있었던 `InsightPanel`을 모니터링 페이지 하단에 배치합니다.
@@ -98,6 +58,7 @@
     <InsightPanel snapshot={room.snapshot} metrics={metrics} />
   </div>
   ```
+* `EventHeader` 호출 시 `onStart` 프롭이 복구되었으므로 이에 맞게 null 이나 mock onStart 동작을 넘겨주거나, 모니터링 탭에서도 시작 기능을 지원할 수 있도록 `onStart={(request) => void room.start(request)}`를 연동해 줍니다. (두 탭 간의 온전한 호환성 지원)
 
 ---
 

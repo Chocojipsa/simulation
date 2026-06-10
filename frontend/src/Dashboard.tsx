@@ -24,11 +24,7 @@ const apiBaseUrl = getApiBaseUrl();
 export default function Dashboard() {
   const room = useLiveEventRoom(apiBaseUrl);
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
-  
-  // AI 시뮬레이터 구동을 위한 설정 상태
-  const [aiCount, setAiCount] = useState<number>(150);
-  const [aiConcurrency, setAiConcurrency] = useState<number>(50);
-  const [aiSpeed, setAiSpeed] = useState<'SLOW' | 'NORMAL' | 'FAST'>('NORMAL');
+
 
   useEffect(() => {
     let mounted = true;
@@ -83,63 +79,13 @@ export default function Dashboard() {
       </aside>
 
       <main className="main-content">
-        <EventHeader snapshot={room.snapshot} onReset={() => void room.reset()} />
+        <EventHeader
+          snapshot={room.snapshot}
+          onStart={(request) => void room.start(request)}
+          onReset={() => void room.reset()}
+        />
         {room.error ? <div className="error-banner">{room.error}</div> : null}
         {room.message ? <div className="info-banner">{room.message}</div> : null}
-
-        {/* 이벤트 시작 전(READY)일 때 본문 상단에 AI 시뮬레이션 설정 및 시작 카드 노출 */}
-        {room.snapshot.status === 'READY' && (
-          <section className="panel simulation-starter-card" style={{ padding: '24px', marginBottom: '24px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '16px', color: 'var(--text-primary)' }}>AI 시뮬레이션 설정 및 시작</h2>
-            <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label htmlFor="dashboard-ai-count" style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>AI 유저 수</label>
-                <input
-                  id="dashboard-ai-count"
-                  type="number"
-                  min={0}
-                  max={1000}
-                  value={aiCount}
-                  onChange={(e) => setAiCount(Math.max(0, Math.min(1000, parseInt(e.target.value) || 0)))}
-                  style={{ width: '120px', padding: '8px 12px', border: '1px solid var(--border-line)', borderRadius: 'var(--radius-md)', fontSize: '13px', outline: 'none' }}
-                />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label htmlFor="dashboard-ai-concurrency" style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>동시 인입 수 (Concurrency)</label>
-                <input
-                  id="dashboard-ai-concurrency"
-                  type="number"
-                  min={1}
-                  max={120}
-                  value={aiConcurrency}
-                  onChange={(e) => setAiConcurrency(Math.max(1, Math.min(120, parseInt(e.target.value) || 1)))}
-                  style={{ width: '120px', padding: '8px 12px', border: '1px solid var(--border-line)', borderRadius: 'var(--radius-md)', fontSize: '13px', outline: 'none' }}
-                />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label htmlFor="dashboard-ai-speed" style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>행동 속도 (Speed)</label>
-                <select
-                  id="dashboard-ai-speed"
-                  value={aiSpeed}
-                  onChange={(e) => setAiSpeed(e.target.value as any)}
-                  style={{ padding: '8px 12px', border: '1px solid var(--border-line)', borderRadius: 'var(--radius-md)', fontSize: '13px', backgroundColor: '#FFFFFF', outline: 'none' }}
-                >
-                  <option value="SLOW">느림 (1.5초)</option>
-                  <option value="NORMAL">보통 (0.5초)</option>
-                  <option value="FAST">빠름 (0.1초)</option>
-                </select>
-              </div>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => room.start({ aiUserCount: aiCount, aiConcurrency: aiConcurrency, aiSpeed: aiSpeed })}
-                style={{ height: '38px', padding: '0 24px', fontSize: '13px' }}
-              >
-                시뮬레이션 및 이벤트 시작하기
-              </button>
-            </div>
-          </section>
-        )}
         
         <div className="metric-strip" aria-label="실시간 이벤트 지표">
           <Metric label="SEATS RESERVED" value={`${room.snapshot.metrics.reservedCount}/${room.snapshot.seats.length}`} detail="예약 완료" />
@@ -150,7 +96,7 @@ export default function Dashboard() {
 
         <div className="dashboard-hero-grid">
           <div className="panel" style={{ padding: '24px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px', color: 'var(--text-primary)' }}>실시간 예매 좌석도 (관제 전용)</h3>
+            <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px', color: 'var(--text-primary)' }}>실시간 예매 좌석도</h3>
             <SeatMap
               status={room.snapshot.status}
               seats={room.snapshot.seats}

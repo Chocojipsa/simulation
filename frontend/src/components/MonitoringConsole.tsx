@@ -68,7 +68,11 @@ export function MonitoringConsole() {
       </aside>
 
       <main className="main-content">
-        <EventHeader snapshot={room.snapshot} onReset={() => void room.reset()} />
+        <EventHeader
+          snapshot={room.snapshot}
+          onStart={(request) => void room.start(request)}
+          onReset={() => void room.reset()}
+        />
         {room.error ? <div className="error-banner">{room.error}</div> : null}
         {room.message ? <div className="info-banner">{room.message}</div> : null}
         

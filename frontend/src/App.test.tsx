@@ -49,12 +49,10 @@ describe('App', () => {
     expect(screen.getByText('SEATS RESERVED')).toBeInTheDocument();
     expect(screen.getAllByText('WAITING QUEUE').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('시작 전')).toBeInTheDocument();
-    // '이벤트 시작하기' 대신 본문 '시뮬레이션 및 이벤트 시작하기' 버튼 단언 확인
-    expect(screen.getByRole('button', { name: '시뮬레이션 및 이벤트 시작하기' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /이벤트 시작하기/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '예약하기' })).toBeDisabled();
     expect(screen.queryByText('AI 참가자 시작')).not.toBeInTheDocument();
     expect(screen.queryByText('예매가 아직 시작되지 않았습니다.')).not.toBeInTheDocument();
-    // 대시보드에서 서버 분산 패널은 빠졌으므로 단언에서 제거 혹은 존재하지 않음 검증
     expect(screen.queryByText('서버 분산')).not.toBeInTheDocument();
   });
 
@@ -68,10 +66,8 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: /티켓팅/ })).toBeInTheDocument();
     expect(screen.getByText('LIVE CONSOLE')).toBeInTheDocument();
     expect(screen.getByText('시작 전')).toBeInTheDocument();
-    // 대시보드가 아니므로 본문 시작버튼은 없음
-    expect(screen.queryByRole('button', { name: '시뮬레이션 및 이벤트 시작하기' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /이벤트 시작하기/ })).toBeInTheDocument();
     expect(screen.getByText('참가자 현황')).toBeInTheDocument();
-    // 모니터링 탭이므로 서버 분산 패널이 노출되어야 함
     expect(screen.getByText('서버 분산')).toBeInTheDocument();
   });
 });
