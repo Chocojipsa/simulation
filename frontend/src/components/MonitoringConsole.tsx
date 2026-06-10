@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useLiveEventRoom } from '../hooks/useLiveEventRoom';
 import { QueuePanel } from './QueuePanel';
 import { EventActivityPanel } from './EventActivityPanel';
 import { EventHeader } from './EventHeader';
+import { InsightPanel } from './InsightPanel';
+import { fetchSystemMetrics, type SystemMetrics } from '../api/liveEventApi';
 
 const getApiBaseUrl = () => {
   if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
@@ -20,6 +22,25 @@ const apiBaseUrl = getApiBaseUrl();
 export function MonitoringConsole() {
   const room = useLiveEventRoom(apiBaseUrl);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadMetrics = async () => {
+      try {
+        const data = await fetchSystemMetrics(apiBaseUrl);
+        if (mounted) setMetrics(data);
+      } catch (e) {
+        // ignore errors
+      }
+    };
+    loadMetrics();
+    const interval = setInterval(loadMetrics, 5000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   if (!room.snapshot) {
     return (
@@ -47,7 +68,7 @@ export function MonitoringConsole() {
       </aside>
 
       <main className="main-content">
-        <EventHeader snapshot={room.snapshot} onStart={(request) => void room.start(request)} onReset={() => void room.reset()} />
+        <EventHeader snapshot={room.snapshot} onReset={() => void room.reset()} />
         {room.error ? <div className="error-banner">{room.error}</div> : null}
         {room.message ? <div className="info-banner">{room.message}</div> : null}
         
@@ -65,6 +86,11 @@ export function MonitoringConsole() {
             onSelectParticipant={setSelectedParticipantId}
             apiBaseUrl={apiBaseUrl}
           />
+        </div>
+
+        {/* InsightPanel (서버 분산 및 시스템 인프라) */}
+        <div className="insight-section" style={{ marginTop: '24px' }}>
+          <InsightPanel snapshot={room.snapshot} metrics={metrics} />
         </div>
       </main>
     </div>
