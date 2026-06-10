@@ -122,7 +122,8 @@ button, input, select {
   padding: 32px;
   overflow-y: auto;
   max-width: 1400px;
-  margin: 0 auto;
+  margin-left: 0;
+  margin-right: auto;
 }
 
 /* Card Design */
@@ -630,5 +631,71 @@ button, input, select {
   
   .event-status {
     align-items: flex-start;
+  }
+}
+
+/* 좌석 그리드 스타일 클래스 추가 */
+.seat {
+  aspect-ratio: 1/1;
+  width: 100%;
+  max-width: 36px;
+  min-width: 24px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+  font-size: 0;
+  color: transparent;
+  text-indent: -9999px;
+  padding: 0;
+  display: block;
+  box-sizing: border-box;
+}
+
+.seat.available {
+  background-color: var(--seat-available);
+}
+
+.seat.available:hover:not(:disabled) {
+  background-color: #CBD5E1;
+  transform: scale(1.05);
+}
+
+.seat.booked {
+  background-color: var(--seat-booked);
+  cursor: default;
+}
+
+.seat.held {
+  background-color: var(--seat-selected);
+}
+
+.seat.payment {
+  background-color: var(--warning-amber);
+}
+
+.seat.mine {
+  background-color: var(--seat-selected);
+  border: 2px solid var(--primary-indigo) !important;
+  box-shadow: 0 0 6px var(--primary-indigo);
+}
+
+.seat:disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+/* 모니터링 콘솔 그리드 및 반응형 추가 */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
   }
 }
