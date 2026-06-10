@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useLiveEventRoom } from '../hooks/useLiveEventRoom';
 import { QueuePanel } from './QueuePanel';
 import { EventActivityPanel } from './EventActivityPanel';
@@ -22,36 +23,50 @@ export function MonitoringConsole() {
 
   if (!room.snapshot) {
     return (
-      <main className="dashboard">
-        <section className="panel empty-state">
-          <span className="eyebrow">LIVE CONSOLE</span>
-          <h1>이벤트를 불러오는 중입니다...</h1>
-          {room.error ? <p>{room.error}</p> : null}
-        </section>
-      </main>
+      <div className="dashboard-container">
+        <aside className="sidebar">
+          <Link to="/" className="sidebar-icon">D</Link>
+          <Link to="/monitoring" className="sidebar-icon active">M</Link>
+        </aside>
+        <main className="main-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <section className="panel empty-state">
+            <span className="eyebrow">LIVE CONSOLE</span>
+            <h1>이벤트를 불러오는 중입니다...</h1>
+            {room.error ? <p>{room.error}</p> : null}
+          </section>
+        </main>
+      </div>
     );
   }
 
   return (
-    <main className="dashboard">
-      <EventHeader snapshot={room.snapshot} onStart={(request) => void room.start(request)} onReset={() => void room.reset()} />
-      {room.error ? <div className="error-banner">{room.error}</div> : null}
-      {room.message ? <div className="info-banner">{room.message}</div> : null}
-      <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px', marginTop: '20px' }}>
-        <QueuePanel
-          snapshot={room.snapshot}
-          participantId={room.participantId}
-          selectedParticipantId={selectedParticipantId}
-          onSelectParticipant={setSelectedParticipantId}
-        />
-        <EventActivityPanel
-          snapshot={room.snapshot}
-          participantId={room.participantId}
-          selectedParticipantId={selectedParticipantId}
-          onSelectParticipant={setSelectedParticipantId}
-          apiBaseUrl={apiBaseUrl}
-        />
-      </div>
-    </main>
+    <div className="dashboard-container">
+      <aside className="sidebar">
+        <Link to="/" className="sidebar-icon" title="Dashboard">D</Link>
+        <Link to="/monitoring" className="sidebar-icon active" title="Monitoring">M</Link>
+      </aside>
+
+      <main className="main-content">
+        <EventHeader snapshot={room.snapshot} onStart={(request) => void room.start(request)} onReset={() => void room.reset()} />
+        {room.error ? <div className="error-banner">{room.error}</div> : null}
+        {room.message ? <div className="info-banner">{room.message}</div> : null}
+        
+        <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px', marginTop: '24px' }}>
+          <QueuePanel
+            snapshot={room.snapshot}
+            participantId={room.participantId}
+            selectedParticipantId={selectedParticipantId}
+            onSelectParticipant={setSelectedParticipantId}
+          />
+          <EventActivityPanel
+            snapshot={room.snapshot}
+            participantId={room.participantId}
+            selectedParticipantId={selectedParticipantId}
+            onSelectParticipant={setSelectedParticipantId}
+            apiBaseUrl={apiBaseUrl}
+          />
+        </div>
+      </main>
+    </div>
   );
 }
