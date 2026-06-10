@@ -9,12 +9,12 @@
   --teal-accent: #00C2C2;
   --success-mint: #10B981;
   --danger-red: #EF4444;
-  --warning-amber: #F59E0B;
+  --warning-amber: #EF9F27;
   
   /* Seat Colors */
-  --seat-available: #E2E8F0;
-  --seat-booked: #334155;
-  --seat-selected: #00C2C2;
+  --seat-available: #E1F5EE;
+  --seat-booked: #B4B2A9;
+  --seat-selected: #1D9E75;
   
   /* Neutral Colors */
   --bg-main: #F8FAFC;
@@ -658,7 +658,7 @@ button, input, select {
 }
 
 .seat.available:hover:not(:disabled) {
-  background-color: #CBD5E1;
+  background-color: #5DCAA5;
   transform: scale(1.05);
 }
 
