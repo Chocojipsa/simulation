@@ -51,7 +51,7 @@ export function MonitoringConsole() {
         {room.error ? <div className="error-banner">{room.error}</div> : null}
         {room.message ? <div className="info-banner">{room.message}</div> : null}
         
-        <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px', marginTop: '24px' }}>
+        <div className="dashboard-grid">
           <QueuePanel
             snapshot={room.snapshot}
             participantId={room.participantId}
