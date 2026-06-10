@@ -54,49 +54,66 @@ export default function Dashboard() {
 
   if (!room.snapshot) {
     return (
-      <main className="dashboard">
-        <section className="panel empty-state">
-          <span className="eyebrow">LIVE CONSOLE</span>
-          <h1>예매 이벤트를 불러오는 중입니다</h1>
-          {room.error ? <p>{room.error}</p> : null}
-        </section>
-      </main>
+      <div className="dashboard-container">
+        <aside className="sidebar">
+          <div className="sidebar-icon active">D</div>
+        </aside>
+        <main className="main-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <section className="panel empty-state">
+            <span className="eyebrow">LIVE CONSOLE</span>
+            <h1>예매 이벤트를 불러오는 중입니다</h1>
+            {room.error ? <p>{room.error}</p> : null}
+          </section>
+        </main>
+      </div>
     );
   }
 
   return (
-    <main className="dashboard">
-      <EventHeader snapshot={room.snapshot} onStart={(request) => void room.start(request)} onReset={() => void room.reset()} />
-      {room.error ? <div className="error-banner">{room.error}</div> : null}
-      {room.message ? <div className="info-banner">{room.message}</div> : null}
-      <div className="metric-strip" aria-label="실시간 이벤트 지표">
-        <Metric label="SEATS" value={`${room.snapshot.metrics.reservedCount}/${room.snapshot.seats.length}`} detail="reserved" />
-        <Metric label="QUEUE" value={`${room.snapshot.metrics.queueSize}`} detail="waiting" />
-        <Metric label="TPS" value={`${metrics ? metrics.tps.toFixed(1) : '0.0'}`} detail="transactions/s" />
-        <Metric label="ACTIVE USERS" value={`${room.snapshot.activeConnections ?? 0}`} detail="connected" />
-      </div>
-      <div className="dashboard-hero-grid">
-        <SeatMap
-          status={room.snapshot.status}
-          seats={room.snapshot.seats}
-          participant={room.myParticipant}
-          selectedSeatLabel={room.myParticipant?.selectedSeatLabel ?? null}
-          onSelectSeat={(seatId) => void room.selectSeat(seatId)}
-          readOnly={true}
-        />
-        <MyTicketPanel
-          status={room.snapshot.status}
-          participant={room.myParticipant}
-          loading={room.loading}
-          onJoin={() => void room.join(randomGuestName())}
-          onReserve={openTicketingWindow}
-          onPay={() => void room.pay()}
-        />
-      </div>
-      <div className="insight-section">
-        <InsightPanel snapshot={room.snapshot} metrics={metrics} />
-      </div>
-    </main>
+    <div className="dashboard-container">
+      <aside className="sidebar">
+        <div className="sidebar-icon active" title="Dashboard">D</div>
+        <div className="sidebar-icon" title="Monitoring">M</div>
+      </aside>
+
+      <main className="main-content">
+        <EventHeader snapshot={room.snapshot} onStart={(request) => void room.start(request)} onReset={() => void room.reset()} />
+        {room.error ? <div className="error-banner">{room.error}</div> : null}
+        {room.message ? <div className="info-banner">{room.message}</div> : null}
+        
+        <div className="metric-strip" aria-label="실시간 이벤트 지표">
+          <Metric label="SEATS RESERVED" value={`${room.snapshot.metrics.reservedCount}/${room.snapshot.seats.length}`} detail="예약 완료" />
+          <Metric label="WAITING QUEUE" value={`${room.snapshot.metrics.queueSize}`} detail="대기 유저" />
+          <Metric label="TPS PEAK" value={`${metrics ? metrics.tps.toFixed(1) : '0.0'}`} detail="거래량/초" />
+          <Metric label="ACTIVE USERS" value={`${room.snapshot.activeConnections ?? 0}`} detail="실시간 커넥션" />
+        </div>
+
+        <div className="dashboard-hero-grid">
+          <div className="panel" style={{ padding: '24px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px', color: 'var(--text-primary)' }}>실시간 예매 좌석도 (관제 전용)</h3>
+            <SeatMap
+              status={room.snapshot.status}
+              seats={room.snapshot.seats}
+              participant={room.myParticipant}
+              selectedSeatLabel={room.myParticipant?.selectedSeatLabel ?? null}
+              onSelectSeat={(seatId) => void room.selectSeat(seatId)}
+              readOnly={true}
+            />
+          </div>
+          <MyTicketPanel
+            status={room.snapshot.status}
+            participant={room.myParticipant}
+            loading={room.loading}
+            onJoin={() => void room.join(randomGuestName())}
+            onReserve={openTicketingWindow}
+            onPay={() => void room.pay()}
+          />
+        </div>
+        <div className="insight-section">
+          <InsightPanel snapshot={room.snapshot} metrics={metrics} />
+        </div>
+      </main>
+    </div>
   );
 }
 

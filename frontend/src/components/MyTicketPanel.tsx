@@ -41,15 +41,15 @@ export function MyTicketPanel({ status, participant, loading, onJoin, onReserve,
       </div>
       <TicketHint participant={participant} />
       {(!participant || canReserve(participant)) ? (
-        <button className="primary-action icon-action" disabled={status !== 'OPEN'} onClick={onReserve}>
+        <button className="btn btn-primary icon-action" disabled={status !== 'OPEN'} onClick={onReserve} style={{ width: '100%', marginTop: '16px', gap: '8px' }}>
           <Ticket size={18} /> 예약하기
         </button>
       ) : (
-        <button className="primary-action icon-action" disabled={true} onClick={onReserve}>
+        <button className="btn btn-primary icon-action" disabled={true} onClick={onReserve} style={{ width: '100%', marginTop: '16px', gap: '8px' }}>
           <Ticket size={18} /> 예약하기
         </button>
       )}
-      <button className="secondary-action icon-action" disabled={!canConfirmPayment(participant)} onClick={onPay}>
+      <button className="btn btn-secondary icon-action" disabled={!canConfirmPayment(participant)} onClick={onPay} style={{ width: '100%', marginTop: '8px', gap: '8px' }}>
         <CreditCard size={18} /> 결제 확인
       </button>
     </section>

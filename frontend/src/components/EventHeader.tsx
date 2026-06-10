@@ -42,9 +42,9 @@ export function EventHeader({ snapshot, onStart, onReset }: EventHeaderProps) {
       </div>
       <div className="event-actions">
         {snapshot.status === 'READY' ? (
-          <div className="ai-config-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <div className="input-group" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <label htmlFor="ai-count-input" style={{ fontSize: '12px', fontWeight: '800' }}>AI 유저</label>
+          <div className="ai-config-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            <div className="input-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label htmlFor="ai-count-input" style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>AI 유저</label>
               <input
                 id="ai-count-input"
                 type="number"
@@ -52,11 +52,11 @@ export function EventHeader({ snapshot, onStart, onReset }: EventHeaderProps) {
                 max={1000}
                 value={aiCount}
                 onChange={(e) => setAiCount(Math.max(0, Math.min(1000, parseInt(e.target.value) || 0)))}
-                style={{ width: '70px', padding: '6px', border: '2px solid var(--line)', fontFamily: 'monospace', fontWeight: '800' }}
+                style={{ width: '80px', padding: '8px 12px', border: '1px solid var(--border-line)', borderRadius: 'var(--radius-md)', fontSize: '13px', fontWeight: '500', outline: 'none', background: '#FFFFFF' }}
               />
             </div>
-            <div className="input-group" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <label htmlFor="ai-concurrency-input" style={{ fontSize: '12px', fontWeight: '800' }}>동시성</label>
+            <div className="input-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label htmlFor="ai-concurrency-input" style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>동시성</label>
               <input
                 id="ai-concurrency-input"
                 type="number"
@@ -64,16 +64,16 @@ export function EventHeader({ snapshot, onStart, onReset }: EventHeaderProps) {
                 max={120}
                 value={aiConcurrency}
                 onChange={(e) => setAiConcurrency(Math.max(1, Math.min(120, parseInt(e.target.value) || 1)))}
-                style={{ width: '60px', padding: '6px', border: '2px solid var(--line)', fontFamily: 'monospace', fontWeight: '800' }}
+                style={{ width: '70px', padding: '8px 12px', border: '1px solid var(--border-line)', borderRadius: 'var(--radius-md)', fontSize: '13px', fontWeight: '500', outline: 'none', background: '#FFFFFF' }}
               />
             </div>
-            <div className="input-group" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <label htmlFor="ai-speed-select" style={{ fontSize: '12px', fontWeight: '800' }}>속도</label>
+            <div className="input-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label htmlFor="ai-speed-select" style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)' }}>속도</label>
               <select
                 id="ai-speed-select"
                 value={aiSpeed}
                 onChange={(e) => setAiSpeed(e.target.value as any)}
-                style={{ padding: '6px', border: '2px solid var(--line)', fontWeight: '800', backgroundColor: 'var(--paper)' }}
+                style={{ padding: '8px 12px', border: '1px solid var(--border-line)', borderRadius: 'var(--radius-md)', fontSize: '13px', fontWeight: '500', outline: 'none', backgroundColor: '#FFFFFF' }}
               >
                 <option value="SLOW">느림 (1.5초)</option>
                 <option value="NORMAL">보통 (0.5초)</option>
@@ -82,7 +82,7 @@ export function EventHeader({ snapshot, onStart, onReset }: EventHeaderProps) {
             </div>
             <button 
               type="button"
-              className="header-action" 
+              className="btn btn-primary" 
               onClick={() => onStart({ aiUserCount: aiCount, aiConcurrency: aiConcurrency, aiSpeed: aiSpeed })}
             >
               이벤트 시작하기
@@ -90,7 +90,7 @@ export function EventHeader({ snapshot, onStart, onReset }: EventHeaderProps) {
           </div>
         ) : null}
         {snapshot.status === 'ENDED' ? (
-          <button className="header-action" onClick={onReset}>새 이벤트 시작</button>
+          <button className="btn btn-primary" onClick={onReset}>새 이벤트 시작</button>
         ) : null}
       </div>
     </header>
