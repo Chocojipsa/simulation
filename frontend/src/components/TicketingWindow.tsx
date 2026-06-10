@@ -485,104 +485,110 @@ export function TicketingWindow() {
       <style>{`
         .ticketing-window {
           min-height: 100vh;
-          padding: 32px 16px;
-          background: linear-gradient(rgba(23, 23, 23, 0.02) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(23, 23, 23, 0.02) 1px, transparent 1px),
-                      #f7f5ef;
-          background-size: 24px 24px;
+          padding: 40px 16px;
+          background-color: #F8FAFC;
           display: flex;
           align-items: center;
           justify-content: center;
         }
         .ticketing-card {
           width: 100%;
-          max-width: 680px;
-          border: 2px solid var(--line);
-          background: var(--paper);
-          box-shadow: 6px 6px 0 var(--line);
-          padding: 32px;
+          max-width: 720px;
+          border: 1px solid var(--border-line);
+          background: #FFFFFF;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+          border-radius: var(--radius-lg);
+          padding: 40px;
           position: relative;
         }
         .ticketing-header {
           text-align: center;
-          margin-bottom: 24px;
-          border-bottom: 2px dashed rgba(23, 23, 23, 0.2);
-          padding-bottom: 20px;
+          margin-bottom: 32px;
+          border-bottom: 1px solid var(--border-line);
+          padding-bottom: 24px;
         }
         .ticketing-header h1 {
-          font-size: 28px;
-          margin: 8px 0;
-          font-weight: 900;
-          color: var(--ink);
+          font-size: 24px;
+          margin: 8px 0 0;
+          font-weight: 700;
+          color: var(--text-primary);
         }
         .step-indicator {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 32px;
+          margin-bottom: 40px;
           padding: 0 8px;
+          position: relative;
         }
         .step-node {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 6px;
+          gap: 8px;
           opacity: 0.35;
-          transition: opacity 0.3s ease;
+          transition: all 0.3s ease;
+          z-index: 2;
         }
         .step-node.active {
           opacity: 1;
         }
         .step-num {
-          width: 28px;
-          height: 28px;
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
-          border: 2px solid var(--line);
-          background: var(--paper);
+          border: 2px solid var(--border-line);
+          background: #FFFFFF;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-weight: 900;
+          font-weight: 700;
           font-size: 14px;
-          font-family: "Courier New", monospace;
+          color: var(--text-secondary);
+          transition: all 0.3s ease;
         }
         .step-node.active .step-num {
-          background: var(--green);
+          background: var(--primary-indigo);
+          color: #FFFFFF;
+          border-color: var(--primary-indigo);
         }
         .step-label {
-          font-size: 11px;
-          font-weight: 800;
+          font-size: 12px;
+          font-weight: 600;
           white-space: nowrap;
-          color: var(--ink);
+          color: var(--text-secondary);
         }
         .step-line {
           flex-grow: 1;
           height: 2px;
-          background: rgba(23, 23, 23, 0.2);
+          background: var(--border-line);
           margin: 0 8px;
-          margin-top: -18px;
+          margin-top: -22px;
+          z-index: 1;
+          transition: all 0.3s ease;
         }
         .step-line.active {
-          background: var(--line);
+          background: var(--primary-indigo);
         }
         .warning-box {
-          background: #fffdf5;
-          border: 2px solid var(--yellow);
-          padding: 14px;
-          margin-bottom: 20px;
-          font-size: 12px;
-          font-weight: 800;
-          color: #7d6013;
+          background: #FFFBEB;
+          border: 1px solid #FCD34D;
+          padding: 16px;
+          border-radius: var(--radius-md);
+          margin-bottom: 24px;
+          font-size: 13px;
+          color: #92400E;
           line-height: 1.6;
           display: flex;
-          gap: 8px;
+          gap: 12px;
           align-items: flex-start;
         }
         .warning-box p {
           margin: 0;
         }
         .warning-box strong {
-          color: var(--red);
+          color: var(--danger-red);
+          font-weight: 700;
         }
         .form-group {
           display: flex;
@@ -591,243 +597,247 @@ export function TicketingWindow() {
           margin-bottom: 24px;
         }
         .form-group label {
-          font-weight: 800;
+          font-weight: 600;
           font-size: 14px;
-          color: var(--ink);
+          color: var(--text-primary);
         }
         .form-input {
-          padding: 12px;
-          border: 2px solid var(--line);
-          font-size: 16px;
-          background: var(--paper);
-          box-shadow: inset 2px 2px 0 rgba(23, 23, 23, 0.05);
+          padding: 10px 14px;
+          border: 1px solid var(--border-line);
+          border-radius: var(--radius-md);
+          font-size: 14px;
+          background: #FFFFFF;
+          outline: none;
+          transition: border-color 0.2s ease;
         }
         .form-input:focus {
-          outline: none;
-          border-color: var(--mint);
-          background: #fbfdf9;
+          border-color: var(--primary-indigo);
         }
         .progress-container {
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 32px 0;
+          padding: 48px 0;
           text-align: center;
         }
         .queue-badge {
-          font-size: 44px;
-          font-weight: 900;
-          font-family: "Courier New", monospace;
-          background: var(--yellow);
-          border: 2px solid var(--line);
-          padding: 12px 24px;
-          box-shadow: 4px 4px 0 var(--line);
-          margin-bottom: 20px;
+          font-size: 40px;
+          font-weight: 700;
+          background: rgba(245, 158, 11, 0.08);
+          color: var(--warning-amber);
+          border: 1px solid rgba(245, 158, 11, 0.2);
+          padding: 12px 28px;
+          border-radius: 9999px;
+          margin-bottom: 24px;
         }
         .wait-time {
-          font-size: 16px;
-          font-weight: 800;
-          color: var(--muted);
+          font-size: 15px;
+          font-weight: 500;
+          color: var(--text-secondary);
         }
         .spinner {
-          width: 36px;
-          height: 36px;
-          border: 4px solid var(--paper-2);
-          border-top: 4px solid var(--mint);
+          width: 40px;
+          height: 40px;
+          border: 3px solid var(--border-line);
+          border-top: 3px solid var(--primary-indigo);
           border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-          margin-top: 20px;
+          animation: spin 1s linear infinite;
+          margin-top: 24px;
         }
         .map-toolbar {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 16px;
+          margin-bottom: 20px;
           gap: 12px;
         }
         .toggle-switch {
           display: flex;
           align-items: center;
-          gap: 8px;
-          font-weight: 800;
+          gap: 10px;
+          font-weight: 600;
           font-size: 13px;
           cursor: pointer;
+          color: var(--text-secondary);
         }
         .toggle-input {
           cursor: pointer;
           width: 36px;
           height: 20px;
           appearance: none;
-          background: var(--gray);
-          border-radius: 10px;
+          background: #E2E8F0;
+          border-radius: 9999px;
           position: relative;
           outline: none;
-          border: 2px solid var(--line);
+          border: 1px solid transparent;
           transition: background 0.3s;
         }
         .toggle-input:checked {
-          background: var(--mint);
+          background: var(--success-mint);
         }
         .toggle-input::before {
           content: '';
           position: absolute;
-          width: 12px;
-          height: 12px;
+          width: 14px;
+          height: 14px;
           border-radius: 50%;
           background: white;
-          border: 1px solid var(--line);
           top: 2px;
           left: 2px;
           transition: transform 0.3s;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
         }
         .toggle-input:checked::before {
           transform: translateX(16px);
         }
         .timer-display {
-          font-size: 28px;
-          font-weight: 900;
-          color: var(--red);
-          font-family: "Courier New", monospace;
+          font-size: 20px;
+          font-weight: 700;
+          color: var(--danger-red);
           text-align: center;
-          margin: 16px 0;
-          padding: 8px;
-          border: 2px solid var(--line);
-          background: #fff5f5;
-          box-shadow: 3px 3px 0 var(--line);
+          margin-bottom: 24px;
+          padding: 12px;
+          border: 1px solid #FEE2E2;
+          border-radius: var(--radius-md);
+          background: #FEF2F2;
         }
         .timer-display.normal {
-          color: var(--ink);
-          background: #fcfcfc;
+          color: var(--text-primary);
+          background: var(--bg-main);
+          border-color: var(--border-line);
         }
         .payment-summary {
-          margin-bottom: 24px;
-          background: var(--paper-2);
-          border: 2px solid var(--line);
-          padding: 16px;
+          margin-bottom: 28px;
+          background: var(--bg-main);
+          border: 1px solid var(--border-line);
+          border-radius: var(--radius-md);
+          padding: 20px;
         }
         .payment-row {
           display: flex;
           justify-content: space-between;
-          padding: 10px 0;
-          border-bottom: 1px dashed rgba(23, 23, 23, 0.2);
+          padding: 12px 0;
+          border-bottom: 1px dashed var(--border-line);
         }
         .payment-row:last-child {
           border-bottom: none;
         }
         .payment-row span {
-          font-weight: 800;
-          color: var(--muted);
-          font-family: "Courier New", monospace;
+          font-weight: 500;
+          color: var(--text-secondary);
         }
         .payment-row strong {
-          font-weight: 900;
-          color: var(--ink);
+          font-weight: 600;
+          color: var(--text-primary);
         }
         .button-group {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 12px;
-          margin-top: 16px;
+          gap: 16px;
+          margin-top: 24px;
         }
         .ticket-receipt {
-          background: var(--paper);
-          border: 2px solid var(--line);
+          background: #FFFFFF;
+          border: 1px solid var(--border-line);
+          border-radius: var(--radius-lg);
           position: relative;
-          margin-top: 16px;
-          box-shadow: 5px 5px 0 var(--line);
+          margin: 24px auto 0;
+          box-shadow: var(--card-shadow);
+          overflow: hidden;
+          max-width: 420px;
         }
         .ticket-receipt-top {
           padding: 24px;
-          background: var(--green);
-          border-bottom: 2px dashed var(--line);
+          background: rgba(79, 70, 229, 0.05);
+          border-bottom: 1px dashed var(--border-line);
           text-align: center;
         }
         .ticket-receipt-top h3 {
           margin: 0;
-          font-size: 13px;
-          color: var(--ink);
+          font-size: 11px;
+          color: var(--primary-indigo);
           letter-spacing: 2px;
-          font-family: "Courier New", monospace;
           font-weight: 800;
         }
         .ticket-receipt-top h2 {
-          margin: 10px 0 0;
-          font-size: 24px;
-          font-weight: 900;
+          margin: 8px 0 0;
+          font-size: 20px;
+          font-weight: 700;
+          color: var(--text-primary);
         }
         .ticket-receipt-body {
           padding: 24px;
           display: grid;
-          gap: 16px;
+          gap: 14px;
         }
         .ticket-receipt-row {
           display: flex;
           justify-content: space-between;
-          font-size: 14px;
+          font-size: 13px;
         }
         .ticket-receipt-row span {
-          color: var(--muted);
-          font-family: "Courier New", monospace;
-          font-weight: 800;
+          color: var(--text-secondary);
         }
         .ticket-receipt-row strong {
-          font-weight: 900;
+          font-weight: 600;
+          color: var(--text-primary);
         }
         .ticket-receipt-footer {
           padding: 16px 24px;
-          background: #fcfcfc;
-          border-top: 2px dashed var(--line);
+          background: var(--bg-main);
+          border-top: 1px dashed var(--border-line);
           text-align: center;
-          font-family: "Courier New", monospace;
-          font-size: 12px;
-          color: var(--muted);
-          font-weight: 800;
+          font-size: 11px;
+          color: var(--text-tertiary);
+          font-weight: 600;
+          letter-spacing: 1px;
         }
         .ticket-cutout-left,
         .ticket-cutout-right {
           position: absolute;
-          width: 16px;
-          height: 16px;
-          background: #f7f5ef;
-          border: 2px solid var(--line);
+          width: 14px;
+          height: 14px;
+          background: #FFFFFF;
+          border: 1px solid var(--border-line);
           border-radius: 50%;
           top: 67px;
+          z-index: 10;
         }
         .ticket-cutout-left {
-          left: -10px;
+          left: -8px;
         }
         .ticket-cutout-right {
-          right: -10px;
+          right: -8px;
         }
         .success-box {
           text-align: center;
-          padding: 16px 0;
+          padding: 24px 0;
         }
         .success-title {
-          font-size: 20px;
-          font-weight: 900;
+          font-size: 22px;
+          font-weight: 700;
           margin-bottom: 12px;
-          color: var(--mint);
+          color: var(--success-mint);
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
         }
         .error-banner, .info-banner {
-          padding: 10px;
-          border: 2px solid var(--line);
-          margin-bottom: 16px;
-          font-size: 13px;
-          font-weight: 800;
+          padding: 12px 16px;
+          border-radius: var(--radius-md);
+          margin-bottom: 20px;
+          font-size: 14px;
+          font-weight: 500;
         }
         .error-banner {
-          background: #ffebe9;
-          color: var(--red);
+          background: #FEE2E2;
+          color: var(--danger-red);
         }
         .info-banner {
-          background: #e6fffa;
-          color: var(--mint);
+          background: #EFF6FF;
+          color: #1E40AF;
         }
         @keyframes spin {
           0% { transform: rotate(0deg); }
@@ -880,8 +890,8 @@ export function TicketingWindow() {
             {error ? (
               <button
                 type="button"
-                className="primary-action"
-                style={{ minHeight: '44px', width: '100%' }}
+                className="btn btn-primary"
+                style={{ width: '100%' }}
                 onClick={() => {
                   setError(null);
                   void initSession();
@@ -938,12 +948,11 @@ export function TicketingWindow() {
               </label>
               <button
                 type="button"
-                className="secondary-action compact"
-                style={{ minHeight: '32px' }}
+                className="btn btn-secondary compact"
                 onClick={handleManualRefresh}
                 disabled={loading}
               >
-                <RefreshCw size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                <RefreshCw size={14} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
                 새로고침
               </button>
             </div>
@@ -984,12 +993,13 @@ export function TicketingWindow() {
                   onChange={(e) => setPayeeName(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '10px 12px',
-                    border: '2px solid var(--line)',
+                    padding: '10px 14px',
+                    border: '1px solid var(--border-line)',
+                    borderRadius: 'var(--radius-md)',
                     backgroundColor: '#fff',
                     fontFamily: 'inherit',
                     fontSize: '14px',
-                    fontWeight: '800',
+                    fontWeight: '500',
                     outline: 'none',
                     boxSizing: 'border-box'
                   }}
@@ -1000,7 +1010,7 @@ export function TicketingWindow() {
             <div className="button-group">
               <button
                 type="button"
-                className="secondary-action icon-action"
+                className="btn btn-secondary icon-action"
                 onClick={handleCancelPayment}
                 disabled={loading}
               >
@@ -1008,11 +1018,11 @@ export function TicketingWindow() {
               </button>
               <button
                 type="button"
-                className="primary-action icon-action"
+                className="btn btn-primary icon-action"
                 onClick={handleConfirmPayment}
                 disabled={loading || holdRemaining <= 0}
               >
-                <CreditCard size={18} /> 결제하기
+                <CreditCard size={18} style={{ marginRight: '6px' }} /> 결제하기
               </button>
             </div>
           </div>
@@ -1024,7 +1034,7 @@ export function TicketingWindow() {
             <h2 className="success-title">
               <CheckCircle size={24} /> 예매가 완료되었습니다!
             </h2>
-            <p style={{ margin: '0 0 16px', color: 'var(--muted)', fontWeight: 800 }}>
+            <p style={{ margin: '0 0 16px', color: 'var(--text-secondary)', fontWeight: 500 }}>
               예매가 성공적으로 처리되었습니다. 아래 영수증을 확인해 주세요.
             </p>
 
@@ -1060,8 +1070,8 @@ export function TicketingWindow() {
 
             <button
               type="button"
-              className="secondary-action icon-action"
-              style={{ marginTop: '24px', width: '100%', minHeight: '44px' }}
+              className="btn btn-secondary icon-action"
+              style={{ marginTop: '24px', width: '100%' }}
               onClick={() => window.close()}
             >
               닫기
