@@ -246,10 +246,6 @@ public class SimulationService {
     }
 
     public void admitParticipant(UUID simulationId, UUID userId) {
-        if (waitingQueueService != null) {
-            // Always remove from Redis queue first to prevent phantom entries
-            waitingQueueService.removeAdmissionCandidate(simulationId.toString(), userId.toString());
-        }
         // Only admit if user is still in QUEUED status (prevents re-admitting expired/completed users)
         try {
             VirtualUserView participant = getParticipant(simulationId, userId);
@@ -260,6 +256,8 @@ public class SimulationService {
             return;
         }
         if (waitingQueueService != null) {
+            // Always remove from Redis queue first to prevent phantom entries
+            waitingQueueService.removeAdmissionCandidate(simulationId.toString(), userId.toString());
             waitingQueueService.issueAdmissionToken(simulationId.toString(), userId.toString());
         }
         Instant expiresAt = now().plus(seatSelectionTtl);
@@ -348,7 +346,7 @@ public class SimulationService {
         }
 
         if (admitIfPossible(simulationId, userId)) {
-            return new VirtualUserCommandResponse(simulationId, userId, "ADMITTED", serverIdentity.id(), "입장 허가되었습니다.", null);
+            return new VirtualUserCommandResponse(simulationId, userId, "ADMITTED", serverIdentity.id(), "대기열을 통과했습니다. 좌석을 선택해 주세요.", null);
         }
 
         long position = waitingQueueService != null ? waitingQueueService.position(simulationId.toString(), userId.toString()) : 0L;
@@ -368,6 +366,12 @@ public class SimulationService {
                 .toList();
 
         if (availableSeats.isEmpty()) {
+            boolean paymentsInProgress = stateStore.snapshot(simulationId).seats().stream()
+                    .anyMatch(s -> s.status() == SeatStatus.HELD || s.status() == SeatStatus.PAYMENT_IN_PROGRESS);
+            if (paymentsInProgress) {
+                stateStore.recordSeatSelectionWaiting(simulationId, userId, serverIdentity.id());
+                return new SeatHoldResponse(simulationId, userId, 0L, VirtualUserStatus.SELECTING_SEAT.name(), "결제 결과를 기다린 뒤 다시 좌석을 선택합니다.", null, serverIdentity.id());
+            }
             stateStore.recordNoSeatAvailable(simulationId, userId, serverIdentity.id());
             return new SeatHoldResponse(simulationId, userId, 0L, VirtualUserStatus.FAILED.name(), "선택 가능한 좌석이 없습니다.", null, serverIdentity.id());
         }
@@ -387,7 +391,12 @@ public class SimulationService {
             if (eventHub != null) {
                 eventHub.publish(updated);
             }
-            return new SeatHoldResponse(simulationId, userId, target.id(), VirtualUserStatus.SELECTING_SEAT.name(), "이미 선택된 좌석입니다.", target.label(), serverIdentity.id());
+            VirtualUserView updatedUser = updated.users().stream()
+                    .filter(u -> u.id().equals(userId))
+                    .findFirst()
+                    .orElse(null);
+            String status = updatedUser != null ? updatedUser.status().name() : VirtualUserStatus.SELECTING_SEAT.name();
+            return new SeatHoldResponse(simulationId, userId, target.id(), status, "이미 선택된 좌석입니다.", target.label(), serverIdentity.id());
         }
 
         return new SeatHoldResponse(simulationId, userId, target.id(), VirtualUserStatus.SELECTING_SEAT.name(), "좌석 선점에 실패했습니다.", null, serverIdentity.id());
@@ -468,8 +477,16 @@ public class SimulationService {
                 .orElse(null);
 
         if (target == null || target.status() != SeatStatus.AVAILABLE) {
-            stateStore.recordSeatConflict(simulationId, userId, target, serverIdentity.id());
-            return new VirtualUserCommandResponse(simulationId, userId, VirtualUserStatus.SELECTING_SEAT.name(), serverIdentity.id(), "이미 선택된 좌석입니다.", null);
+            SimulationSnapshot updated = stateStore.recordSeatConflict(simulationId, userId, target, serverIdentity.id());
+            if (eventHub != null) {
+                eventHub.publish(updated);
+            }
+            VirtualUserView updatedUser = updated.users().stream()
+                    .filter(u -> u.id().equals(userId))
+                    .findFirst()
+                    .orElse(null);
+            String status = updatedUser != null ? updatedUser.status().name() : VirtualUserStatus.SELECTING_SEAT.name();
+            return new VirtualUserCommandResponse(simulationId, userId, status, serverIdentity.id(), "이미 선택된 좌석입니다.", null);
         }
 
         SeatReservationResult result = seatReservationService.holdSeat(simulationId, userId, target.id(), "idempotency-" + userId + "-" + target.id());
@@ -487,18 +504,27 @@ public class SimulationService {
         if (eventHub != null) {
             eventHub.publish(updated);
         }
-        return new VirtualUserCommandResponse(simulationId, userId, VirtualUserStatus.SELECTING_SEAT.name(), serverIdentity.id(), "좌석 선점에 실패했습니다.", null);
+        VirtualUserView updatedUser = updated.users().stream()
+                .filter(u -> u.id().equals(userId))
+                .findFirst()
+                .orElse(null);
+        String status = updatedUser != null ? updatedUser.status().name() : VirtualUserStatus.SELECTING_SEAT.name();
+        return new VirtualUserCommandResponse(simulationId, userId, status, serverIdentity.id(), "좌석 선점에 실패했습니다.", null);
     }
 
     private boolean admitIfPossible(UUID simulationId, UUID userId) {
         long activeCount = stateStore.snapshot(simulationId).users().stream()
-                .filter(user -> user.status() == VirtualUserStatus.SELECTING_SEAT
-                        || user.status() == VirtualUserStatus.SEAT_HELD
-                        || user.status() == VirtualUserStatus.PAYMENT_IN_PROGRESS)
+                .filter(user -> user.status() == VirtualUserStatus.SELECTING_SEAT)
                 .count();
 
         if (activeCount < maxActiveAdmissions) {
             if (waitingQueueService != null) {
+                List<String> candidates = waitingQueueService.pickAdmissionCandidates(simulationId.toString(), 1);
+                if (!candidates.isEmpty() && !candidates.get(0).equals(userId.toString())) {
+                    UUID frontUserId = UUID.fromString(candidates.get(0));
+                    admitParticipant(simulationId, frontUserId);
+                    return false;
+                }
                 waitingQueueService.issueAdmissionToken(simulationId.toString(), userId.toString());
                 waitingQueueService.removeAdmissionCandidate(simulationId.toString(), userId.toString());
             }
@@ -534,6 +560,24 @@ public class SimulationService {
                 });
 
         if (!seatHoldExpiredIds.isEmpty() || !seatSelectionExpiredIds.isEmpty()) {
+            if (seatReservationService != null && !seatHoldExpiredIds.isEmpty()) {
+                SimulationSnapshot currentSnapshot = stateStore.snapshot(simulationId);
+                for (UUID userId : seatHoldExpiredIds) {
+                    currentSnapshot.users().stream()
+                            .filter(user -> user.id().equals(userId))
+                            .findFirst()
+                            .ifPresent(user -> {
+                                if (user.reservationId() != null && user.selectedSeatLabel() != null) {
+                                    currentSnapshot.seats().stream()
+                                            .filter(seat -> seat.label().equals(user.selectedSeatLabel()))
+                                            .findFirst()
+                                            .ifPresent(seat -> {
+                                                seatReservationService.expireHold(simulationId, user.reservationId(), seat.id());
+                                            });
+                                }
+                            });
+                }
+            }
             SimulationSnapshot updated = stateStore.expireTimedOutParticipants(simulationId, seatHoldExpiredIds, seatSelectionExpiredIds, serverIdentity.id());
             if (eventHub != null) {
                 eventHub.publish(updated);

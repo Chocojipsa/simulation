@@ -58,9 +58,7 @@ public class LiveEventQueueScheduler {
             }
 
             long activeCount = snapshot.users().stream()
-                    .filter(user -> user.status() == VirtualUserStatus.SELECTING_SEAT
-                            || user.status() == VirtualUserStatus.SEAT_HELD
-                            || user.status() == VirtualUserStatus.PAYMENT_IN_PROGRESS)
+                    .filter(user -> user.status() == VirtualUserStatus.SELECTING_SEAT)
                     .count();
 
             int maxActiveAdmissions = simulationService.getMaxActiveAdmissions();

@@ -3,6 +3,7 @@ package com.timedeal.seatreservation.simulation;
 import com.timedeal.seatreservation.domain.SeatStatus;
 import com.timedeal.seatreservation.domain.VirtualUserStatus;
 import com.timedeal.seatreservation.event.ParticipantType;
+import com.timedeal.seatreservation.event.PaymentConfirmResponse;
 import com.timedeal.seatreservation.generator.TrafficGeneratorClient;
 import com.timedeal.seatreservation.identity.ServerIdentity;
 import com.timedeal.seatreservation.events.SimulationEventHub;
@@ -87,7 +88,7 @@ class SimulationServiceTest {
         verify(waitingQueue).enterQueue(simulationId.toString(), userId.toString());
         verify(stateStore).registerQueueEntry(simulationId, userId, "api-test");
         assertThat(response.status()).isEqualTo("QUEUED");
-        assertThat(response.message()).isEqualTo("대기열에 진입했습니다. 아직 좌석을 선택할 수 없습니다.");
+        assertThat(response.message()).isEqualTo("대기열에 진입했습니다.");
     }
 
     @Test
@@ -105,7 +106,7 @@ class SimulationServiceTest {
         SimulationService service = service(stateStore, waitingQueue, null, null);
 
         VirtualUserCommandResponse queued = service.enterQueue(simulationId, userId);
-        VirtualUserCommandResponse admitted = service.enterQueue(simulationId, userId);
+        VirtualUserCommandResponse admitted = service.postQueue(simulationId, userId);
 
         assertThat(queued.status()).isEqualTo("QUEUED");
         assertThat(admitted.status()).isEqualTo("ADMITTED");
@@ -134,8 +135,8 @@ class SimulationServiceTest {
 
         VirtualUserCommandResponse response = service.holdExplicitSeat(simulationId, participantId, 1L);
 
-        assertThat(response.status()).isEqualTo("WAITING");
-        assertThat(response.message()).isEqualTo("대기열 대기 중입니다. 통과 후 좌석을 선택할 수 있습니다.");
+        assertThat(response.status()).isEqualTo("QUEUED");
+        assertThat(response.message()).isEqualTo("좌석을 선택할 수 있는 상태가 아닙니다.");
         verify(seatReservationService, times(0)).holdSeat(any(), any(), anyLong(), any());
     }
 
@@ -176,7 +177,7 @@ class SimulationServiceTest {
                 .thenReturn(List.of(queuedUserId.toString()));
         SimulationService service = service(stateStore, waitingQueue, null, null, 1, 1);
 
-        VirtualUserCommandResponse response = service.enterQueue(simulationId, queuedUserId);
+        VirtualUserCommandResponse response = service.postQueue(simulationId, queuedUserId);
 
         assertThat(response.status()).isEqualTo("ADMITTED");
         assertThat(stateStore.participant(simulationId, queuedUserId).status()).isEqualTo(VirtualUserStatus.SELECTING_SEAT);
@@ -199,7 +200,7 @@ class SimulationServiceTest {
                 .thenReturn(List.of(frontUserId.toString()));
         SimulationService service = service(stateStore, waitingQueue, null, null, 1, 1);
 
-        VirtualUserCommandResponse response = service.enterQueue(simulationId, behindUserId);
+        VirtualUserCommandResponse response = service.postQueue(simulationId, behindUserId);
 
         assertThat(response.status()).isEqualTo("QUEUED");
         assertThat(stateStore.participant(simulationId, frontUserId).status()).isEqualTo(VirtualUserStatus.SELECTING_SEAT);
@@ -212,16 +213,15 @@ class SimulationServiceTest {
         WaitingQueueService waitingQueue = mock(WaitingQueueService.class);
         UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000031");
         UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000131");
-        when(stateStore.snapshot(simulationId)).thenReturn(snapshot(simulationId, userId, new SeatView(1L, "A-1", SeatStatus.AVAILABLE)));
+        when(stateStore.snapshot(simulationId)).thenReturn(snapshot(simulationId, userId, new SeatView(1L, "A-1", SeatStatus.AVAILABLE), VirtualUserStatus.QUEUED));
         when(waitingQueue.hasAdmissionToken(simulationId.toString(), userId.toString())).thenReturn(false);
         when(waitingQueue.pickAdmissionCandidates(simulationId.toString(), 1)).thenReturn(List.of());
         SimulationService service = service(stateStore, waitingQueue, null, null);
 
         VirtualUserCommandResponse response = service.attemptSeat(simulationId, userId);
 
-        verify(stateStore).recordWaiting(simulationId, userId, "api-test");
-        assertThat(response.status()).isEqualTo("WAITING");
-        assertThat(response.message()).isEqualTo("아직 대기 중입니다.");
+        assertThat(response.status()).isEqualTo("QUEUED");
+        assertThat(response.message()).isEqualTo("좌석을 선택할 수 있는 상태가 아닙니다.");
     }
 
     @Test
@@ -243,8 +243,8 @@ class SimulationServiceTest {
         VirtualUserCommandResponse response = service.attemptSeat(simulationId, userId);
 
         verify(stateStore).recordSeatConflict(simulationId, userId, seat, "api-test");
-        assertThat(response.status()).isEqualTo("RETRY");
-        assertThat(response.message()).isEqualTo("이미 선택된 좌석입니다: A-1");
+        assertThat(response.status()).isEqualTo("SELECTING_SEAT");
+        assertThat(response.message()).isEqualTo("이미 선택된 좌석입니다.");
     }
 
     @Test
@@ -317,7 +317,7 @@ class SimulationServiceTest {
         VirtualUserCommandResponse response = service.attemptSeat(simulationId, userId);
 
         verify(stateStore).recordSeatSelectionWaiting(simulationId, userId, "api-test");
-        assertThat(response.status()).isEqualTo("WAITING");
+        assertThat(response.status()).isEqualTo("SELECTING_SEAT");
         assertThat(response.message()).isEqualTo("결제 결과를 기다린 뒤 다시 좌석을 선택합니다.");
     }
 
@@ -334,14 +334,27 @@ class SimulationServiceTest {
         when(stateStore.snapshot(simulationId)).thenReturn(snapshot(simulationId, userId, seat));
         when(seatReservationService.holdSeat(eq(simulationId), eq(userId), eq(1L), any()))
                 .thenReturn(new SeatReservationResult(SeatReservationOutcome.HELD, 101L, 1L, userId, "hold"));
+
+        VirtualUserView selectingUser = new VirtualUserView(userId, "user", ParticipantType.AI, VirtualUserStatus.SELECTING_SEAT, null, List.of(), 0, 0, 0, null, null);
+        VirtualUserView heldUser = new VirtualUserView(userId, "user", ParticipantType.AI, VirtualUserStatus.SEAT_HELD, "A-1", List.of(), 0, 0, 0, 101L, null);
+        when(stateStore.participant(simulationId, userId)).thenReturn(selectingUser, heldUser);
+
+        when(stateStore.recordSeatHeldForPayment(eq(simulationId), eq(userId), eq(seat), eq(101L), any(), eq("api-test")))
+                .thenReturn(snapshot(simulationId, userId, seat, VirtualUserStatus.SEAT_HELD));
+        when(stateStore.recordPaymentRequested(eq(simulationId), eq(userId), eq(seat), eq("api-test")))
+                .thenReturn(snapshot(simulationId, userId, seat, VirtualUserStatus.PAYMENT_IN_PROGRESS));
+
         SimulationService service = service(stateStore, waitingQueue, seatReservationService, kafkaTemplate);
 
         VirtualUserCommandResponse response = service.attemptSeat(simulationId, userId);
+        PaymentConfirmResponse paymentResponse = service.confirmPayment(simulationId, userId);
 
+        verify(stateStore).recordSeatHeldForPayment(eq(simulationId), eq(userId), eq(seat), eq(101L), any(), eq("api-test"));
         verify(stateStore).recordPaymentRequested(simulationId, userId, seat, "api-test");
-        verify(kafkaTemplate).send(eq("payment.events"), eq("101"), any(PaymentRequestedEvent.class));
-        assertThat(response.status()).isEqualTo("PAYMENT_REQUESTED");
+        verify(kafkaTemplate).send(eq("payment.events"), eq(userId.toString()), any(PaymentRequestedEvent.class));
+        assertThat(response.status()).isEqualTo("SEAT_HELD");
         assertThat(response.selectedSeatLabel()).isEqualTo("A-1");
+        assertThat(paymentResponse.status()).isEqualTo("PAYMENT_IN_PROGRESS");
     }
 
     @Test
@@ -373,9 +386,10 @@ class SimulationServiceTest {
         VirtualUserCommandResponse first = service.holdExplicitSeat(simulationId, participantId, 1L);
         VirtualUserCommandResponse second = service.holdExplicitSeat(simulationId, participantId, 2L);
 
-        assertThat(first.status()).isEqualTo("PAYMENT_PENDING");
-        assertThat(second.status()).isEqualTo("ALREADY_HOLDING");
-        assertThat(second.selectedSeatLabel()).isEqualTo("A-1");
+        assertThat(first.status()).isEqualTo("SEAT_HELD");
+        assertThat(second.status()).isEqualTo("SEAT_HELD");
+        assertThat(second.message()).isEqualTo("좌석을 선택할 수 있는 상태가 아닙니다.");
+        assertThat(second.selectedSeatLabel()).isNull();
         verify(seatReservationService, times(1)).holdSeat(eq(simulationId), eq(participantId), anyLong(), any());
     }
 
@@ -436,7 +450,7 @@ class SimulationServiceTest {
                 Duration.ofSeconds(60)
         );
         service.enterQueue(simulationId, participantId);
-        service.enterQueue(simulationId, participantId);
+        service.postQueue(simulationId, participantId);
 
         SimulationService afterExpiry = service(
                 stateStore,
@@ -475,9 +489,9 @@ class SimulationServiceTest {
         SimulationService service = service(stateStore, waitingQueue, seatReservationService, null, 1, 1);
 
         VirtualUserCommandResponse hold = service.holdExplicitSeat(simulationId, holdingUserId, 1L);
-        VirtualUserCommandResponse admitted = service.enterQueue(simulationId, queuedUserId);
+        VirtualUserCommandResponse admitted = service.postQueue(simulationId, queuedUserId);
 
-        assertThat(hold.status()).isEqualTo("PAYMENT_PENDING");
+        assertThat(hold.status()).isEqualTo("SEAT_HELD");
         assertThat(admitted.status()).isEqualTo("ADMITTED");
         assertThat(stateStore.participant(simulationId, queuedUserId).status()).isEqualTo(VirtualUserStatus.SELECTING_SEAT);
     }
@@ -649,6 +663,10 @@ class SimulationServiceTest {
     }
 
     private SimulationSnapshot snapshot(UUID simulationId, UUID userId, SeatView seat) {
+        return snapshot(simulationId, userId, seat, VirtualUserStatus.SELECTING_SEAT);
+    }
+
+    private SimulationSnapshot snapshot(UUID simulationId, UUID userId, SeatView seat, VirtualUserStatus status) {
         return new SimulationSnapshot(
                 simulationId,
                 List.of(seat),
@@ -656,7 +674,7 @@ class SimulationServiceTest {
                         userId,
                         "사용자 1",
                         ParticipantType.AI,
-                        VirtualUserStatus.QUEUED,
+                        status,
                         null,
                         List.of(new TimelineEntry("대기열", "대기열에 진입했습니다.")),
                         0,

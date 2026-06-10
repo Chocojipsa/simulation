@@ -306,10 +306,10 @@ class LiveEventServiceTest {
 
         assertThat(queue.status()).isEqualTo("QUEUED");
         assertThat(admitted.status()).isEqualTo("ADMITTED");
-        assertThat(hold.status()).isEqualTo("PAYMENT_PENDING");
+        assertThat(hold.status()).isEqualTo("SEAT_HELD");
         assertThat(hold.selectedSeatLabel()).isEqualTo("A-1");
-        assertThat(confirm.status()).isEqualTo("PAYMENT_REQUESTED");
-        verify(kafkaTemplate).send(eq("payment.events"), eq("101"), any(PaymentRequestedEvent.class));
+        assertThat(confirm.status()).isEqualTo("PAYMENT_IN_PROGRESS");
+        verify(kafkaTemplate).send(eq("payment.events"), eq(joined.participantId().toString()), any(PaymentRequestedEvent.class));
     }
 
     @Test
