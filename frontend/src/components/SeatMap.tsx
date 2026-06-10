@@ -50,7 +50,7 @@ export function SeatMap({ status, seats, participant, selectedSeatLabel, onSelec
         </div>
       </div>
 
-      {selection.message && !readOnly ? (
+      {selection.message ? (
         <div className="info-banner" style={{ marginBottom: '16px', fontSize: '13px', textAlign: 'center' }}>
           {selection.message}
         </div>
