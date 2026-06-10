@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { fetchSystemMetrics, type SystemMetrics } from './api/liveEventApi';
 import { EventHeader } from './components/EventHeader';
 import { MyTicketPanel } from './components/MyTicketPanel';
@@ -56,7 +57,7 @@ export default function Dashboard() {
     return (
       <div className="dashboard-container">
         <aside className="sidebar">
-          <div className="sidebar-icon active">D</div>
+          <Link to="/" className="sidebar-icon active">D</Link>
         </aside>
         <main className="main-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <section className="panel empty-state">
@@ -72,8 +73,8 @@ export default function Dashboard() {
   return (
     <div className="dashboard-container">
       <aside className="sidebar">
-        <div className="sidebar-icon active" title="Dashboard">D</div>
-        <div className="sidebar-icon" title="Monitoring">M</div>
+        <Link to="/" className="sidebar-icon active" title="Dashboard">D</Link>
+        <Link to="/monitoring" className="sidebar-icon" title="Monitoring">M</Link>
       </aside>
 
       <main className="main-content">

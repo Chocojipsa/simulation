@@ -86,6 +86,37 @@ button, input, select {
   color: var(--primary-indigo);
 }
 
+.nav-links {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.nav-tab {
+  display: inline-block;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-line);
+  background: var(--bg-main);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.nav-tab:hover {
+  color: var(--primary-indigo);
+  border-color: var(--primary-indigo);
+}
+
+.nav-tab.active {
+  background: var(--primary-indigo);
+  color: white;
+  border-color: var(--primary-indigo);
+}
+
 .main-content {
   flex: 1;
   padding: 32px;

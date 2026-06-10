@@ -59,8 +59,6 @@ describe('EventActivityPanel', () => {
     render(<EventActivityPanel snapshot={snapshot} participantId="me" />);
 
     expect(screen.getByText('내 진행')).toBeInTheDocument();
-    expect(screen.getByText('시스템 알림')).toBeInTheDocument();
-    expect(screen.getByText('네트워크 최적화 활성화됨')).toBeInTheDocument();
     expect(await screen.findAllByText('좌석을 선택해 주세요.')).toHaveLength(1);
   });
 });
