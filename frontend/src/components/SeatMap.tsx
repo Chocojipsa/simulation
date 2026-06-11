@@ -23,7 +23,7 @@ export function SeatMap({ status, seats, participant, selectedSeatLabel, onSelec
   }))).filter(c => c > 0).sort((a, b) => a - b);
 
   return (
-    <section className="seat-map-container" style={{ padding: '24px', background: '#F8FAFC', borderRadius: 'var(--radius-lg)' }}>
+    <section className="seat-map-container" style={{ padding: 'var(--seat-map-padding, 24px)', background: '#F8FAFC', borderRadius: 'var(--radius-lg)' }}>
       {/* Screen Area (seatdesign.PNG Reference) */}
       <div style={{ textAlign: 'center', margin: '0 auto 24px', maxWidth: '360px' }}>
         <div style={{ fontSize: '11px', fontWeight: '800', color: 'var(--teal-accent)', letterSpacing: '4px', marginBottom: '8px' }}>SCREEN</div>
@@ -35,8 +35,8 @@ export function SeatMap({ status, seats, participant, selectedSeatLabel, onSelec
         <div 
           style={{ 
             display: 'grid', 
-            gridTemplateColumns: `30px repeat(${cols.length}, minmax(24px, 1fr))`, 
-            gap: '8px', 
+            gridTemplateColumns: `30px repeat(${cols.length}, minmax(var(--seat-size, 24px), 1fr))`, 
+            gap: 'var(--seat-gap, 8px)', 
             alignItems: 'center',
             maxWidth: '100%',
             overflowX: 'auto',
