@@ -1116,6 +1116,28 @@ button, input, select {
     padding: 16px;
     margin-bottom: 16px;
   }
+
+  .dashboard-hero-grid {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mobile-only-controls {
+    display: block;
+    order: 1;
+  }
+
+  .my-ticket-panel {
+    order: 2;
+  }
+
+  .seat-map-panel {
+    order: 3;
+  }
+}
+
+.mobile-only-controls {
+  display: none;
 }
 
 @keyframes fadeIn {
