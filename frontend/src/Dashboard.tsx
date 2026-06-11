@@ -35,7 +35,20 @@ export default function Dashboard() {
     return (
       <div className="dashboard-container">
         <aside className="sidebar">
-          <Link to="/" className="sidebar-icon active">D</Link>
+          <div className="sidebar-brand">
+            <span className="brand-logo">⏱️</span>
+            <span className="brand-text">TIMEDEAL</span>
+          </div>
+          <nav className="sidebar-nav">
+            <Link to="/" className="sidebar-link active" title="Dashboard">
+              <span className="link-icon">D</span>
+              <span className="link-text">대시보드</span>
+            </Link>
+            <Link to="/monitoring" className="sidebar-link" title="Monitoring">
+              <span className="link-icon">M</span>
+              <span className="link-text">모니터링 콘솔</span>
+            </Link>
+          </nav>
         </aside>
         <main className="main-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <section className="panel empty-state">
@@ -51,8 +64,20 @@ export default function Dashboard() {
   return (
     <div className="dashboard-container">
       <aside className="sidebar">
-        <Link to="/" className="sidebar-icon active" title="Dashboard">D</Link>
-        <Link to="/monitoring" className="sidebar-icon" title="Monitoring">M</Link>
+        <div className="sidebar-brand">
+          <span className="brand-logo">⏱️</span>
+          <span className="brand-text">TIMEDEAL</span>
+        </div>
+        <nav className="sidebar-nav">
+          <Link to="/" className="sidebar-link active" title="Dashboard">
+            <span className="link-icon">D</span>
+            <span className="link-text">대시보드</span>
+          </Link>
+          <Link to="/monitoring" className="sidebar-link" title="Monitoring">
+            <span className="link-icon">M</span>
+            <span className="link-text">모니터링 콘솔</span>
+          </Link>
+        </nav>
       </aside>
 
       <main className="main-content">
