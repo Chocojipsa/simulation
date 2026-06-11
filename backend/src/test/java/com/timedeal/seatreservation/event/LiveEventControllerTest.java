@@ -154,6 +154,20 @@ class LiveEventControllerTest {
     }
 
     @Test
+    void verifiesFailParticipantApi() throws Exception {
+        LiveEventService service = mock(LiveEventService.class);
+        UUID eventId = UUID.randomUUID();
+        UUID participantId = UUID.randomUUID();
+
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new LiveEventController(service, new SimulationEventHub(null, null))).build();
+
+        mvc.perform(post("/api/events/{eventId}/participants/{participantId}/fail", eventId, participantId))
+                .andExpect(status().isOk());
+
+        org.mockito.Mockito.verify(service).failParticipant(eventId, participantId);
+    }
+
+    @Test
     void startsLiveEventWithConfig() throws Exception {
         LiveEventService service = mock(LiveEventService.class);
         UUID eventId = UUID.fromString("00000000-0000-0000-0000-000000000001");

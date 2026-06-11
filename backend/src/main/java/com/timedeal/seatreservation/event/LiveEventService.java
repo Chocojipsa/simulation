@@ -380,6 +380,12 @@ public class LiveEventService {
         simulationService.releaseSeat(eventId, participantId);
     }
 
+    public void failParticipant(UUID eventId, UUID participantId) {
+        ensureExpectedEvent(eventId);
+        ensureSimulationExists();
+        simulationService.failParticipant(eventId, participantId);
+    }
+
     public com.timedeal.seatreservation.simulation.SimulationSnapshot updateParticipantName(UUID eventId, UUID participantId, String displayName) {
         ensureExpectedEvent(eventId);
         ensureSimulationExists();

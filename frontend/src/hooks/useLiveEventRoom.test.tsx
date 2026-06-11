@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as api from '../api/liveEventApi';
-import { useLiveEventRoom } from './useLiveEventRoom';
+import { useLiveEventRoom, clearLiveEventRoomCache } from './useLiveEventRoom';
 
 const emptySnapshot = {
   eventId: 'event-1',
@@ -24,6 +24,7 @@ describe('useLiveEventRoom', () => {
     vi.useRealTimers();
     window.localStorage.clear();
     vi.restoreAllMocks();
+    clearLiveEventRoomCache();
   });
 
   it('loads active event and stores joined participant identity', async () => {

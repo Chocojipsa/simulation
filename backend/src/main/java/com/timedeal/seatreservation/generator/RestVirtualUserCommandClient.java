@@ -58,7 +58,11 @@ public class RestVirtualUserCommandClient implements VirtualUserCommandClient {
                 .filter(candidate -> candidate.status() == SeatStatus.AVAILABLE)
                 .toList();
         if (availableSeats.isEmpty()) {
-            throw new IllegalStateException("No available seat");
+            restClient.post()
+                    .uri(baseUrl + "/api/events/{eventId}/participants/{participantId}/fail", eventId, participantId)
+                    .retrieve()
+                    .toBodilessEntity();
+            return new SeatHoldResponse(eventId, participantId, 0L, "FAILED", "선택 가능한 좌석이 없습니다.", null, "generator");
         }
         SeatView seat = availableSeats.get(ThreadLocalRandom.current().nextInt(availableSeats.size()));
         return restClient.post()

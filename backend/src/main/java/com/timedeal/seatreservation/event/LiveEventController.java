@@ -96,6 +96,14 @@ public class LiveEventController {
         liveEventService.releaseSeat(eventId, participantId);
     }
 
+    @PostMapping("/{eventId}/participants/{participantId}/fail")
+    public void failParticipant(
+            @PathVariable UUID eventId,
+            @PathVariable UUID participantId
+    ) {
+        liveEventService.failParticipant(eventId, participantId);
+    }
+
     @PostMapping("/{eventId}/ai/start")
     public RunSimulationResponse startAiParticipants(
             @PathVariable UUID eventId,

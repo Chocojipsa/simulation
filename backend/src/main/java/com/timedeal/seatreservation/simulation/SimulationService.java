@@ -482,6 +482,13 @@ public class SimulationService {
         }
     }
 
+    public void failParticipant(UUID simulationId, UUID userId) {
+        SimulationSnapshot updated = stateStore.recordNoSeatAvailable(simulationId, userId, serverIdentity.id());
+        if (eventHub != null) {
+            eventHub.publish(updated);
+        }
+    }
+
     // Compatibility methods for LiveEventService and SimulationController
     public VirtualUserCommandResponse enterParticipantQueue(UUID simulationId, UUID userId) {
         return enterQueue(simulationId, userId);

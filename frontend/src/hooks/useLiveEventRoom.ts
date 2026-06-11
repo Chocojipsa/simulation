@@ -18,10 +18,21 @@ import { getMyParticipant } from '../domain/liveEventSelectors';
 
 const participantStorageKey = 'timedeal.participantId';
 
+// Module-level cache to persist snapshot and event ID across page remounts
+const snapshotCache = new Map<string, LiveEventSnapshot>();
+let lastActiveEventId: string | null = null;
+
+export function clearLiveEventRoomCache() {
+  snapshotCache.clear();
+  lastActiveEventId = null;
+}
+
 export function useLiveEventRoom(apiBaseUrl: string) {
-  const [eventId, setEventId] = useState<string | null>(null);
+  const [eventId, setEventId] = useState<string | null>(lastActiveEventId);
   const [participantId, setParticipantId] = useState<string | null>(() => window.localStorage.getItem(participantStorageKey));
-  const [snapshot, setSnapshot] = useState<LiveEventSnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<LiveEventSnapshot | null>(() => {
+    return lastActiveEventId ? (snapshotCache.get(lastActiveEventId) || null) : null;
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -34,17 +45,33 @@ export function useLiveEventRoom(apiBaseUrl: string) {
     refreshingRef.current = true;
     try {
       const next = await fetchEventSnapshot(apiBaseUrl, eventId, participantId);
-      setSnapshot(prev => normalizeSnapshot(next, prev));
+      setSnapshot(prev => {
+        const updated = normalizeSnapshot(next, prev);
+        if (updated) {
+          snapshotCache.set(eventId, updated);
+        }
+        return updated;
+      });
     } finally {
       refreshingRef.current = false;
     }
   }, [apiBaseUrl, eventId, participantId]);
 
+  const updateEventId = useCallback((newId: string | null) => {
+    lastActiveEventId = newId;
+    setEventId(newId);
+    if (newId) {
+      setSnapshot(snapshotCache.get(newId) || null);
+    } else {
+      setSnapshot(null);
+    }
+  }, []);
+
   useEffect(() => {
     void fetchActiveEvent(apiBaseUrl).then((event) => {
-      setEventId(event.eventId);
+      updateEventId(event.eventId);
     });
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, updateEventId]);
 
   useEffect(() => {
     void refresh();
@@ -118,7 +145,14 @@ export function useLiveEventRoom(apiBaseUrl: string) {
         if (rafId === null) {
           rafId = requestAnimationFrame(() => {
             if (pendingSnapshot) {
-              setSnapshot(prev => normalizeSnapshot(pendingSnapshot, prev));
+              const snap = pendingSnapshot;
+              setSnapshot(prev => {
+                const updated = normalizeSnapshot(snap, prev);
+                if (eventId && updated) {
+                  snapshotCache.set(eventId, updated);
+                }
+                return updated;
+              });
               setError(null);
               pendingSnapshot = null;
             }
@@ -208,6 +242,8 @@ export function useLiveEventRoom(apiBaseUrl: string) {
     await resetEvent(apiBaseUrl, eventId);
     window.localStorage.removeItem(participantStorageKey);
     setParticipantId(null);
+    snapshotCache.delete(eventId);
+    setSnapshot(null);
     await refresh();
   }, [apiBaseUrl, eventId, refresh]);
 
