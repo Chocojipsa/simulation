@@ -57,64 +57,86 @@ button, input, select {
 }
 
 .sidebar {
-  width: 64px;
+  width: 240px;
   background: var(--bg-card);
   border-right: 1px solid var(--border-line);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   padding: 24px 0;
-  gap: 20px;
+  gap: 24px;
   flex-shrink: 0;
 }
 
-.sidebar-icon {
-  width: 40px;
-  height: 40px;
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  margin-bottom: 8px;
+  width: 100%;
+}
+
+.brand-logo {
+  font-size: 20px;
+}
+
+.brand-text {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--primary-indigo);
+  letter-spacing: 0.05em;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 0 12px;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
   border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.sidebar-link:hover {
+  background: #F1F5F9;
+  color: var(--text-primary);
+}
+
+.sidebar-link.active {
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--primary-indigo);
+}
+
+.sidebar-link .link-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: all 0.2s ease;
+  background: #EEF2F6;
   font-weight: 800;
-}
-
-.sidebar-icon.active {
-  background: rgba(79, 70, 229, 0.1);
-  color: var(--primary-indigo);
-}
-
-.nav-links {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.nav-tab {
-  display: inline-block;
-  padding: 6px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
+  font-size: 12px;
   color: var(--text-secondary);
-  border: 1px solid var(--border-line);
-  background: var(--bg-main);
-  border-radius: var(--radius-sm);
   transition: all 0.2s ease;
-  cursor: pointer;
 }
 
-.nav-tab:hover {
-  color: var(--primary-indigo);
-  border-color: var(--primary-indigo);
-}
-
-.nav-tab.active {
+.sidebar-link.active .link-icon {
   background: var(--primary-indigo);
   color: white;
-  border-color: var(--primary-indigo);
 }
 
 .main-content {
@@ -122,8 +144,8 @@ button, input, select {
   padding: 32px;
   overflow-y: auto;
   max-width: 1400px;
-  margin-left: 0;
-  margin-right: auto;
+  margin: 0 auto;
+  width: 100%;
 }
 
 /* Card Design */
