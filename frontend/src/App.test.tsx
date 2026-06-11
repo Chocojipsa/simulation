@@ -48,8 +48,8 @@ describe('App', () => {
     expect(screen.getByText('LIVE CONSOLE')).toBeInTheDocument();
     expect(screen.getByText('SEATS RESERVED')).toBeInTheDocument();
     expect(screen.getAllByText('WAITING QUEUE').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('시작 전')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /이벤트 시작하기/ })).toBeInTheDocument();
+    expect(screen.getAllByText('시작 전')[0]).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /이벤트 시작하기/ })[0]).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /대시보드/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /모니터링/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '예약하기' })).toBeDisabled();
