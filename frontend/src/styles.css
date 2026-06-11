@@ -670,7 +670,7 @@ button, input, select {
   aspect-ratio: 1/1;
   width: 100%;
   max-width: 36px;
-  min-width: 24px;
+  min-width: var(--seat-min-width, 24px);
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   cursor: pointer;
@@ -1100,6 +1100,21 @@ button, input, select {
 
   .main-content {
     padding: 16px;
+  }
+
+  .seat-map-container {
+    --seat-size: 18px;
+    --seat-gap: 4px;
+    --seat-map-padding: 12px;
+  }
+
+  .seat {
+    --seat-min-width: 18px;
+  }
+
+  .panel, .card {
+    padding: 16px;
+    margin-bottom: 16px;
   }
 }
 
