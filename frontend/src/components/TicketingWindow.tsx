@@ -50,7 +50,7 @@ export function TicketingWindow() {
       return normalizeSnapshot(nextVal, prev);
     });
   }, []);
-  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -256,7 +256,15 @@ export function TicketingWindow() {
             setSseQueuePos(payload.position);
             setSseEstimatedSeconds(payload.estimatedWaitSeconds);
           } else if (data.label === 'queue_admitted') {
-            setStep(3);
+            fetchEventSnapshot(apiBaseUrl, eventId, participantId).then((snap) => {
+              if (active) {
+                setSnapshot(snap);
+                setStep(3);
+              }
+            }).catch((err) => {
+              console.error('Failed to fetch snapshot on queue admission:', err);
+              if (active) setStep(3);
+            });
             if (eventSource) {
               eventSource.close();
             }
