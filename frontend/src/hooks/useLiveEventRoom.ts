@@ -74,6 +74,16 @@ export function useLiveEventRoom(apiBaseUrl: string) {
   }, [apiBaseUrl, updateEventId]);
 
   useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === participantStorageKey) {
+        setParticipantId(e.newValue);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  useEffect(() => {
     void refresh();
   }, [refresh]);
 
@@ -187,15 +197,17 @@ export function useLiveEventRoom(apiBaseUrl: string) {
   }, [apiBaseUrl, eventId, participantId, snapshot?.status, myParticipant?.status, refresh]);
 
   const join = useCallback(async (displayName: string) => {
-    if (!eventId) return;
+    if (!eventId) return null;
     setLoading(true);
     try {
       const res = await joinEvent(apiBaseUrl, eventId, displayName);
       window.localStorage.setItem(participantStorageKey, res.participantId);
       setParticipantId(res.participantId);
       await refresh();
+      return res;
     } catch (err) {
       setError('입장에 실패했습니다.');
+      throw err;
     } finally {
       setLoading(false);
     }

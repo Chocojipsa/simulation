@@ -22,9 +22,22 @@ const apiBaseUrl = getApiBaseUrl();
 export default function Dashboard() {
   const room = useLiveEventRoom(apiBaseUrl);
 
-  const openTicketingWindow = () => {
+  const openTicketingWindow = async () => {
     if (!room.eventId) return;
-    const url = `/ticketing/${room.eventId}`;
+    let pid = room.participantId;
+    if (!pid) {
+      try {
+        const res = await room.join(randomGuestName());
+        if (res) {
+          pid = res.participantId;
+        }
+      } catch (err) {
+        console.error(err);
+        return;
+      }
+    }
+    if (!pid) return;
+    const url = `/ticketing/${room.eventId}?participantId=${pid}`;
     const win = window.open(url, 'TimedealTicketingWindow', 'width=900,height=700,status=no,menubar=no,toolbar=no');
     if (win) {
       win.focus();

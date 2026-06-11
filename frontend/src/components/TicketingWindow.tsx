@@ -69,33 +69,19 @@ export function TicketingWindow() {
     if (!eventId) return;
 
     const autoJoinAndQueue = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const guestName = `게스트-${Math.floor(1000 + Math.random() * 9000)}`;
-        const joinRes = await joinEvent(apiBaseUrl, eventId, guestName);
-        if (!isMountedRef.current) return;
-        localStorage.setItem('timedeal.participantId', joinRes.participantId);
-        setParticipantId(joinRes.participantId);
-        await queueParticipant(apiBaseUrl, eventId, joinRes.participantId);
-        if (!isMountedRef.current) return;
-        const snap = await fetchEventSnapshot(apiBaseUrl, eventId, joinRes.participantId);
-        if (!isMountedRef.current) return;
-        setSnapshot(snap);
-        setSseQueuePos(null);
-        setSseEstimatedSeconds(null);
-        setStep(2);
-      } catch (err) {
-        if (!isMountedRef.current) return;
-        setError('대기열 진입에 실패했습니다. 서버 상태를 확인하세요.');
-      } finally {
-        if (isMountedRef.current) {
-          setLoading(false);
-        }
-      }
+      if (!isMountedRef.current) return;
+      setError('세션이 존재하지 않거나 만료되었습니다. 대시보드 화면에서 "예약하기" 버튼을 다시 눌러주세요.');
+      setLoading(false);
     };
 
-    const storedId = localStorage.getItem('timedeal.participantId');
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryParticipantId = urlParams.get('participantId');
+    const storedId = queryParticipantId || localStorage.getItem('timedeal.participantId');
+
+    if (queryParticipantId) {
+      localStorage.setItem('timedeal.participantId', queryParticipantId);
+    }
+
     if (!storedId) {
       await autoJoinAndQueue();
       if (!isMountedRef.current) return;
