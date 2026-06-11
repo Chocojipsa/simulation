@@ -54,42 +54,44 @@ export default function Dashboard() {
         onReset={() => void room.reset()}
       />
 
-      <main className="main-content">
-        <header style={{ marginBottom: '24px' }}>
-          <span className="eyebrow">LIVE CONSOLE</span>
-          <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)', marginTop: '4px' }}>{room.snapshot.title}</h1>
-        </header>
-        {room.error ? <div className="error-banner">{room.error}</div> : null}
-        {room.message ? <div className="info-banner">{room.message}</div> : null}
-        
-        <div className="metric-strip" aria-label="실시간 이벤트 지표">
-          <Metric label="SEATS RESERVED" value={`${room.snapshot.metrics.reservedCount}/${room.snapshot.seats.length}`} detail="예약 완료" />
-          <Metric label="WAITING QUEUE" value={`${room.snapshot.metrics.queueSize}`} detail="대기 유저" />
-          <Metric label="ACTIVE USERS" value={`${room.snapshot.activeConnections ?? 0}`} detail="실시간 커넥션" />
-        </div>
+      <div className="main-content-wrapper">
+        <main className="main-content">
+          <header style={{ marginBottom: '24px' }}>
+            <span className="eyebrow">LIVE CONSOLE</span>
+            <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)', marginTop: '4px' }}>{room.snapshot.title}</h1>
+          </header>
+          {room.error ? <div className="error-banner">{room.error}</div> : null}
+          {room.message ? <div className="info-banner">{room.message}</div> : null}
+          
+          <div className="metric-strip" aria-label="실시간 이벤트 지표">
+            <Metric label="SEATS RESERVED" value={`${room.snapshot.metrics.reservedCount}/${room.snapshot.seats.length}`} detail="예약 완료" />
+            <Metric label="WAITING QUEUE" value={`${room.snapshot.metrics.queueSize}`} detail="대기 유저" />
+            <Metric label="ACTIVE USERS" value={`${room.snapshot.activeConnections ?? 0}`} detail="실시간 커넥션" />
+          </div>
 
-        <div className="dashboard-hero-grid">
-          <div className="panel" style={{ padding: '24px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px', color: 'var(--text-primary)' }}>실시간 예매 좌석도</h3>
-            <SeatMap
+          <div className="dashboard-hero-grid">
+            <div className="panel" style={{ padding: '24px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px', color: 'var(--text-primary)' }}>실시간 예매 좌석도</h3>
+              <SeatMap
+                status={room.snapshot.status}
+                seats={room.snapshot.seats}
+                participant={room.myParticipant}
+                selectedSeatLabel={room.myParticipant?.selectedSeatLabel ?? null}
+                onSelectSeat={(seatId) => void room.selectSeat(seatId)}
+                readOnly={true}
+              />
+            </div>
+            <MyTicketPanel
               status={room.snapshot.status}
-              seats={room.snapshot.seats}
               participant={room.myParticipant}
-              selectedSeatLabel={room.myParticipant?.selectedSeatLabel ?? null}
-              onSelectSeat={(seatId) => void room.selectSeat(seatId)}
-              readOnly={true}
+              loading={room.loading}
+              onJoin={() => void room.join(randomGuestName())}
+              onReserve={openTicketingWindow}
+              onPay={() => void room.pay()}
             />
           </div>
-          <MyTicketPanel
-            status={room.snapshot.status}
-            participant={room.myParticipant}
-            loading={room.loading}
-            onJoin={() => void room.join(randomGuestName())}
-            onReserve={openTicketingWindow}
-            onPay={() => void room.pay()}
-          />
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
