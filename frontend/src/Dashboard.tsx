@@ -2,6 +2,7 @@ import { MyTicketPanel } from './components/MyTicketPanel';
 import { SeatMap } from './components/SeatMap';
 import { useLiveEventRoom } from './hooks/useLiveEventRoom';
 import { Sidebar } from './components/Sidebar';
+import { EventControlPanel } from './components/EventControlPanel';
 
 
 const getApiBaseUrl = () => {
@@ -70,7 +71,16 @@ export default function Dashboard() {
           </div>
 
           <div className="dashboard-hero-grid">
-            <div className="panel" style={{ padding: '24px' }}>
+            <div className="mobile-only-controls">
+              <EventControlPanel
+                snapshot={room.snapshot}
+                onStart={(request) => void room.start(request)}
+                onReset={() => void room.reset()}
+                className="panel"
+              />
+            </div>
+            
+            <div className="panel seat-map-panel" style={{ padding: '24px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px', color: 'var(--text-primary)' }}>실시간 예매 좌석도</h3>
               <SeatMap
                 status={room.snapshot.status}
@@ -81,6 +91,7 @@ export default function Dashboard() {
                 readOnly={true}
               />
             </div>
+            
             <MyTicketPanel
               status={room.snapshot.status}
               participant={room.myParticipant}
