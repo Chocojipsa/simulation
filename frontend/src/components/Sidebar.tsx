@@ -104,7 +104,7 @@ export function Sidebar({ activeTab, snapshot, onStart, onReset }: SidebarProps)
                 className="btn btn-primary control-btn"
                 onClick={() => onStart?.({ aiUserCount: aiCount, aiConcurrency, aiSpeed })}
               >
-                시뮬레이션 시작
+                이벤트 시작하기
               </button>
             </div>
           )}

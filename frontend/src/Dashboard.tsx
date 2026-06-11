@@ -1,8 +1,7 @@
-import { Link } from 'react-router-dom';
-import { EventHeader } from './components/EventHeader';
 import { MyTicketPanel } from './components/MyTicketPanel';
 import { SeatMap } from './components/SeatMap';
 import { useLiveEventRoom } from './hooks/useLiveEventRoom';
+import { Sidebar } from './components/Sidebar';
 
 
 const getApiBaseUrl = () => {
@@ -34,22 +33,7 @@ export default function Dashboard() {
   if (!room.snapshot) {
     return (
       <div className="dashboard-container">
-        <aside className="sidebar">
-          <div className="sidebar-brand">
-            <span className="brand-logo">⏱️</span>
-            <span className="brand-text">TIMEDEAL</span>
-          </div>
-          <nav className="sidebar-nav">
-            <Link to="/" className="sidebar-link active" title="Dashboard">
-              <span className="link-icon">D</span>
-              <span className="link-text">대시보드</span>
-            </Link>
-            <Link to="/monitoring" className="sidebar-link" title="Monitoring">
-              <span className="link-icon">M</span>
-              <span className="link-text">모니터링 콘솔</span>
-            </Link>
-          </nav>
-        </aside>
+        <Sidebar activeTab="dashboard" snapshot={null} />
         <main className="main-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <section className="panel empty-state">
             <span className="eyebrow">LIVE CONSOLE</span>
@@ -63,29 +47,18 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-container">
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <span className="brand-logo">⏱️</span>
-          <span className="brand-text">TIMEDEAL</span>
-        </div>
-        <nav className="sidebar-nav">
-          <Link to="/" className="sidebar-link active" title="Dashboard">
-            <span className="link-icon">D</span>
-            <span className="link-text">대시보드</span>
-          </Link>
-          <Link to="/monitoring" className="sidebar-link" title="Monitoring">
-            <span className="link-icon">M</span>
-            <span className="link-text">모니터링 콘솔</span>
-          </Link>
-        </nav>
-      </aside>
+      <Sidebar
+        activeTab="dashboard"
+        snapshot={room.snapshot}
+        onStart={(request) => void room.start(request)}
+        onReset={() => void room.reset()}
+      />
 
       <main className="main-content">
-        <EventHeader
-          snapshot={room.snapshot}
-          onStart={(request) => void room.start(request)}
-          onReset={() => void room.reset()}
-        />
+        <header style={{ marginBottom: '24px' }}>
+          <span className="eyebrow">LIVE CONSOLE</span>
+          <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)', marginTop: '4px' }}>{room.snapshot.title}</h1>
+        </header>
         {room.error ? <div className="error-banner">{room.error}</div> : null}
         {room.message ? <div className="info-banner">{room.message}</div> : null}
         

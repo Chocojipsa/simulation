@@ -41,7 +41,7 @@ describe('Sidebar', () => {
     expect(screen.getByLabelText('AI 유저 수')).toBeInTheDocument();
     expect(screen.getByLabelText('동시 인입 수')).toBeInTheDocument();
     expect(screen.getByLabelText('행동 속도')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '시뮬레이션 시작' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '이벤트 시작하기' })).toBeInTheDocument();
   });
 
   it('renders reset button when status is ENDED', () => {
