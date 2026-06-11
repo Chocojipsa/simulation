@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import type { LiveEventSnapshot } from '../api/liveEventApi';
-import { formatEventStatus, getTimeLabel } from '../domain/liveEventSelectors';
+import { formatEventStatus } from '../domain/liveEventSelectors';
 
 // Module-level cache variables to preserve values across tab transitions
 let cachedAiCount = 150;
@@ -13,6 +13,29 @@ interface SidebarProps {
   snapshot: LiveEventSnapshot | null;
   onStart?: (request: { aiUserCount: number; aiConcurrency: number; aiSpeed: 'SLOW' | 'NORMAL' | 'FAST' }) => void;
   onReset?: () => void;
+}
+
+function getTimerLabelText(status: string) {
+  if (status === 'COUNTDOWN') return '오픈까지';
+  if (status === 'OPEN') return '남은 시간';
+  if (status === 'ENDED') return '이벤트 상태';
+  return '이벤트 상태';
+}
+
+function getTimerValueText(status: string, opensAt: string | null, endsAt: string | null, now: Date) {
+  const secondsUntil = (target: string) => {
+    return Math.max(0, Math.ceil((new Date(target).getTime() - now.getTime()) / 1000));
+  };
+  if (status === 'COUNTDOWN' && opensAt) {
+    return `${secondsUntil(opensAt)}초`;
+  }
+  if (status === 'OPEN' && endsAt) {
+    return `${secondsUntil(endsAt)}초`;
+  }
+  if (status === 'ENDED') {
+    return '종료됨';
+  }
+  return '대기 중';
 }
 
 export function Sidebar({ activeTab, snapshot, onStart, onReset }: SidebarProps) {
@@ -59,8 +82,20 @@ export function Sidebar({ activeTab, snapshot, onStart, onReset }: SidebarProps)
           <div className="sidebar-divider"></div>
           
           <div className="control-status">
-            <span className="status-badge">{formatEventStatus(snapshot.status)}</span>
-            <span className="status-time">{getTimeLabel(snapshot.status, snapshot.opensAt, snapshot.endsAt, now)}</span>
+            <span className={`status-badge status-${snapshot.status.toLowerCase()}`}>
+              {snapshot.status === 'OPEN' && <span className="pulsing-dot-green"></span>}
+              {formatEventStatus(snapshot.status)}
+            </span>
+            
+            <div className="status-timer-card">
+              <span className="timer-label">{getTimerLabelText(snapshot.status)}</span>
+              <span className="timer-value">{getTimerValueText(snapshot.status, snapshot.opensAt, snapshot.endsAt, now)}</span>
+              {(snapshot.status === 'OPEN' || snapshot.status === 'ENDED') && (
+                <span className="timer-subtext">
+                  예약 완료: {snapshot.metrics.reservedCount} / {snapshot.seats.length}
+                </span>
+              )}
+            </div>
           </div>
 
           {snapshot.status === 'READY' && (
