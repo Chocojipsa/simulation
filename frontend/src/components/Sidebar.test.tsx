@@ -27,7 +27,7 @@ describe('Sidebar', () => {
         <Sidebar activeTab="dashboard" snapshot={null} />
       </MemoryRouter>
     );
-    expect(screen.getByText('TIMEDEAL')).toBeInTheDocument();
+    expect(screen.getAllByText('TIMEDEAL')[0]).toBeInTheDocument();
     expect(screen.getByText('대시보드')).toBeInTheDocument();
     expect(screen.getByText('모니터링 콘솔')).toBeInTheDocument();
   });
