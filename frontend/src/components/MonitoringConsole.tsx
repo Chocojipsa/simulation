@@ -70,35 +70,37 @@ export function MonitoringConsole() {
         onReset={() => void room.reset()}
       />
 
-      <main className="main-content">
-        <header style={{ marginBottom: '24px' }}>
-          <span className="eyebrow">LIVE CONSOLE</span>
-          <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)', marginTop: '4px' }}>{room.snapshot.title}</h1>
-        </header>
-        {room.error ? <div className="error-banner">{room.error}</div> : null}
-        {room.message ? <div className="info-banner">{room.message}</div> : null}
-        
-        <div className="dashboard-grid">
-          <QueuePanel
-            snapshot={room.snapshot}
-            participantId={room.participantId}
-            selectedParticipantId={selectedParticipantId}
-            onSelectParticipant={setSelectedParticipantId}
-          />
-          <EventActivityPanel
-            snapshot={room.snapshot}
-            participantId={room.participantId}
-            selectedParticipantId={selectedParticipantId}
-            onSelectParticipant={setSelectedParticipantId}
-            apiBaseUrl={apiBaseUrl}
-          />
-        </div>
+      <div className="main-content-wrapper">
+        <main className="main-content">
+          <header style={{ marginBottom: '24px' }}>
+            <span className="eyebrow">LIVE CONSOLE</span>
+            <h1 style={{ fontSize: '24px', fontWeight: '800', color: 'var(--text-primary)', marginTop: '4px' }}>{room.snapshot.title}</h1>
+          </header>
+          {room.error ? <div className="error-banner">{room.error}</div> : null}
+          {room.message ? <div className="info-banner">{room.message}</div> : null}
+          
+          <div className="dashboard-grid">
+            <QueuePanel
+              snapshot={room.snapshot}
+              participantId={room.participantId}
+              selectedParticipantId={selectedParticipantId}
+              onSelectParticipant={setSelectedParticipantId}
+            />
+            <EventActivityPanel
+              snapshot={room.snapshot}
+              participantId={room.participantId}
+              selectedParticipantId={selectedParticipantId}
+              onSelectParticipant={setSelectedParticipantId}
+              apiBaseUrl={apiBaseUrl}
+            />
+          </div>
 
-        {/* InsightPanel (서버 분산 및 시스템 인프라) */}
-        <div className="insight-section" style={{ marginTop: '24px' }}>
-          <InsightPanel snapshot={room.snapshot} metrics={metrics} />
-        </div>
-      </main>
+          {/* InsightPanel (서버 분산 및 시스템 인프라) */}
+          <div className="insight-section" style={{ marginTop: '24px' }}>
+            <InsightPanel snapshot={room.snapshot} metrics={metrics} />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
