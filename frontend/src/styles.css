@@ -159,7 +159,7 @@ button, input, select {
 /* Metric Strip (Grid Tiles) */
 .metric-strip {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -698,4 +698,140 @@ button, input, select {
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Participant Queue Panel & Badges styling */
+.participant-flow-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.flow-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flow-section h3 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-line);
+  padding-bottom: 6px;
+}
+
+.flow-section h3 span {
+  font-size: 11px;
+  background: #EEF2F6;
+  color: var(--text-secondary);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-weight: 600;
+}
+
+.flow-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.queue-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-line);
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.queue-row:hover {
+  border-color: var(--primary-indigo);
+  background: rgba(79, 70, 229, 0.02);
+}
+
+.queue-row.active {
+  border-color: var(--primary-indigo);
+  background: rgba(79, 70, 229, 0.08);
+  color: var(--primary-indigo);
+  font-weight: 600;
+}
+
+.queue-row-me {
+  border: 1.5px solid var(--teal-accent) !important;
+  background: rgba(0, 194, 194, 0.04) !important;
+}
+
+.queue-row .p-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.queue-row .p-status {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+/* Status-specific badge colors */
+.queue-row .status-selecting_seat {
+  background: #E0F2FE;
+  color: #0369A1;
+}
+
+.queue-row .status-seat_held {
+  background: #FEF3C7;
+  color: #D97706;
+}
+
+.queue-row .status-payment_in_progress {
+  background: #F3E8FF;
+  color: #7E22CE;
+}
+
+.queue-row .status-queued {
+  background: #F1F5F9;
+  color: #475569;
+}
+
+.queue-row .status-reserved {
+  background: #D1FAE5;
+  color: #047857;
+}
+
+.queue-row .status-failed {
+  background: #FEE2E2;
+  color: #B91C1C;
+}
+
+.queue-row .p-seat {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--primary-indigo);
+  background: rgba(79, 70, 229, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+.status-line-footer {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-line);
+  font-size: 12px;
+  color: var(--text-secondary);
 }
