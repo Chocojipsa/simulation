@@ -61,7 +61,7 @@ public class LiveEventQueueScheduler {
                     .filter(user -> user.status() == VirtualUserStatus.SELECTING_SEAT)
                     .count();
 
-            int maxActiveAdmissions = simulationService.getMaxActiveAdmissions();
+            int maxActiveAdmissions = simulationService.getMaxActiveAdmissions(eventId);
             if (activeCount < maxActiveAdmissions) {
                 int openSlots = maxActiveAdmissions - (int) activeCount;
                 List<String> candidates = waitingQueueService.pickAdmissionCandidates(eventId.toString(), openSlots);

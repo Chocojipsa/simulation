@@ -146,11 +146,12 @@ public class LiveEventAiStarter {
     }
 
     public void configure(UUID eventId, Integer participantCount, Integer concurrency, String speed) {
-        if (participantCount == null && concurrency == null && speed == null) return;
         int count = participantCount != null ? Math.max(0, Math.min(1000, participantCount)) : this.participantCount;
         int maxConcurrency = concurrency != null ? Math.max(1, Math.min(120, concurrency)) : this.concurrency;
         String normalizedSpeed = speed != null ? speed.toUpperCase() : "NORMAL";
         AiConfig config = new AiConfig(count, maxConcurrency, normalizedSpeed);
+
+        simulationService.saveConcurrency(eventId, maxConcurrency);
 
         if (redisTemplate != null) {
             try {

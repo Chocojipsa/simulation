@@ -65,11 +65,21 @@ public class WaitingQueueService {
     public void clearQueue(String simulationId) {
         redis.delete(queueKey(simulationId));
         redis.delete(sequenceKey(simulationId));
+        redis.delete(concurrencyKey(simulationId));
     }
 
     public long position(String simulationId, String virtualUserId) {
         Long rank = redis.opsForZSet().rank(queueKey(simulationId), virtualUserId);
         return rank != null ? rank + 1 : 0L;
+    }
+
+    public void saveConcurrency(String simulationId, int concurrency) {
+        redis.opsForValue().set(concurrencyKey(simulationId), String.valueOf(concurrency), Duration.ofHours(3));
+    }
+
+    public Integer getConcurrency(String simulationId) {
+        String value = redis.opsForValue().get(concurrencyKey(simulationId));
+        return value != null ? Integer.parseInt(value) : null;
     }
 
     private String queueKey(String simulationId) {
@@ -82,5 +92,9 @@ public class WaitingQueueService {
 
     private String tokenKey(String simulationId, String virtualUserId) {
         return "simulation:%s:admission:%s".formatted(simulationId, virtualUserId);
+    }
+
+    private String concurrencyKey(String simulationId) {
+        return "simulation:%s:concurrency".formatted(simulationId);
     }
 }

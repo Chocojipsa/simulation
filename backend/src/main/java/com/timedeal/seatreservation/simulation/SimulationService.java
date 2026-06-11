@@ -49,6 +49,7 @@ public class SimulationService {
     private final int admissionBatchSize;
     private final int maxActiveAdmissions;
     private final Map<UUID, Instant> lastExpirationCheck = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> localConcurrencies = new ConcurrentHashMap<>();
 
     @Autowired
     public SimulationService(
@@ -232,6 +233,33 @@ public class SimulationService {
         return updated;
     }
 
+    public void saveConcurrency(UUID simulationId, int concurrency) {
+        if (waitingQueueService != null) {
+            try {
+                waitingQueueService.saveConcurrency(simulationId.toString(), concurrency);
+            } catch (Exception e) {
+                localConcurrencies.put(simulationId, concurrency);
+            }
+        } else {
+            localConcurrencies.put(simulationId, concurrency);
+        }
+    }
+
+    public int getMaxActiveAdmissions(UUID simulationId) {
+        if (waitingQueueService != null) {
+            try {
+                Integer concurrency = waitingQueueService.getConcurrency(simulationId.toString());
+                if (concurrency != null && concurrency > 0) {
+                    return concurrency;
+                }
+            } catch (Exception e) {
+                // ignore
+            }
+        }
+        return localConcurrencies.getOrDefault(simulationId, this.maxActiveAdmissions);
+    }
+
+    @Deprecated
     public int getMaxActiveAdmissions() {
         return this.maxActiveAdmissions;
     }
@@ -242,7 +270,7 @@ public class SimulationService {
                         || user.status() == VirtualUserStatus.SEAT_HELD
                         || user.status() == VirtualUserStatus.PAYMENT_IN_PROGRESS)
                 .count();
-        return Math.max(0, maxActiveAdmissions - (int) currentActiveCount);
+        return Math.max(0, getMaxActiveAdmissions(simulationId) - (int) currentActiveCount);
     }
 
     public void admitParticipant(UUID simulationId, UUID userId) {
@@ -311,6 +339,7 @@ public class SimulationService {
     }
 
     public RunSimulationResponse runSimulation(UUID simulationId, RunSimulationRequest request) {
+        saveConcurrency(simulationId, request.concurrency());
         stateStore.markRunning(simulationId);
         trafficGeneratorClient.start(simulationId, request);
         return new RunSimulationResponse(simulationId, request.virtualUserCount(), "RUNNING", serverIdentity.id());
@@ -517,7 +546,8 @@ public class SimulationService {
                 .filter(user -> user.status() == VirtualUserStatus.SELECTING_SEAT)
                 .count();
 
-        if (activeCount < maxActiveAdmissions) {
+        int maxActiveAdmissionsVal = getMaxActiveAdmissions(simulationId);
+        if (activeCount < maxActiveAdmissionsVal) {
             if (waitingQueueService != null) {
                 List<String> candidates = waitingQueueService.pickAdmissionCandidates(simulationId.toString(), 1);
                 if (!candidates.isEmpty() && !candidates.get(0).equals(userId.toString())) {

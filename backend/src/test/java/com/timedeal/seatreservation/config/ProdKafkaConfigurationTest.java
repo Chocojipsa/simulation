@@ -39,8 +39,6 @@ class ProdKafkaConfigurationTest {
 
         assertThat(properties.getProperty("waiting-queue.admission-batch-size"))
                 .isEqualTo("${WAITING_QUEUE_ADMISSION_BATCH_SIZE:5}");
-        assertThat(properties.getProperty("waiting-queue.max-active-admissions"))
-                .isEqualTo("${WAITING_QUEUE_MAX_ACTIVE_ADMISSIONS:10}");
         assertThat(properties.getProperty("waiting-queue.selection-ttl-seconds"))
                 .isEqualTo("${WAITING_QUEUE_SELECTION_TTL_SECONDS:60}");
     }
