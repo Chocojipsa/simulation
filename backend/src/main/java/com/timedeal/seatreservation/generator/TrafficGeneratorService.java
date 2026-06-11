@@ -98,7 +98,7 @@ public class TrafficGeneratorService implements TrafficGeneratorClient {
         ExecutorService executor = Executors.newFixedThreadPool(concurrency);
         try {
             for (int number = 1; number <= request.virtualUserCount(); number++) {
-                int virtualUserNumber = number;
+                int virtualUserNumber = request.virtualUserOffset() + number;
                 executor.submit(() -> runVirtualUser(simulationId, virtualUserNumber));
             }
         } finally {

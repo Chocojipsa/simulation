@@ -115,7 +115,7 @@ public class LiveEventAiStarter {
         for (AiBatch batch : schedule.batches()) {
             scheduler.schedule(batch.delay(), () -> simulationService.runSimulation(
                     eventId,
-                    new RunSimulationRequest(batch.participantCount(), batch.concurrency())
+                    new RunSimulationRequest(batch.participantCount(), batch.concurrency(), batch.virtualUserOffset())
             ));
         }
     }
@@ -126,6 +126,7 @@ public class LiveEventAiStarter {
         double[] batchPercentages = {0.10, 0.15, 0.20, 0.25, 0.30};
         long delayMillis = interval.toMillis();
         java.util.ArrayList<AiBatch> batches = new java.util.ArrayList<>();
+        int currentOffset = 0;
         
         for (double pct : batchPercentages) {
             if (remaining <= 0) break;
@@ -134,13 +135,14 @@ public class LiveEventAiStarter {
             if (count <= 0) continue;
             
             int concurrency = Math.min(normalizedConcurrency, count);
-            batches.add(new AiBatch(count, concurrency, Duration.ofMillis(delayMillis)));
+            batches.add(new AiBatch(count, concurrency, Duration.ofMillis(delayMillis), currentOffset));
+            currentOffset += count;
             remaining -= count;
             delayMillis += interval.toMillis();
         }
         if (remaining > 0) {
             int concurrency = Math.min(normalizedConcurrency, remaining);
-            batches.add(new AiBatch(remaining, concurrency, Duration.ofMillis(delayMillis)));
+            batches.add(new AiBatch(remaining, concurrency, Duration.ofMillis(delayMillis), currentOffset));
         }
         return new AiBatchSchedule(List.copyOf(batches));
     }

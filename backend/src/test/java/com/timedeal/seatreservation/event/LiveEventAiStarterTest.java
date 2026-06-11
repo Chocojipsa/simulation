@@ -42,11 +42,11 @@ class LiveEventAiStarterTest {
                 Duration.ofMillis(2000),
                 Duration.ofMillis(2500)
         );
-        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(15, 15));
-        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(23, 23));
-        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(30, 30));
-        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(38, 38));
-        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(44, 44));
+        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(15, 15, 0));
+        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(23, 23, 15));
+        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(30, 30, 38));
+        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(38, 38, 68));
+        verify(simulationService).runSimulation(eventId, new RunSimulationRequest(44, 44, 106));
     }
 
     @Test
