@@ -35,7 +35,7 @@ function getTimerValueText(status: string, opensAt: string | null, endsAt: strin
   if (status === 'ENDED') {
     return '종료됨';
   }
-  return '대기 중';
+  return '시작 전';
 }
 
 export function Sidebar({ activeTab, snapshot, onStart, onReset }: SidebarProps) {
@@ -82,11 +82,6 @@ export function Sidebar({ activeTab, snapshot, onStart, onReset }: SidebarProps)
           <div className="sidebar-divider"></div>
           
           <div className="control-status">
-            <span className={`status-badge status-${snapshot.status.toLowerCase()}`}>
-              {snapshot.status === 'OPEN' && <span className="pulsing-dot-green"></span>}
-              {formatEventStatus(snapshot.status)}
-            </span>
-            
             <div className="status-timer-card">
               <span className="timer-label">{getTimerLabelText(snapshot.status)}</span>
               <span className="timer-value">{getTimerValueText(snapshot.status, snapshot.opensAt, snapshot.endsAt, now)}</span>
