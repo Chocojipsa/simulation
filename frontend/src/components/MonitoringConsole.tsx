@@ -25,6 +25,11 @@ export function MonitoringConsole() {
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
 
   useEffect(() => {
+    if (!room.snapshot || (room.snapshot.status !== 'COUNTDOWN' && room.snapshot.status !== 'OPEN')) {
+      setMetrics(null);
+      return undefined;
+    }
+
     let mounted = true;
     const loadMetrics = async () => {
       try {
@@ -40,7 +45,7 @@ export function MonitoringConsole() {
       mounted = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [room.snapshot?.status]);
 
   if (!room.snapshot) {
     return (

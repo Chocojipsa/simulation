@@ -1,6 +1,4 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchSystemMetrics, type SystemMetrics } from './api/liveEventApi';
 import { EventHeader } from './components/EventHeader';
 import { MyTicketPanel } from './components/MyTicketPanel';
 import { SeatMap } from './components/SeatMap';
@@ -23,27 +21,6 @@ const apiBaseUrl = getApiBaseUrl();
 
 export default function Dashboard() {
   const room = useLiveEventRoom(apiBaseUrl);
-  const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
-
-
-  useEffect(() => {
-    let mounted = true;
-    const loadMetrics = async () => {
-      try {
-        const data = await fetchSystemMetrics(apiBaseUrl);
-        if (mounted) setMetrics(data);
-      } catch (e) {
-        // ignore errors
-      }
-    };
-    loadMetrics();
-    const interval = setInterval(loadMetrics, 5000);
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
-  }, []);
-
 
   const openTicketingWindow = () => {
     if (!room.eventId) return;
@@ -90,7 +67,6 @@ export default function Dashboard() {
         <div className="metric-strip" aria-label="실시간 이벤트 지표">
           <Metric label="SEATS RESERVED" value={`${room.snapshot.metrics.reservedCount}/${room.snapshot.seats.length}`} detail="예약 완료" />
           <Metric label="WAITING QUEUE" value={`${room.snapshot.metrics.queueSize}`} detail="대기 유저" />
-          <Metric label="TPS PEAK" value={`${metrics ? metrics.tps.toFixed(1) : '0.0'}`} detail="거래량/초" />
           <Metric label="ACTIVE USERS" value={`${room.snapshot.activeConnections ?? 0}`} detail="실시간 커넥션" />
         </div>
 
