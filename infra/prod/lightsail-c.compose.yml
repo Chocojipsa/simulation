@@ -2,6 +2,7 @@ services:
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
+    mem_limit: 256m
     ports:
       - "6379:6379"
     volumes:
@@ -10,7 +11,9 @@ services:
 
   kafka:
     image: apache/kafka:3.7.2
+    mem_limit: 512m
     environment:
+      KAFKA_HEAP_OPTS: "-Xms128m -Xmx256m"
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093

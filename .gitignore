@@ -4,6 +4,7 @@
 worktrees/
 .idea/
 .git-rewrite/
+.gradle/
 image/
 
 # OS / editor
