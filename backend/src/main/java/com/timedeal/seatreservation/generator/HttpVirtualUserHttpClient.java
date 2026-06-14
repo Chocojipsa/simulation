@@ -92,6 +92,10 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
             return;
         }
         for (int attempt = 0; attempt < maxSeatAttempts; attempt++) {
+            if (Thread.currentThread().isInterrupted()) {
+                log.info("Virtual user displayName={} interrupted, stopping.", displayName);
+                return;
+            }
             sleeper.accept(seatClickDelayMillis.getAsInt());
             logActivity(simulationId, participantId, "THINKING", "비어있는 좌석을 탐색 중입니다...");
             SeatHoldResponse hold = runWithTransientRetryOrNull(() -> commandClient.holdRandomSeat(baseUrl, simulationId, participantId));
@@ -121,6 +125,10 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
 
     private boolean waitUntilAdmitted(String baseUrl, UUID simulationId, UUID participantId) {
         for (int attempt = 0; attempt < maxSeatAttempts; attempt++) {
+            if (Thread.currentThread().isInterrupted()) {
+                log.info("Queue wait interrupted for participantId={}", participantId);
+                return false;
+            }
             VirtualUserCommandResponse response = runWithTransientRetryOrNull(() -> commandClient.postQueue(baseUrl, simulationId, participantId));
             if (response == null) {
                 log.debug("postQueue returned null for participantId={} at attempt={}", participantId, attempt);
@@ -145,8 +153,12 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
 
     private void confirmPaymentUntilAccepted(String baseUrl, UUID simulationId, UUID participantId) {
         for (int attempt = 0; attempt < maxSeatAttempts; attempt++) {
+            if (Thread.currentThread().isInterrupted()) {
+                log.warn("Payment confirmation interrupted for participantId={}", participantId);
+                return;
+            }
             PaymentConfirmResponse response = runWithTransientRetryOrNull(() -> commandClient.confirmPayment(baseUrl, simulationId, participantId));
-            if (response != null || Thread.currentThread().isInterrupted()) {
+            if (response != null) {
                 logActivity(simulationId, participantId, "SUCCESS", "결제가 완료되었습니다! 예약을 마칩니다.");
                 log.info("Payment confirmed successfully for participantId={} in simulationId={}", participantId, simulationId);
                 return;
@@ -201,6 +213,9 @@ public class HttpVirtualUserHttpClient implements VirtualUserHttpClient {
     private <T> T runWithTransientRetry(Supplier<T> command) {
         RuntimeException lastException = null;
         for (int attempt = 0; attempt < COMMAND_RETRY_ATTEMPTS; attempt++) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw new RuntimeException("Thread interrupted during command execution", lastException);
+            }
             try {
                 return command.get();
             } catch (RuntimeException exception) {
