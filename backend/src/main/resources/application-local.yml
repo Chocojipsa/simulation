@@ -30,8 +30,7 @@ payment:
   failure-rate-percent: ${PAYMENT_FAILURE_RATE_PERCENT:0}
   simulation-delay-min-ms: ${PAYMENT_SIMULATION_DELAY_MIN_MS:300}
   simulation-delay-max-ms: ${PAYMENT_SIMULATION_DELAY_MAX_MS:900}
-  kafka:
-    partitions: ${PAYMENT_KAFKA_PARTITIONS:5}
+
 
 spring:
   datasource:
@@ -50,16 +49,4 @@ spring:
     redis:
       host: localhost
       port: 6379
-  kafka:
-    bootstrap-servers: localhost:9094
-    consumer:
-      group-id: seat-reservation-local
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: com.timedeal.seatreservation.payment
-        spring.json.value.default.type: com.timedeal.seatreservation.payment.PaymentRequestedEvent
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+

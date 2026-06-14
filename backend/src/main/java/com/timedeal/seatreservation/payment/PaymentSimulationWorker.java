@@ -3,9 +3,6 @@ package com.timedeal.seatreservation.payment;
 import com.timedeal.seatreservation.identity.ServerIdentity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.Random;
@@ -13,12 +10,8 @@ import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 
 @Component
-@Profile("worker")
 public class PaymentSimulationWorker {
-    static final String PAYMENT_EVENTS_TOPIC = "payment.events";
-    static final String PAYMENT_RESULTS_TOPIC = "payment-results.events";
 
-    private final KafkaTemplate<String, PaymentResultEvent> kafkaTemplate;
     private final ServerIdentity serverIdentity;
     private final IntSupplier paymentDelayMillis;
     private final IntConsumer sleeper;
@@ -26,14 +19,12 @@ public class PaymentSimulationWorker {
 
     @Autowired
     public PaymentSimulationWorker(
-            KafkaTemplate<String, PaymentResultEvent> kafkaTemplate,
             ServerIdentity serverIdentity,
             @Value("${payment.simulation-delay-min-ms:300}") int paymentDelayMinMillis,
             @Value("${payment.simulation-delay-max-ms:900}") int paymentDelayMaxMillis,
             @Value("${payment.failure-rate-percent:5}") int failureRatePercent
     ) {
         this(
-                kafkaTemplate,
                 serverIdentity,
                 randomDelaySupplier(paymentDelayMinMillis, paymentDelayMaxMillis),
                 PaymentSimulationWorker::sleep,
@@ -41,32 +32,25 @@ public class PaymentSimulationWorker {
         );
     }
 
-    PaymentSimulationWorker(KafkaTemplate<String, PaymentResultEvent> kafkaTemplate, ServerIdentity serverIdentity) {
-        this(kafkaTemplate, serverIdentity, () -> 0, ignored -> {
-        }, 5);
+    PaymentSimulationWorker(ServerIdentity serverIdentity) {
+        this(serverIdentity, () -> 0, ignored -> {}, 5);
     }
 
     PaymentSimulationWorker(
-            KafkaTemplate<String, PaymentResultEvent> kafkaTemplate,
             ServerIdentity serverIdentity,
             IntSupplier paymentDelayMillis,
             IntConsumer sleeper,
             int failureRatePercent
     ) {
-        this.kafkaTemplate = kafkaTemplate;
         this.serverIdentity = serverIdentity;
         this.paymentDelayMillis = paymentDelayMillis;
         this.sleeper = sleeper;
         this.failureRatePercent = Math.max(0, Math.min(100, failureRatePercent));
     }
 
-    @KafkaListener(topics = PAYMENT_EVENTS_TOPIC, groupId = "payment-simulation-worker")
-    public void handle(PaymentRequestedEvent event) {
+    public PaymentResultEvent processPayment(PaymentRequestedEvent event) {
         sleeper.accept(paymentDelayMillis.getAsInt());
-        PaymentResultEvent result = simulate(event);
-        if (kafkaTemplate != null) {
-            kafkaTemplate.send(PAYMENT_RESULTS_TOPIC, String.valueOf(result.reservationId()), result);
-        }
+        return simulate(event);
     }
 
     public PaymentResultEvent simulate(PaymentRequestedEvent event) {

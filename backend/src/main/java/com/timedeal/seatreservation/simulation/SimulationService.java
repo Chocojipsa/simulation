@@ -13,9 +13,9 @@ import com.timedeal.seatreservation.queue.WaitingQueueService;
 import com.timedeal.seatreservation.seat.SeatReservationOutcome;
 import com.timedeal.seatreservation.seat.SeatReservationResult;
 import com.timedeal.seatreservation.seat.SeatReservationService;
+import com.timedeal.seatreservation.payment.InProcessPaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -31,7 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class SimulationService {
-    private static final String PAYMENT_EVENTS_TOPIC = "payment.events";
 
     private final SimulationStateGateway stateStore;
     private final SimulationEventHub eventHub;
@@ -41,7 +40,7 @@ public class SimulationService {
     private final SimulationInventoryService inventoryService;
     private final WaitingQueueService waitingQueueService;
     private final SeatReservationService seatReservationService;
-    private final KafkaTemplate<String, PaymentRequestedEvent> paymentKafkaTemplate;
+    private final InProcessPaymentService paymentService;
     private final Random random;
     private final Clock clock;
     private final Duration seatHoldTtl;
@@ -61,7 +60,7 @@ public class SimulationService {
             ObjectProvider<SimulationInventoryService> inventoryService,
             ObjectProvider<WaitingQueueService> waitingQueueService,
             ObjectProvider<SeatReservationService> seatReservationService,
-            ObjectProvider<KafkaTemplate<String, PaymentRequestedEvent>> paymentKafkaTemplate,
+            ObjectProvider<InProcessPaymentService> paymentService,
             @Value("${payment.hold-ttl-seconds:60}") long seatHoldTtlSeconds,
             @Value("${waiting-queue.admission-batch-size:1}") int admissionBatchSize,
             @Value("${waiting-queue.max-active-admissions:1}") int maxActiveAdmissions,
@@ -77,7 +76,7 @@ public class SimulationService {
                 inventoryService.getIfAvailable(),
                 waitingQueueService.getIfAvailable(),
                 seatReservationService.getIfAvailable(),
-                paymentKafkaTemplate.getIfAvailable(),
+                paymentService.getIfAvailable(),
                 new Random(),
                 Clock.systemUTC(),
                 Duration.ofSeconds(seatHoldTtlSeconds),
@@ -117,7 +116,7 @@ public class SimulationService {
             SimulationInventoryService inventoryService,
             WaitingQueueService waitingQueueService,
             SeatReservationService seatReservationService,
-            KafkaTemplate<String, PaymentRequestedEvent> paymentKafkaTemplate,
+            InProcessPaymentService paymentService,
             Random random
     ) {
         this(
@@ -129,7 +128,7 @@ public class SimulationService {
                 inventoryService,
                 waitingQueueService,
                 seatReservationService,
-                paymentKafkaTemplate,
+                paymentService,
                 random,
                 Clock.systemUTC(),
                 Duration.ofSeconds(60),
@@ -148,7 +147,7 @@ public class SimulationService {
             SimulationInventoryService inventoryService,
             WaitingQueueService waitingQueueService,
             SeatReservationService seatReservationService,
-            KafkaTemplate<String, PaymentRequestedEvent> paymentKafkaTemplate,
+            InProcessPaymentService paymentService,
             Random random,
             Clock clock,
             Duration seatHoldTtl
@@ -162,7 +161,7 @@ public class SimulationService {
                 inventoryService,
                 waitingQueueService,
                 seatReservationService,
-                paymentKafkaTemplate,
+                paymentService,
                 random,
                 clock,
                 seatHoldTtl,
@@ -181,7 +180,7 @@ public class SimulationService {
             SimulationInventoryService inventoryService,
             WaitingQueueService waitingQueueService,
             SeatReservationService seatReservationService,
-            KafkaTemplate<String, PaymentRequestedEvent> paymentKafkaTemplate,
+            InProcessPaymentService paymentService,
             Random random,
             Clock clock,
             Duration seatHoldTtl,
@@ -197,7 +196,7 @@ public class SimulationService {
         this.inventoryService = inventoryService;
         this.waitingQueueService = waitingQueueService;
         this.seatReservationService = seatReservationService;
-        this.paymentKafkaTemplate = paymentKafkaTemplate;
+        this.paymentService = paymentService;
         this.random = random;
         this.clock = clock;
         this.seatHoldTtl = seatHoldTtl;
@@ -449,14 +448,16 @@ public class SimulationService {
             eventHub.publish(updated);
         }
 
-        paymentKafkaTemplate.send(PAYMENT_EVENTS_TOPIC, userId.toString(), new PaymentRequestedEvent(
-                simulationId,
-                userId,
-                participant.reservationId(),
-                seat.id(),
-                "payment-" + participant.reservationId(),
-                serverIdentity.id()
-        ));
+        if (paymentService != null) {
+            paymentService.processPaymentAsync(new PaymentRequestedEvent(
+                    simulationId,
+                    userId,
+                    participant.reservationId(),
+                    seat.id(),
+                    "payment-" + participant.reservationId(),
+                    serverIdentity.id()
+            ));
+        }
 
         return new PaymentConfirmResponse(simulationId, userId, VirtualUserStatus.PAYMENT_IN_PROGRESS.name(), "결제 요청이 접수되었습니다.", serverIdentity.id());
     }
