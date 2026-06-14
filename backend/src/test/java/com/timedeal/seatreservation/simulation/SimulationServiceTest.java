@@ -13,7 +13,7 @@ import com.timedeal.seatreservation.seat.SeatReservationOutcome;
 import com.timedeal.seatreservation.seat.SeatReservationResult;
 import com.timedeal.seatreservation.seat.SeatReservationService;
 import org.junit.jupiter.api.Test;
-import org.springframework.kafka.core.KafkaTemplate;
+import com.timedeal.seatreservation.payment.InProcessPaymentService;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -326,7 +326,7 @@ class SimulationServiceTest {
         SimulationStateGateway stateStore = mock(SimulationStateGateway.class);
         WaitingQueueService waitingQueue = mock(WaitingQueueService.class);
         SeatReservationService seatReservationService = mock(SeatReservationService.class);
-        KafkaTemplate<String, PaymentRequestedEvent> kafkaTemplate = mock(KafkaTemplate.class);
+        InProcessPaymentService paymentService = mock(InProcessPaymentService.class);
         UUID simulationId = UUID.fromString("00000000-0000-0000-0000-000000000033");
         UUID userId = UUID.fromString("00000000-0000-0000-0000-000000000133");
         SeatView seat = new SeatView(1L, "A-1", SeatStatus.AVAILABLE);
@@ -344,14 +344,14 @@ class SimulationServiceTest {
         when(stateStore.recordPaymentRequested(eq(simulationId), eq(userId), eq(seat), eq("api-test")))
                 .thenReturn(snapshot(simulationId, userId, seat, VirtualUserStatus.PAYMENT_IN_PROGRESS));
 
-        SimulationService service = service(stateStore, waitingQueue, seatReservationService, kafkaTemplate);
+        SimulationService service = service(stateStore, waitingQueue, seatReservationService, paymentService);
 
         VirtualUserCommandResponse response = service.attemptSeat(simulationId, userId);
         PaymentConfirmResponse paymentResponse = service.confirmPayment(simulationId, userId);
 
         verify(stateStore).recordSeatHeldForPayment(eq(simulationId), eq(userId), eq(seat), eq(101L), any(), eq("api-test"));
         verify(stateStore).recordPaymentRequested(simulationId, userId, seat, "api-test");
-        verify(kafkaTemplate).send(eq("payment.events"), eq(userId.toString()), any(PaymentRequestedEvent.class));
+        verify(paymentService).processPaymentAsync(any(PaymentRequestedEvent.class));
         assertThat(response.status()).isEqualTo("SEAT_HELD");
         assertThat(response.selectedSeatLabel()).isEqualTo("A-1");
         assertThat(paymentResponse.status()).isEqualTo("PAYMENT_IN_PROGRESS");
@@ -589,7 +589,7 @@ class SimulationServiceTest {
             SimulationStateGateway stateStore,
             WaitingQueueService waitingQueue,
             SeatReservationService seatReservationService,
-            KafkaTemplate<String, PaymentRequestedEvent> kafkaTemplate
+            InProcessPaymentService paymentService
     ) {
         TrafficGeneratorClient trafficGeneratorClient = (simulationId, request) -> {
         };
@@ -602,7 +602,7 @@ class SimulationServiceTest {
                 null,
                 waitingQueue,
                 seatReservationService,
-                kafkaTemplate,
+                paymentService,
                 new Random(1)
         );
     }
@@ -611,7 +611,7 @@ class SimulationServiceTest {
             SimulationStateGateway stateStore,
             WaitingQueueService waitingQueue,
             SeatReservationService seatReservationService,
-            KafkaTemplate<String, PaymentRequestedEvent> kafkaTemplate,
+            InProcessPaymentService paymentService,
             int admissionBatchSize,
             int maxActiveAdmissions
     ) {
@@ -626,7 +626,7 @@ class SimulationServiceTest {
                 null,
                 waitingQueue,
                 seatReservationService,
-                kafkaTemplate,
+                paymentService,
                 new Random(1),
                 Clock.systemUTC(),
                 Duration.ofSeconds(60),
@@ -640,7 +640,7 @@ class SimulationServiceTest {
             SimulationStateGateway stateStore,
             WaitingQueueService waitingQueue,
             SeatReservationService seatReservationService,
-            KafkaTemplate<String, PaymentRequestedEvent> kafkaTemplate,
+            InProcessPaymentService paymentService,
             Clock clock,
             Duration seatHoldTtl
     ) {
@@ -655,7 +655,7 @@ class SimulationServiceTest {
                 null,
                 waitingQueue,
                 seatReservationService,
-                kafkaTemplate,
+                paymentService,
                 new Random(1),
                 clock,
                 seatHoldTtl

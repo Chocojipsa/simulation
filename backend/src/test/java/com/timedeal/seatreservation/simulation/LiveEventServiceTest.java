@@ -17,7 +17,7 @@ import com.timedeal.seatreservation.seat.SeatReservationOutcome;
 import com.timedeal.seatreservation.seat.SeatReservationResult;
 import com.timedeal.seatreservation.seat.SeatReservationService;
 import org.junit.jupiter.api.Test;
-import org.springframework.kafka.core.KafkaTemplate;
+import com.timedeal.seatreservation.payment.InProcessPaymentService;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -265,7 +265,7 @@ class LiveEventServiceTest {
     void humanCanQueueHoldSeatAndConfirmPayment() {
         SimulationStateStore stateStore = new SimulationStateStore();
         SeatReservationService seatReservationService = mock(SeatReservationService.class);
-        KafkaTemplate<String, PaymentRequestedEvent> kafkaTemplate = mock(KafkaTemplate.class);
+        InProcessPaymentService paymentService = mock(InProcessPaymentService.class);
         SimulationService simulationService = new SimulationService(
                 stateStore,
                 new SimulationEventHub(null, null),
@@ -276,7 +276,7 @@ class LiveEventServiceTest {
                 null,
                 null,
                 seatReservationService,
-                kafkaTemplate,
+                paymentService,
                 new Random(1)
         );
         LiveEventService service = new LiveEventService(
@@ -309,7 +309,7 @@ class LiveEventServiceTest {
         assertThat(hold.status()).isEqualTo("SEAT_HELD");
         assertThat(hold.selectedSeatLabel()).isEqualTo("A-1");
         assertThat(confirm.status()).isEqualTo("PAYMENT_IN_PROGRESS");
-        verify(kafkaTemplate).send(eq("payment.events"), eq(joined.participantId().toString()), any(PaymentRequestedEvent.class));
+        verify(paymentService).processPaymentAsync(any(PaymentRequestedEvent.class));
     }
 
     @Test

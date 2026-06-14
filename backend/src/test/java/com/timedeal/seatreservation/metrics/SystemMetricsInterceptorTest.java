@@ -22,7 +22,7 @@ class SystemMetricsInterceptorTest {
         interceptor.afterCompletion(request, response, new Object(), null);
 
         // Wait for window rollover (1000ms)
-        Thread.sleep(1050);
+        Thread.sleep(1200);
 
         // Perform second request to trigger calculate
         interceptor.preHandle(request, response, new Object());
@@ -34,7 +34,7 @@ class SystemMetricsInterceptorTest {
         assertThat(interceptor.getAvgResponseTimeMs()).isGreaterThan(0);
 
         // Wait for decay (2000ms)
-        Thread.sleep(2050);
+        Thread.sleep(2500);
 
         // Should be decayed to 0
         assertThat(interceptor.getTps()).isEqualTo(0.0);

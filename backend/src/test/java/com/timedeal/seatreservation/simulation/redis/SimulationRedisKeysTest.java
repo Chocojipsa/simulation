@@ -17,6 +17,5 @@ class SimulationRedisKeysTest {
         assertThat(keys.snapshot()).isEqualTo("simulation:00000000-0000-0000-0000-000000000001:snapshot");
         assertThat(keys.serverStats()).isEqualTo("simulation:00000000-0000-0000-0000-000000000001:server-stats");
         assertThat(keys.events()).isEqualTo("simulation:00000000-0000-0000-0000-000000000001:events");
-        assertThat(keys.kafkaFlow()).isEqualTo("simulation:00000000-0000-0000-0000-000000000001:kafka-flow");
     }
 }

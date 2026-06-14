@@ -29,7 +29,4 @@ public final class SimulationRedisKeys {
         return prefix + ":events";
     }
 
-    public String kafkaFlow() {
-        return prefix + ":kafka-flow";
-    }
 }

@@ -16,7 +16,7 @@ class PaymentResultListenerTest {
     void runsOnlyOnApiProcesses() {
         Profile profile = PaymentResultListener.class.getAnnotation(Profile.class);
 
-        assertThat(profile.value()).containsExactly("!demo & !worker & !generator");
+        assertThat(profile.value()).containsExactly("!demo");
     }
 
     @Test

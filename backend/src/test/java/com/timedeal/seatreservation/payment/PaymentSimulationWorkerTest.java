@@ -2,7 +2,6 @@ package com.timedeal.seatreservation.payment;
 
 import com.timedeal.seatreservation.identity.ServerIdentity;
 import org.junit.jupiter.api.Test;
-import org.springframework.kafka.core.KafkaTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +17,7 @@ class PaymentSimulationWorkerTest {
 
     @Test
     void deterministicPaymentRuleSucceedsWhenReservationIdIsOutsideDefaultFailureRate() {
-        PaymentSimulationWorker worker = new PaymentSimulationWorker(null, new ServerIdentity("worker-test"));
+        PaymentSimulationWorker worker = new PaymentSimulationWorker(new ServerIdentity("worker-test"));
 
         PaymentResultEvent result = worker.simulate(new PaymentRequestedEvent(
                 SIMULATION_ID,
@@ -41,7 +40,6 @@ class PaymentSimulationWorkerTest {
     @Test
     void deterministicPaymentRuleFailsWithinConfiguredFailureRate() {
         PaymentSimulationWorker worker = new PaymentSimulationWorker(
-                null,
                 new ServerIdentity("worker-test"),
                 () -> 0,
                 ignored -> {
@@ -70,7 +68,6 @@ class PaymentSimulationWorkerTest {
     @Test
     void deterministicPaymentRuleSucceedsOutsideConfiguredFailureRate() {
         PaymentSimulationWorker worker = new PaymentSimulationWorker(
-                null,
                 new ServerIdentity("worker-test"),
                 () -> 0,
                 ignored -> {
@@ -92,40 +89,27 @@ class PaymentSimulationWorkerTest {
     }
 
     @Test
-    void handlePublishesPaymentResultEvent() {
-        @SuppressWarnings("unchecked")
-        KafkaTemplate<String, PaymentResultEvent> kafkaTemplate = mock(KafkaTemplate.class);
-        PaymentSimulationWorker worker = new PaymentSimulationWorker(kafkaTemplate, new ServerIdentity("worker-test"));
+    void processPaymentReturnsPaymentResultEvent() {
+        PaymentSimulationWorker worker = new PaymentSimulationWorker(new ServerIdentity("worker-test"));
 
-        worker.handle(new PaymentRequestedEvent(SIMULATION_ID, USER_ID, 210L, 10L, "payment-210", "api-a"));
+        PaymentResultEvent result = worker.processPayment(new PaymentRequestedEvent(SIMULATION_ID, USER_ID, 210L, 10L, "payment-210", "api-a"));
 
-        verify(kafkaTemplate).send(
-                "payment-results.events",
-                "210",
-                new PaymentResultEvent(SIMULATION_ID, USER_ID, 210L, 10L, true, "결제 성공", "worker-test")
-        );
+        assertThat(result).isEqualTo(new PaymentResultEvent(SIMULATION_ID, USER_ID, 210L, 10L, true, "결제 성공", "worker-test"));
     }
 
     @Test
-    void handleAppliesConfiguredDelayBeforePublishingResult() {
-        @SuppressWarnings("unchecked")
-        KafkaTemplate<String, PaymentResultEvent> kafkaTemplate = mock(KafkaTemplate.class);
+    void processPaymentAppliesConfiguredDelayBeforeReturningResult() {
         List<Integer> delays = new ArrayList<>();
         PaymentSimulationWorker worker = new PaymentSimulationWorker(
-                kafkaTemplate,
                 new ServerIdentity("worker-test"),
                 () -> 700,
                 delays::add,
                 5
         );
 
-        worker.handle(new PaymentRequestedEvent(SIMULATION_ID, USER_ID, 210L, 10L, "payment-210", "api-a"));
+        PaymentResultEvent result = worker.processPayment(new PaymentRequestedEvent(SIMULATION_ID, USER_ID, 210L, 10L, "payment-210", "api-a"));
 
         assertThat(delays).containsExactly(700);
-        verify(kafkaTemplate).send(
-                "payment-results.events",
-                "210",
-                new PaymentResultEvent(SIMULATION_ID, USER_ID, 210L, 10L, true, "결제 성공", "worker-test")
-        );
+        assertThat(result).isEqualTo(new PaymentResultEvent(SIMULATION_ID, USER_ID, 210L, 10L, true, "결제 성공", "worker-test"));
     }
 }

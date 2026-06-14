@@ -26,13 +26,12 @@ class SystemMetricsControllerTest {
 
     @Test
     void shouldReturnSystemMetrics() throws Exception {
-        SystemMetrics metrics = new SystemMetrics(12, 3, 45.2, 23.0, List.of());
+        SystemMetrics metrics = new SystemMetrics(3, 45.2, 23.0, List.of());
         given(systemMetricsService.getSystemMetrics()).willReturn(metrics);
         given(systemMetricsInterceptor.preHandle(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).willReturn(true);
 
         mockMvc.perform(get("/api/system/metrics"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.kafkaLag").value(12))
                 .andExpect(jsonPath("$.redisLockCount").value(3))
                 .andExpect(jsonPath("$.tps").value(45.2))
                 .andExpect(jsonPath("$.avgResponseTimeMs").value(23.0))
