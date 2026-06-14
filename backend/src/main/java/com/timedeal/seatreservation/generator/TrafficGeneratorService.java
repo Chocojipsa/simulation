@@ -18,7 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Service
-@Profile("generator")
+@Profile("!demo")
 public class TrafficGeneratorService implements TrafficGeneratorClient {
     private static final Logger log = LoggerFactory.getLogger(TrafficGeneratorService.class);
 

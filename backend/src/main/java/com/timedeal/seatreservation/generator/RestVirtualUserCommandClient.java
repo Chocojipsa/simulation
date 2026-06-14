@@ -18,7 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Component
-@Profile("generator")
+@Profile("!demo")
 public class RestVirtualUserCommandClient implements VirtualUserCommandClient {
     private final RestClient restClient;
 

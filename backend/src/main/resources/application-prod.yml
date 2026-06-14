@@ -36,6 +36,6 @@ spring:
 
 
 traffic-generator:
-  control-base-url: ${TRAFFIC_GENERATOR_CONTROL_BASE_URL}
-  target-base-url: ${TRAFFIC_GENERATOR_TARGET_BASE_URL}
+  control-base-url: ${TRAFFIC_GENERATOR_CONTROL_BASE_URL:http://localhost:8080}
+  target-base-url: ${TRAFFIC_GENERATOR_TARGET_BASE_URL:http://api:8080}
   default-concurrency: ${TRAFFIC_GENERATOR_DEFAULT_CONCURRENCY:20}
