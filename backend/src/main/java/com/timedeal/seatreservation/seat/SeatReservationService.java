@@ -45,12 +45,14 @@ public class SeatReservationService {
             set status = ?, updated_at = now()
             where id = ?
               and simulation_id = ?
+              and status = 'HELD'
             """;
     static final String UPDATE_SIMULATION_SEAT_PAYMENT_RESULT_SQL = """
             update simulation_seats
             set status = ?, held_by_user_id = ?, updated_at = now()
             where simulation_id = ?
               and seat_id = ?
+              and held_by_user_id = ?
             """;
     static final String EXPIRE_HELD_RESERVATION_SQL = """
             update reservations
@@ -111,7 +113,8 @@ public class SeatReservationService {
                     seatStatus,
                     heldByUserId,
                     event.simulationId(),
-                    event.seatId()
+                    event.seatId(),
+                    event.virtualUserId()
             );
             return null;
         });

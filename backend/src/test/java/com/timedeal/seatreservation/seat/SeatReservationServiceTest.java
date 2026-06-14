@@ -114,7 +114,8 @@ class SeatReservationServiceTest {
                 "RESERVED",
                 virtualUserId,
                 simulationId,
-                10L
+                10L,
+                virtualUserId
         );
     }
 
@@ -139,7 +140,8 @@ class SeatReservationServiceTest {
                 "AVAILABLE",
                 null,
                 simulationId,
-                11L
+                11L,
+                virtualUserId
         );
     }
 
