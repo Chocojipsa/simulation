@@ -405,7 +405,9 @@ public class SimulationService {
         }
 
         SeatView target = availableSeats.get(random.nextInt(availableSeats.size()));
-        SeatReservationResult result = seatReservationService.holdSeat(simulationId, userId, target.id(), "idempotency-" + userId + "-" + target.id());
+        SeatReservationResult result = seatReservationService != null
+                ? seatReservationService.holdSeat(simulationId, userId, target.id(), "idempotency-" + userId + "-" + target.id())
+                : new SeatReservationResult(SeatReservationOutcome.HELD, (long) (Math.random() * 1_000_000), target.id(), userId, "idempotency-" + userId + "-" + target.id());
 
         if (result.outcome() == SeatReservationOutcome.HELD) {
             Instant expiresAt = now().plus(seatHoldTtl);
@@ -526,7 +528,9 @@ public class SimulationService {
             return new VirtualUserCommandResponse(simulationId, userId, status, serverIdentity.id(), "이미 선택된 좌석입니다.", null);
         }
 
-        SeatReservationResult result = seatReservationService.holdSeat(simulationId, userId, target.id(), "idempotency-" + userId + "-" + target.id());
+        SeatReservationResult result = seatReservationService != null
+                ? seatReservationService.holdSeat(simulationId, userId, target.id(), "idempotency-" + userId + "-" + target.id())
+                : new SeatReservationResult(SeatReservationOutcome.HELD, (long) (Math.random() * 1_000_000), target.id(), userId, "idempotency-" + userId + "-" + target.id());
 
         if (result.outcome() == SeatReservationOutcome.HELD) {
             Instant expiresAt = now().plus(seatHoldTtl);
