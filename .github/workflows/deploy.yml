@@ -3,6 +3,10 @@ name: Build & Deploy
 on:
   push:
     branches: [main]
+    paths:
+      - 'backend/**'
+      - 'infra/**'
+      - '.github/workflows/deploy.yml'
 
 env:
   DOCKER_IMAGE: chocojipsa/timedeal-backend
@@ -58,3 +62,16 @@ jobs:
             git reset --hard origin/main
             BACKEND_VERSION=${{ github.run_number }} docker compose -f single-server.compose.yml pull api
             BACKEND_VERSION=${{ github.run_number }} docker compose -f single-server.compose.yml up -d --no-deps api
+            BACKEND_VERSION=${{ github.run_number }} docker compose -f single-server.compose.yml exec -T nginx nginx -s reload || BACKEND_VERSION=${{ github.run_number }} docker compose -f single-server.compose.yml restart nginx
+            
+            echo "Checking deployment health..."
+            for i in {1..30}; do
+              if curl -s -o /dev/null -w "%{http_code}" http://localhost/health | grep -q "200"; then
+                echo "Deployment is healthy!"
+                exit 0
+              fi
+              echo "Waiting for backend to boot..."
+              sleep 5
+            done
+            echo "Health check failed!"
+            exit 1
