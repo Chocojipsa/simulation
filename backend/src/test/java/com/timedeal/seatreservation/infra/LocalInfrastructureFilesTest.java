@@ -18,30 +18,15 @@ class LocalInfrastructureFilesTest {
 
         assertThat(compose).contains("postgres:");
         assertThat(compose).contains("redis:");
-        assertThat(compose).contains("kafka:");
-        assertThat(compose).contains("apache/kafka:3.7.2");
-        assertThat(compose).doesNotContain("bitnami/kafka");
-        assertThat(compose).contains("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1");
         assertThat(compose).contains("healthcheck:");
         assertThat(compose).contains("condition: service_healthy");
         assertThat(compose).contains("/dev/tcp/127.0.0.1/8080");
         assertThat(compose).contains("""
-      api-a:
+      api:
         condition: service_healthy
 """);
-        assertThat(compose).contains("""
-      api-b:
-        condition: service_healthy
-""");
-        assertThat(compose).contains("api-a:");
-        assertThat(compose).contains("api-b:");
-        assertThat(compose).contains("traffic-generator:");
-        assertThat(compose).contains("SPRING_PROFILES_ACTIVE: local,generator");
-        assertThat(compose).contains("TRAFFIC_GENERATOR_TARGET_BASE_URL: http://nginx:8080");
-        assertThat(compose).contains("TRAFFIC_GENERATOR_CONTROL_BASE_URL: http://traffic-generator:8080");
-        assertThat(compose).contains("APP_INSTANCE_ID: api-a");
-        assertThat(compose).contains("APP_INSTANCE_ID: api-b");
-        assertThat(compose).contains("worker:");
+        assertThat(compose).contains("api:");
+        assertThat(compose).contains("APP_INSTANCE_ID: api");
         assertThat(compose).contains("nginx:");
     }
 
@@ -54,8 +39,7 @@ class LocalInfrastructureFilesTest {
         String nginx = Files.readString(path);
 
         assertThat(nginx).doesNotContain("ip_hash;");
-        assertThat(nginx).contains("server api-a:8080;");
-        assertThat(nginx).contains("server api-b:8080;");
+        assertThat(nginx).contains("server api:8080;");
         assertThat(nginx).contains("location /api/");
         assertThat(nginx).contains("Access-Control-Allow-Origin");
         assertThat(nginx).contains("return 204;");
@@ -64,7 +48,7 @@ class LocalInfrastructureFilesTest {
         assertThat(nginx).contains("return 404");
         assertThat(nginx).doesNotContain("""
     location / {
-      proxy_pass http://api_servers;
+      proxy_pass http://api_server;
 """);
     }
 

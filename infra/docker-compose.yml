@@ -23,127 +23,28 @@ services:
       timeout: 5s
       retries: 10
 
-  kafka:
-    image: apache/kafka:3.7.2
-    environment:
-      KAFKA_NODE_ID: 1
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-      KAFKA_LISTENERS: PLAINTEXT://:9092,EXTERNAL://:9094,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    ports:
-      - "9094:9094"
-
-  api-a:
+  api:
     build:
       context: ../backend
     environment:
       SPRING_PROFILES_ACTIVE: local
-      APP_INSTANCE_ID: api-a
-      TRAFFIC_GENERATOR_CONTROL_BASE_URL: http://traffic-generator:8080
+      APP_INSTANCE_ID: api
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seat_reservation
       SPRING_DATASOURCE_USERNAME: app
       SPRING_DATASOURCE_PASSWORD: app
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      kafka:
-        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8080'"]
       interval: 5s
       timeout: 5s
       retries: 20
       start_period: 10s
-
-  api-b:
-    build:
-      context: ../backend
-    environment:
-      SPRING_PROFILES_ACTIVE: local
-      APP_INSTANCE_ID: api-b
-      TRAFFIC_GENERATOR_CONTROL_BASE_URL: http://traffic-generator:8080
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seat_reservation
-      SPRING_DATASOURCE_USERNAME: app
-      SPRING_DATASOURCE_PASSWORD: app
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: 6379
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      kafka:
-        condition: service_started
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8080'"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 10s
-
-  worker:
-    build:
-      context: ../backend
-    environment:
-      SPRING_PROFILES_ACTIVE: local,worker
-      APP_INSTANCE_ID: worker
-      PAYMENT_FAILURE_RATE_PERCENT: 0
-      PAYMENT_SIMULATION_DELAY_MIN_MS: 300
-      PAYMENT_SIMULATION_DELAY_MAX_MS: 900
-      PAYMENT_KAFKA_PARTITIONS: 5
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seat_reservation
-      SPRING_DATASOURCE_USERNAME: app
-      SPRING_DATASOURCE_PASSWORD: app
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: 6379
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      kafka:
-        condition: service_started
-
-  traffic-generator:
-    build:
-      context: ../backend
-    environment:
-      SPRING_PROFILES_ACTIVE: local,generator
-      APP_INSTANCE_ID: traffic-generator
-      TRAFFIC_GENERATOR_TARGET_BASE_URL: http://nginx:8080
-      TRAFFIC_GENERATOR_VIRTUAL_USER_DELAY_MIN_MS: 80
-      TRAFFIC_GENERATOR_VIRTUAL_USER_DELAY_MAX_MS: 300
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/seat_reservation
-      SPRING_DATASOURCE_USERNAME: app
-      SPRING_DATASOURCE_PASSWORD: app
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: 6379
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    depends_on:
-      nginx:
-        condition: service_started
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      kafka:
-        condition: service_started
 
   nginx:
     image: nginx:1.27-alpine
@@ -152,7 +53,5 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      api-a:
-        condition: service_healthy
-      api-b:
+      api:
         condition: service_healthy
