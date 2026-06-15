@@ -77,13 +77,32 @@ class LocalInfrastructureFilesTest {
     }
 
     @Test
-    void productionDeploymentDocsAndProfileExist() {
+    void productionDeploymentConfigurationsAndDocsExist() throws Exception {
         assertThat(Files.exists(Path.of("src/main/resources/application-prod.yml"))).isTrue();
+        
         Path docsPath = Path.of("../docs");
         if (Files.exists(docsPath)) {
             assertThat(Files.exists(Path.of("../docs/deployment/production-v1.md"))).isTrue();
             assertThat(Files.exists(Path.of("../docs/deployment/environment-variables.md"))).isTrue();
             assertThat(Files.exists(Path.of("../docs/deployment/vercel-env.example"))).isTrue();
+        }
+
+        Path composePath = Path.of("../infra/prod/single-server.compose.yml");
+        if (Files.exists(composePath)) {
+            String compose = Files.readString(composePath);
+            assertThat(compose).contains("api:");
+            assertThat(compose).contains("redis:");
+            assertThat(compose).contains("nginx:");
+            assertThat(compose).doesNotContain("kafka:");
+        }
+
+        Path nginxPath = Path.of("../infra/prod/nginx-single.conf");
+        if (Files.exists(nginxPath)) {
+            String nginx = Files.readString(nginxPath);
+            assertThat(nginx).contains("upstream api_server {");
+            assertThat(nginx).contains("server api:8080;");
+            assertThat(nginx).contains("proxy_read_timeout 300s;");
+            assertThat(nginx).contains("if ($request_method = OPTIONS)");
         }
     }
 }
