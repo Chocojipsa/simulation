@@ -53,7 +53,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd ~/timedeal/infra/prod
+            cd ~/simulation/infra/prod
             git fetch --all
             git reset --hard origin/main
             BACKEND_VERSION=${{ github.run_number }} docker compose -f single-server.compose.yml pull api
