@@ -1,0 +1,42 @@
+services:
+  api:
+    image: chocojipsa/timedeal-backend:${BACKEND_VERSION:-latest}
+    env_file:
+      - .env
+    environment:
+      APP_INSTANCE_ID: api
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    expose:
+      - "8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    mem_limit: 256m
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./nginx-single.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:8080"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  redis-data:
