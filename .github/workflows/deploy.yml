@@ -61,7 +61,7 @@ jobs:
             git fetch --all
             git reset --hard origin/main
             BACKEND_VERSION=${{ github.run_number }} docker compose -f single-server.compose.yml pull api
-            BACKEND_VERSION=${{ github.run_number }} docker compose -f single-server.compose.yml up -d --no-deps api
+            BACKEND_VERSION=${{ github.run_number }} docker compose -f single-server.compose.yml up -d
             BACKEND_VERSION=${{ github.run_number }} docker compose -f single-server.compose.yml exec -T nginx nginx -s reload || BACKEND_VERSION=${{ github.run_number }} docker compose -f single-server.compose.yml restart nginx
             
             echo "Checking deployment health..."
