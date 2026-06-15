@@ -99,16 +99,42 @@ export function useLiveEventRoom(apiBaseUrl: string) {
   useEffect(() => {
     if (!snapshot) return undefined;
     const timers: number[] = [];
-    const scheduleAt = (target: string | null) => {
+    let intervalId: number | null = null;
+
+    const scheduleAt = (target: string | null, isOpensAt: boolean) => {
       if (!target) return;
-      const delayMs = new Date(target).getTime() - Date.now();
-      if (delayMs > -2000 && delayMs < 600_000) {
-        timers.push(window.setTimeout(() => { void refresh(); }, Math.max(0, delayMs + 500)));
+      const targetTime = new Date(target).getTime();
+      const delayMs = targetTime - Date.now();
+
+      if (isOpensAt) {
+        if (delayMs <= 1500) {
+          // If we are close (within 1.5 seconds) or past the opensAt time,
+          // start active polling every 500ms to detect the transition as fast as possible.
+          intervalId = window.setInterval(() => {
+            void refresh();
+          }, 500);
+        } else {
+          // Otherwise, set a timeout to check again 1.5 seconds before target time
+          timers.push(window.setTimeout(() => {
+            void refresh();
+          }, delayMs - 1500));
+        }
+      } else {
+        if (delayMs > -2000 && delayMs < 600_000) {
+          timers.push(window.setTimeout(() => {
+            void refresh();
+          }, Math.max(0, delayMs + 500)));
+        }
       }
     };
-    if (snapshot.status === 'COUNTDOWN') scheduleAt(snapshot.opensAt);
-    if (snapshot.status === 'OPEN') scheduleAt(snapshot.endsAt);
-    return () => timers.forEach((t) => window.clearTimeout(t));
+
+    if (snapshot.status === 'COUNTDOWN') scheduleAt(snapshot.opensAt, true);
+    if (snapshot.status === 'OPEN') scheduleAt(snapshot.endsAt, false);
+
+    return () => {
+      timers.forEach((t) => window.clearTimeout(t));
+      if (intervalId !== null) window.clearInterval(intervalId);
+    };
   }, [snapshot?.status, snapshot?.opensAt, snapshot?.endsAt, refresh]);
 
   useEffect(() => {
