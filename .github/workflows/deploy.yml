@@ -1,0 +1,60 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+
+env:
+  DOCKER_IMAGE: chocojipsa/timedeal-backend
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Build JAR
+        working-directory: backend
+        run: |
+          chmod +x ./gradlew
+          ./gradlew clean bootJar -x test --no-daemon
+
+      - name: Prepare Docker build
+        run: |
+          find backend/build/libs/ -name "*.jar" ! -name "*-plain.jar" -exec cp {} backend/app.jar \;
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      - name: Build and push Docker image
+        run: |
+          docker build -f backend/Dockerfile.production \
+            -t ${{ env.DOCKER_IMAGE }}:${{ github.run_number }} \
+            -t ${{ env.DOCKER_IMAGE }}:latest \
+            ./backend
+          docker push ${{ env.DOCKER_IMAGE }}:${{ github.run_number }}
+          docker push ${{ env.DOCKER_IMAGE }}:latest
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd ~/timedeal/infra/prod
+            git fetch --all
+            git reset --hard origin/main
+            BACKEND_VERSION=${{ github.run_number }} docker compose -f single-server.compose.yml pull api
+            BACKEND_VERSION=${{ github.run_number }} docker compose -f single-server.compose.yml up -d --no-deps api
