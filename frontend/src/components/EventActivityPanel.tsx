@@ -80,12 +80,6 @@ export function EventActivityPanel({
       <div className="activity-column live-stream">
         <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {targetParticipant ? (isMe ? '내 진행' : `${targetParticipant.displayName}의 진행`) : '진행 정보'}
-          {targetParticipant && sseActive && !isMe && (
-            <span className="live-indicator-badge" style={{ fontSize: '10px', color: 'var(--mint)', fontWeight: 'bold' }}>
-              <span className="pulsing-dot" style={{ display: 'inline-block', width: '6px', height: '6px', backgroundColor: 'var(--mint)', borderRadius: '50%', marginRight: '4px' }}></span>
-              LIVE
-            </span>
-          )}
         </h3>
         <div className="log-scroll-container">
           {activitiesToRender.length === 0 ? (

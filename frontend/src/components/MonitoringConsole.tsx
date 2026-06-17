@@ -3,7 +3,6 @@ import { useLiveEventRoom } from '../hooks/useLiveEventRoom';
 import { QueuePanel } from './QueuePanel';
 import { EventActivityPanel } from './EventActivityPanel';
 import { Sidebar } from './Sidebar';
-import { InsightPanel } from './InsightPanel';
 import { fetchSystemMetrics, type SystemMetrics } from '../api/liveEventApi';
 
 const getApiBaseUrl = () => {
@@ -93,11 +92,6 @@ export function MonitoringConsole() {
               onSelectParticipant={setSelectedParticipantId}
               apiBaseUrl={apiBaseUrl}
             />
-          </div>
-
-          {/* InsightPanel (서버 분산 및 시스템 인프라) */}
-          <div className="insight-section" style={{ marginTop: '24px' }}>
-            <InsightPanel snapshot={room.snapshot} metrics={metrics} />
           </div>
         </main>
       </div>
