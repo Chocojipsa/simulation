@@ -103,29 +103,35 @@ export function useLiveEventRoom(apiBaseUrl: string) {
 
     const scheduleAt = (target: string | null, isOpensAt: boolean) => {
       if (!target) return;
-      const targetTime = new Date(target).getTime();
-      const delayMs = targetTime - Date.now();
+      
+      const checkAndSchedule = () => {
+        const targetTime = new Date(target).getTime();
+        const delayMs = targetTime - Date.now();
 
-      if (isOpensAt) {
-        if (delayMs <= 1500) {
-          // If we are close (within 1.5 seconds) or past the opensAt time,
-          // start active polling every 500ms to detect the transition as fast as possible.
-          intervalId = window.setInterval(() => {
-            void refresh();
-          }, 500);
+        if (isOpensAt) {
+          if (delayMs <= 1500) {
+            // If we are close (within 1.5 seconds) or past the opensAt time,
+            // start active polling every 500ms to detect the transition as fast as possible.
+            intervalId = window.setInterval(() => {
+              void refresh();
+            }, 500);
+          } else {
+            // Otherwise, set a timeout to check again 1.5 seconds before target time
+            timers.push(window.setTimeout(() => {
+              void refresh();
+              checkAndSchedule();
+            }, delayMs - 1500));
+          }
         } else {
-          // Otherwise, set a timeout to check again 1.5 seconds before target time
-          timers.push(window.setTimeout(() => {
-            void refresh();
-          }, delayMs - 1500));
+          if (delayMs > -2000 && delayMs < 600_000) {
+            timers.push(window.setTimeout(() => {
+              void refresh();
+            }, Math.max(0, delayMs + 500)));
+          }
         }
-      } else {
-        if (delayMs > -2000 && delayMs < 600_000) {
-          timers.push(window.setTimeout(() => {
-            void refresh();
-          }, Math.max(0, delayMs + 500)));
-        }
-      }
+      };
+      
+      checkAndSchedule();
     };
 
     if (snapshot.status === 'COUNTDOWN') scheduleAt(snapshot.opensAt, true);
