@@ -123,8 +123,8 @@ public class LiveEventAiStarter {
     private AiBatchSchedule buildCustomSchedule(int participantCount, int maxConcurrency, Duration interval) {
         int remaining = Math.max(0, participantCount);
         int normalizedConcurrency = Math.max(1, maxConcurrency);
-        double[] batchPercentages = {0.10, 0.15, 0.20, 0.25, 0.30};
-        long delayMillis = interval.toMillis();
+        double[] batchPercentages = {1.0};
+        long delayMillis = 0; // 즉시 투입
         java.util.ArrayList<AiBatch> batches = new java.util.ArrayList<>();
         int currentOffset = 0;
         
