@@ -70,7 +70,7 @@ export function EventControlPanel({ snapshot, onStart, onReset, className = '' }
       {snapshot.status === 'READY' && (
         <div className="control-form">
           <div className="control-field">
-            <label htmlFor="event-ai-count">AI 유저 수</label>
+            <label htmlFor="event-ai-count">AI 유저 수 (1-1000)</label>
             <input
               id="event-ai-count"
               type="number"
@@ -81,7 +81,7 @@ export function EventControlPanel({ snapshot, onStart, onReset, className = '' }
             />
           </div>
           <div className="control-field">
-            <label htmlFor="event-ai-concurrency">동시 인입 수</label>
+            <label htmlFor="event-ai-concurrency">동시 인입 수 (1-120)</label>
             <input
               id="event-ai-concurrency"
               type="number"

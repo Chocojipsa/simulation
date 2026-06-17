@@ -3,10 +3,12 @@ package com.timedeal.seatreservation.seat;
 import com.timedeal.seatreservation.payment.PaymentResultEvent;
 import org.springframework.context.annotation.Profile;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionOperations;
 
+import java.time.Duration;
 import java.util.UUID;
 
 @Service
@@ -71,10 +73,12 @@ public class SeatReservationService {
 
     private final JdbcTemplate jdbc;
     private final TransactionOperations transactions;
+    private final StringRedisTemplate redisTemplate;
 
-    public SeatReservationService(JdbcTemplate jdbc, TransactionOperations transactions) {
+    public SeatReservationService(JdbcTemplate jdbc, TransactionOperations transactions, StringRedisTemplate redisTemplate) {
         this.jdbc = jdbc;
         this.transactions = transactions;
+        this.redisTemplate = redisTemplate;
     }
 
     public SeatReservationResult holdSeat(
@@ -83,9 +87,9 @@ public class SeatReservationService {
             long seatId,
             String idempotencyKey
     ) {
-        try {
-            return transactions.execute(status -> holdSeatInTransaction(simulationId, virtualUserId, seatId, idempotencyKey));
-        } catch (org.springframework.dao.DataIntegrityViolationException exception) {
+        String lockKey = "simulation:" + simulationId + ":seat:" + seatId + ":lock";
+        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, virtualUserId.toString(), Duration.ofMinutes(5));
+        if (acquired == null || !acquired) {
             return new SeatReservationResult(
                     SeatReservationOutcome.ALREADY_HELD,
                     null,
@@ -93,6 +97,22 @@ public class SeatReservationService {
                     virtualUserId,
                     idempotencyKey
             );
+        }
+
+        try {
+            return transactions.execute(status -> holdSeatInTransaction(simulationId, virtualUserId, seatId, idempotencyKey));
+        } catch (org.springframework.dao.DataIntegrityViolationException exception) {
+            redisTemplate.delete(lockKey);
+            return new SeatReservationResult(
+                    SeatReservationOutcome.ALREADY_HELD,
+                    null,
+                    seatId,
+                    virtualUserId,
+                    idempotencyKey
+            );
+        } catch (Exception exception) {
+            redisTemplate.delete(lockKey);
+            throw exception;
         }
     }
 
@@ -118,6 +138,10 @@ public class SeatReservationService {
             );
             return null;
         });
+
+        if (!event.success()) {
+            redisTemplate.delete("simulation:" + event.simulationId() + ":seat:" + event.seatId() + ":lock");
+        }
     }
 
     public void expireHold(UUID simulationId, long reservationId, long seatId) {
@@ -128,6 +152,7 @@ public class SeatReservationService {
             }
             return null;
         });
+        redisTemplate.delete("simulation:" + simulationId + ":seat:" + seatId + ":lock");
     }
 
     private SeatReservationResult holdSeatInTransaction(
