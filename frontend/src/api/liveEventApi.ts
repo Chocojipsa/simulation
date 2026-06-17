@@ -199,7 +199,10 @@ export function normalizeSnapshot(snapshot: any, prevSnapshot?: LiveEventSnapsho
 
   const eventId = isSimulation ? snapshot.simulationId : (snapshot.eventId || '');
   const title = snapshot.title || prevSnapshot?.title || '콘서트 예매';
-  const status = snapshot.status || prevSnapshot?.status || (snapshot.running ? 'OPEN' : 'READY');
+  let status = snapshot.status || prevSnapshot?.status || (snapshot.running ? 'OPEN' : 'READY');
+  if (status === 'COUNTDOWN' && snapshot.running) {
+    status = 'OPEN';
+  }
   const generation = snapshot.generation !== undefined ? snapshot.generation : (prevSnapshot?.generation ?? 0);
   const opensAt = snapshot.opensAt || prevSnapshot?.opensAt || null;
   const endsAt = snapshot.endsAt || prevSnapshot?.endsAt || null;
