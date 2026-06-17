@@ -69,25 +69,10 @@ export function QueuePanel({ snapshot, participantId, selectedParticipantId, onS
         onClick={() => onSelectParticipant(p.id)}
       >
         <strong className="p-name">
-          {isUserActive && (
-            <span
-              className="pulsing-dot"
-              title="최근 활동함"
-              style={{
-                width: '8px',
-                height: '8px',
-                backgroundColor: 'var(--mint)',
-                borderRadius: '50%',
-                display: 'inline-block',
-                marginRight: '6px',
-                verticalAlign: 'middle',
-              }}
-            ></span>
-          )}
           {p.displayName} {isMe ? '(나)' : ''}
         </strong>
         <span className={`p-status status-${p.status.toLowerCase()}`}>{formatParticipantStatus(p.status)}</span>
-        {p.selectedSeatLabel && <em className="p-seat">{p.selectedSeatLabel}</em>}
+        {p.selectedSeatLabel && p.status !== 'FAILED' && <em className="p-seat">{p.selectedSeatLabel}</em>}
       </button>
     );
   };

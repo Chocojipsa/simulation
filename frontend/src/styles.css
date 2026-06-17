@@ -793,12 +793,13 @@ button, input, select {
 
 .queue-row {
   display: grid;
-  grid-template-columns: 80px 100px 50px;
+  grid-template-columns: 80px 70px 40px;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  width: max-content;
   background: var(--bg-card);
   border: 1px solid var(--border-line);
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-radius: 8px;
   font-size: 12px;
   color: var(--text-secondary);
