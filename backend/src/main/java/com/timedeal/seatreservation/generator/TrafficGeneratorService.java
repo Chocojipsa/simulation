@@ -92,10 +92,12 @@ public class TrafficGeneratorService implements TrafficGeneratorClient {
     }
 
     private void runSimulation(UUID simulationId, RunSimulationRequest request) {
-        int concurrency = Math.max(1, request.concurrency() > 0 ? request.concurrency() : fallbackConcurrency);
-        log.info("Running simulation: simulationId={}, virtualUserCount={}, concurrency={}", 
-                simulationId, request.virtualUserCount(), concurrency);
-        ExecutorService executor = Executors.newFixedThreadPool(concurrency);
+        // AI 스레드는 유저 수만큼 최대한 많이 생성하여 큐에 한 번에 쏟아지도록 합니다.
+        // 동시 인입 수(concurrency)는 이제 서버의 큐 허용량(max-active-admissions)으로만 작동합니다.
+        int threadPoolSize = Math.max(1, Math.min(2000, request.virtualUserCount()));
+        log.info("Running simulation: simulationId={}, virtualUserCount={}, generatorThreadCount={}", 
+                simulationId, request.virtualUserCount(), threadPoolSize);
+        ExecutorService executor = Executors.newFixedThreadPool(threadPoolSize);
         try {
             for (int number = 1; number <= request.virtualUserCount(); number++) {
                 int virtualUserNumber = request.virtualUserOffset() + number;
